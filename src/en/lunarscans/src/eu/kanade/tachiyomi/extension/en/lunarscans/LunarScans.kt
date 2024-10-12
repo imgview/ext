@@ -30,6 +30,7 @@ class LunarScans :
     ConfigurableSource {
 
     private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
+    private val dateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale("id"))
 
     override val client = super.client.newBuilder()
         .setRandomUserAgent(
