@@ -50,9 +50,15 @@ class LunarScans :
         }
     }
 
-    override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
-        title = document.selectFirst(seriesThumbnailSelector)!!.attr("alt")
-    }
+private val seriesThumbnailSelector = ".infomanga > div[itemprop=image] img, .thumb img"
+
+override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
+    // Mengambil judul dari thumbnail
+    title = document.selectFirst(seriesThumbnailSelector)!!.attr("alt")
+    
+    // Mengambil thumbnail dengan ukuran yang diubah oleh Sardo
+    thumbnail_url = "https://resize.sardo.work/?width=300&quality=75&imageUrl=${document.selectFirst(seriesThumbnailSelector).attr("src")}"
+}
 
     override fun getFilterList(): FilterList {
         val filters = mutableListOf<Filter<*>>(
