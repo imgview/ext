@@ -157,7 +157,7 @@ abstract class MangaThemesia(
 
     open val seriesDetailsSelector = "div.bigcontent, div.animefull, div.main-info, div.postbody"
 
-        open val seriesTitleSelector = "h1.entry-title, .ts-breadcrumb li:last-child span"
+    open val seriesTitleSelector = "h1.entry-title, .ts-breadcrumb li:last-child span"
 
     open val seriesArtistSelector = selector(
         ".infotable tr:contains(%s) td:last-child, .tsinfo .imptdt:contains(%s) i, .fmed b:contains(%s)+span, span:contains(%s)",
