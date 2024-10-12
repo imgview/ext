@@ -157,15 +157,7 @@ abstract class MangaThemesia(
 
     open val seriesDetailsSelector = "div.bigcontent, div.animefull, div.main-info, div.postbody"
 
-        override fun popularMangaFromElement(element: Element): SManga {
-        val manga = SManga.create()
-        manga.thumbnail_url = element.select("div.limit img").imgAttr()
-        element.select("div.bsx > a").first().let {
-            manga.setUrlWithoutDomain(it.attr("href"))
-            manga.title = it.attr("title")
-        }
-        return manga
-    }
+        open val seriesTitleSelector = "h1.entry-title, .ts-breadcrumb li:last-child span"
 
     open val seriesArtistSelector = selector(
         ".infotable tr:contains(%s) td:last-child, .tsinfo .imptdt:contains(%s) i, .fmed b:contains(%s)+span, span:contains(%s)",
