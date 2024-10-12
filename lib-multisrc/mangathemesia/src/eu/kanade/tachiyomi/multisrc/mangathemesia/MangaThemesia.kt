@@ -157,7 +157,18 @@ abstract class MangaThemesia(
 
     open val seriesDetailsSelector = "div.bigcontent, div.animefull, div.main-info, div.postbody"
 
-    open val seriesTitleSelector = "h1.entry-title, .ts-breadcrumb li:last-child span"
+    // Selector untuk mengambil semua judul
+open val seriesTitleSelector = "h1.entry-title, .ts-breadcrumb li:last-child span"
+
+// Ambil semua judul dari elemen yang sesuai dengan selector
+val seriesTitles = document.select(seriesTitleSelector)
+
+// Iterasi melalui setiap elemen judul dan proses
+for (titleElement in seriesTitles) {
+    val seriesTitle = titleElement.text()  // Ambil teks dari elemen
+    val cleanedTitle = seriesTitle.replace("komik", "", ignoreCase = true).trim()  // Hapus kata "komik"
+    println(cleanedTitle)  // Tampilkan judul yang sudah dibersihkan
+}
 
     open val seriesArtistSelector = selector(
         ".infotable tr:contains(%s) td:last-child, .tsinfo .imptdt:contains(%s) i, .fmed b:contains(%s)+span, span:contains(%s)",
