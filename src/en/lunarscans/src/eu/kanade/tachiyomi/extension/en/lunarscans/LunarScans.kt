@@ -47,6 +47,10 @@ class LunarScans :
         }
     }
 
+    override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
+        title = document.selectFirst(seriesThumbnailSelector)!!.attr("alt")
+    }
+
     override fun getFilterList(): FilterList {
         val filters = mutableListOf<Filter<*>>(
             Filter.Header("Note: Can't be used with text search!"),
