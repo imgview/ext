@@ -1,4 +1,4 @@
-package eu.kanade.tachiyomi.extension.id.komiktap
+package eu.kanade.tachiyomi.extension.id.komikucom
 
 import eu.kanade.tachiyomi.multisrc.mangathemesia.MangaThemesia
 import eu.kanade.tachiyomi.source.model.Page
