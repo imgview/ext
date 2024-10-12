@@ -166,7 +166,8 @@ val seriesTitles = document.select(seriesTitleSelector)
 // Iterasi melalui setiap elemen judul dan proses
 for (titleElement in seriesTitles) {
     val seriesTitle = titleElement.text()  // Ambil teks dari elemen
-    val cleanedTitle = seriesTitle.replace("komik", "", ignoreCase = true).trim()  // Hapus kata "komik"
+    // Hapus kata "Komik" (case insensitive) dan trim spasi tambahan
+    val cleanedTitle = seriesTitle.replace("komik", "", ignoreCase = true).trim()  
     println(cleanedTitle)  // Tampilkan judul yang sudah dibersihkan
 }
 
