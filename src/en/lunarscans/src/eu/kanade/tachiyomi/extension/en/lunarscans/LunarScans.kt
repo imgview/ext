@@ -39,7 +39,7 @@ class LunarScans :
             preferences.getPrefUAType(),
             preferences.getPrefCustomUA(),
         )
-        .rateLimit(1)
+        .rateLimit(4)
         .build()
 
     override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
