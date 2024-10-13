@@ -1,30 +1,120 @@
 package eu.kanade.tachiyomi.extension.id.masterkomik
 
+import android.app.Application
+import androidx.preference.PreferenceScreen
+import eu.kanade.tachiyomi.lib.randomua.addRandomUAPreferenceToScreen
+import eu.kanade.tachiyomi.lib.randomua.getPrefCustomUA
+import eu.kanade.tachiyomi.lib.randomua.getPrefUAType
+import eu.kanade.tachiyomi.lib.randomua.setRandomUserAgent
 import eu.kanade.tachiyomi.multisrc.mangathemesia.MangaThemesia
+import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.interceptor.rateLimit
-import okhttp3.OkHttpClient
+import eu.kanade.tachiyomi.source.ConfigurableSource
+import eu.kanade.tachiyomi.source.model.Filter
+import eu.kanade.tachiyomi.source.model.FilterList
+import eu.kanade.tachiyomi.source.model.Page
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
+import okhttp3.Request
+import org.jsoup.nodes.Document
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 import java.text.SimpleDateFormat
 import java.util.Locale
 
-class TenshiId : MangaThemesia(
-    "Tenshi.id",
-    "https://tenshi.pw",
-    "id",
-    dateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale("id", "ID")),
-    mangaUrlDirectory = "/komik",
-) {
+class LunarScans :
+    MangaThemesia(
+        "Lunar Scans",
+        "https://tenshi.pw",
+        "id",
+        "/manga",
+         dateFormat = SimpleDateFormat("MMMM d, yyyy", Locale("id"))
+    ),
+    ConfigurableSource {
 
-    // MasterKomik changed to Tenshi.id
-    override val id: Long = 3146720114171452298
+    private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
 
-    override val seriesArtistSelector: String = ".imptdt-artist-sub-2 i .js-button-custom"
-    override val seriesAuthorSelector: String = ".imptdt-author-sub-2 i .js-button-custom"
-
-    override val client: OkHttpClient = super.client.newBuilder()
-        .rateLimit(4)
+    override val client = super.client.newBuilder()
+        .setRandomUserAgent(
+            preferences.getPrefUAType(),
+            preferences.getPrefCustomUA(),
+        )
         .build()
 
-    override val projectPageString = "/project-list"
+    override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
+        return if (query.isEmpty()) {
+            super.searchMangaRequest(page, query, filters)
+        } else {
+            GET("$baseUrl/?s=$query&page=$page", headers)
+        }
+    }
 
-    override val hasProjectPage = true
+override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
+        title = document.selectFirst(seriesThumbnailSelector)!!.attr("alt")
+    }
+
+    override fun getFilterList(): FilterList {
+        val filters = mutableListOf<Filter<*>>(
+            Filter.Header("Note: Can't be used with text search!"),
+            Filter.Separator(),
+            StatusFilter(intl["status_filter_title"], statusOptions),
+            TypeFilter(intl["type_filter_title"], typeFilterOptions),
+            OrderByFilter(intl["order_by_filter_title"], orderByFilterOptions),
+        )
+        if (!genrelist.isNullOrEmpty()) {
+            filters.addAll(
+                listOf(
+                    Filter.Header(intl["genre_exclusion_warning"]),
+                    GenreListFilter(intl["genre_filter_title"], getGenreList()),
+                ),
+            )
+        } else {
+            filters.add(
+                Filter.Header(intl["genre_missing_warning"]),
+            )
+        }
+        if (hasProjectPage) {
+            filters.addAll(
+                mutableListOf<Filter<*>>(
+                    Filter.Separator(),
+                    Filter.Header(intl["project_filter_warning"]),
+                    Filter.Header(intl.format("project_filter_name", name)),
+                    ProjectFilter(intl["project_filter_title"], projectFilterOptions),
+                ),
+            )
+        }
+        return FilterList(filters)
+    }
+
+    override fun pageListParse(document: Document): List<Page> {
+        val scriptContent = document.selectFirst("script:containsData(ts_reader)")?.data()
+            ?: return super.pageListParse(document)
+        val jsonString = scriptContent.substringAfter("ts_reader.run(").substringBefore(");")
+        val tsReader = json.decodeFromString<TSReader>(jsonString)
+        val imageUrls = tsReader.sources.firstOrNull()?.images ?: return emptyList()
+
+        // Menambahkan URL resize ke setiap URL gambar
+        val resizedImageUrls = imageUrls.map { imageUrl ->
+            "https://resize.sardo.work/?width=300&quality=75&imageUrl=$imageUrl"
+        }
+
+        return resizedImageUrls.mapIndexed { index, resizedImageUrl -> 
+            Page(index, document.location(), resizedImageUrl)
+        }
+    }
+
+    override fun setupPreferenceScreen(screen: PreferenceScreen) {
+        addRandomUAPreferenceToScreen(screen)
+    }
+
+    @Serializable
+    data class TSReader(
+        val sources: List<ReaderImageSource>,
+    )
+
+    @Serializable
+    data class ReaderImageSource(
+        val source: String,
+        val images: List<String>,
+    )
 }
