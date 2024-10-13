@@ -22,9 +22,9 @@ import uy.kohesive.injekt.api.get
 import java.text.SimpleDateFormat
 import java.util.Locale
 
-class LunarScans :
+class TenshiId :
     MangaThemesia(
-        "Lunar Scans",
+        "Tenshi.id",
         "https://tenshi.pw",
         "id",
         "/manga",
