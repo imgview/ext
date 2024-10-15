@@ -1,6 +1,6 @@
 ext {
-    extName = 'KomikIndoID'
-    extClass = '.KomikIndoID'
+    extName = 'KomikcastOne'
+    extClass = '.KomikcastOne'
     extVersionCode = 14
 }
 
