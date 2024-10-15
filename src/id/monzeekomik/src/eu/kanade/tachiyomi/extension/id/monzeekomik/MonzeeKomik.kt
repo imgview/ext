@@ -28,6 +28,7 @@ class MonzeeKomik :
         "https://monzeekomik.my.id",
         "id",
         "/manga",
+         dateFormat = SimpleDateFormat("MMMM d, yyyy", Locale("id"))
     ),
     ConfigurableSource {
 
