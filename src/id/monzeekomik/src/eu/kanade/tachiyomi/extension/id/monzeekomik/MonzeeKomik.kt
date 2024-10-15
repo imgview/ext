@@ -86,7 +86,15 @@ class MonzeeKomik :
         val jsonString = scriptContent.substringAfter("ts_reader.run(").substringBefore(");")
         val tsReader = json.decodeFromString<TSReader>(jsonString)
         val imageUrls = tsReader.sources.firstOrNull()?.images ?: return emptyList()
-        return imageUrls.mapIndexed { index, imageUrl -> Page(index, document.location(), imageUrl) }
+
+        // Menambahkan URL resize ke setiap URL gambar
+        val resizedImageUrls = imageUrls.map { imageUrl ->
+            "https://resize.sardo.work/?width=300&quality=75&imageUrl=$imageUrl"
+        }
+
+        return resizedImageUrls.mapIndexed { index, resizedImageUrl -> 
+            Page(index, document.location(), resizedImageUrl)
+        }
     }
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
