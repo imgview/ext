@@ -16,7 +16,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
-class KomikIndoID : ParsedHttpSource() {
+class KomikcastOne : ParsedHttpSource() {
     override val name = "KomikcastOne"
     override val baseUrl = "https://komikindo.lol"
     override val lang = "id"
