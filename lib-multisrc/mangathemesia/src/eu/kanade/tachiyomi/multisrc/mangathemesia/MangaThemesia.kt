@@ -1,28 +1,40 @@
 package eu.kanade.tachiyomi.multisrc.mangathemesia
 
-import android.content.SharedPreferences
-import androidx.preference.EditTextPreference
-import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.lib.i18n.Intl
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.POST
-import eu.kanade.tachiyomi.source.model.*
+import eu.kanade.tachiyomi.source.model.Filter
+import eu.kanade.tachiyomi.source.model.FilterList
+import eu.kanade.tachiyomi.source.model.MangasPage
+import eu.kanade.tachiyomi.source.model.Page
+import eu.kanade.tachiyomi.source.model.SChapter
+import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.ParsedHttpSource
 import eu.kanade.tachiyomi.util.asJsoup
 import kotlinx.serialization.json.Json
-import okhttp3.*
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonPrimitive
+import okhttp3.Call
+import okhttp3.Callback
+import okhttp3.FormBody
+import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import okhttp3.Request
+import okhttp3.Response
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.select.Elements
 import rx.Observable
 import uy.kohesive.injekt.injectLazy
+import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Locale
 
 // Formerly WPMangaStream & WPMangaReader -> MangaThemesia
 abstract class MangaThemesia(
     override val name: String,
-    private val initialBaseUrl: String,
+    override val baseUrl: String,
     final override val lang: String,
     val mangaUrlDirectory: String = "/manga",
     val dateFormat: SimpleDateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale.US),
@@ -30,51 +42,19 @@ abstract class MangaThemesia(
 
     protected open val json: Json by injectLazy()
 
-    // Use Cloudflare client for requests
     override val supportsLatest = true
+
     override val client = network.cloudflareClient
 
     override fun headersBuilder() = super.headersBuilder()
         .set("Referer", "$baseUrl/")
 
-    // Localization support
     protected val intl = Intl(
         language = lang,
         baseLanguage = "en",
         availableLanguages = setOf("en", "es"),
         classLoader = javaClass.classLoader!!,
     )
-
-    // SharedPreferences for storing custom base URL
-    private val preferences: SharedPreferences by lazy {
-        Injekt.get<PreferencesHelper>().context.getSharedPreferences("source_$id", android.content.Context.MODE_PRIVATE)
-    }
-
-    // Base URL that can be overridden by the user
-    override val baseUrl: String
-        get() = preferences.getString(PREF_BASE_URL_KEY, initialBaseUrl) ?: initialBaseUrl
-
-    // Setup preferences screen to allow changing the base URL
-    override fun setupPreferenceScreen(screen: PreferenceScreen) {
-        val prefBaseUrl = EditTextPreference(screen.context).apply {
-            key = PREF_BASE_URL_KEY
-            title = "Base URL"
-            summary = "Set the base URL of the source"
-            dialogTitle = "Base URL"
-            setDefaultValue(initialBaseUrl)
-            setOnPreferenceChangeListener { _, newValue ->
-                val newUrl = newValue as String
-                preferences.edit().putString(PREF_BASE_URL_KEY, newUrl).apply()
-                true
-            }
-        }
-        screen.addPreference(prefBaseUrl)
-    }
-
-    companion object {
-        private const val PREF_BASE_URL_KEY = "base_url"
-    }
-}
 
     open val projectPageString = "/project"
 
@@ -163,16 +143,10 @@ abstract class MangaThemesia(
     override fun searchMangaSelector() = ".utao .uta .imgu, .listupd .bs .bsx, .listo .bs .bsx"
 
     override fun searchMangaFromElement(element: Element) = SManga.create().apply {
-    // Ambil URL thumbnail dari elemen
-    thumbnail_url = element.select("img").imgAttr()
-
-    // Resize thumbnail menggunakan Sardo
-    thumbnail_url = "https://resize.sardo.work/?width=50&quality=50&imageUrl=$thumbnail_url"
-
-    // Ambil judul dan URL
-    title = element.select("a").attr("title")
-    setUrlWithoutDomain(element.select("a").attr("href"))
-}
+        thumbnail_url = element.select("img").imgAttr()
+        title = element.select("a").attr("title")
+        setUrlWithoutDomain(element.select("a").attr("href"))
+    }
 
     override fun searchMangaNextPageSelector() = "div.pagination .next, div.hpage .r"
 
@@ -264,31 +238,35 @@ abstract class MangaThemesia(
 
     open val altNamePrefix = "${intl["alt_names_heading"]} "
 
-override fun mangaDetailsParse(document: Document) = SManga.create().apply {
-    document.selectFirst(seriesDetailsSelector)?.let { seriesDetails ->
-        title = seriesDetails.selectFirst(seriesTitleSelector)!!.text()
-        artist = seriesDetails.selectFirst(seriesArtistSelector)?.ownText().removeEmptyPlaceholder()
-        author = seriesDetails.selectFirst(seriesAuthorSelector)?.ownText().removeEmptyPlaceholder()
-        description = seriesDetails.select(seriesDescriptionSelector).joinToString("\n") { it.text() }.trim()
+    override fun mangaDetailsParse(document: Document) = SManga.create().apply {
+        document.selectFirst(seriesDetailsSelector)?.let { seriesDetails ->
+            title = seriesDetails.selectFirst(seriesTitleSelector)!!.text()
+            artist = seriesDetails.selectFirst(seriesArtistSelector)?.ownText().removeEmptyPlaceholder()
+            author = seriesDetails.selectFirst(seriesAuthorSelector)?.ownText().removeEmptyPlaceholder()
+            description = seriesDetails.select(seriesDescriptionSelector).joinToString("\n") { it.text() }.trim()
+            // Add alternative name to manga description
+            val altName = seriesDetails.selectFirst(seriesAltNameSelector)?.ownText().takeIf { it.isNullOrBlank().not() }
+            altName?.let {
+                description = "$description\n\n$altNamePrefix$altName".trim()
+            }
+            val genres = seriesDetails.select(seriesGenreSelector).map { it.text() }.toMutableList()
+            // Add series type (manga/manhwa/manhua/other) to genre
+            seriesDetails.selectFirst(seriesTypeSelector)?.ownText().takeIf { it.isNullOrBlank().not() }?.let { genres.add(it) }
+            genre = genres.map { genre ->
+                genre.lowercase(Locale.forLanguageTag(lang)).replaceFirstChar { char ->
+                    if (char.isLowerCase()) {
+                        char.titlecase(Locale.forLanguageTag(lang))
+                    } else {
+                        char.toString()
+                    }
+                }
+            }
+                .joinToString { it.trim() }
 
-        // Tambahkan nama alternatif ke deskripsi manga
-        val altName = seriesDetails.selectFirst(seriesAltNameSelector)?.ownText().takeIf { it.isNullOrBlank().not() }
-        altName?.let {
-            description = "$description\n\n$altNamePrefix$altName".trim()
+            status = seriesDetails.selectFirst(seriesStatusSelector)?.text().parseStatus()
+            thumbnail_url = seriesDetails.select(seriesThumbnailSelector).imgAttr()
         }
-
-        val genres = seriesDetails.select(seriesGenreSelector).map { it.text() }.toMutableList()
-        // Menambahkan jenis seri (manga/manhwa/manhua/other) ke genre
-        seriesDetails.selectFirst(seriesTypeSelector)?.ownText().takeIf { it.isNullOrBlank().not() }?.let { genres.add(it) }
-        genre = genres.joinToString(", ") { it.trim() }
-
-        status = seriesDetails.selectFirst(seriesStatusSelector)?.text().parseStatus()
-
-        // Resize thumbnail menggunakan Sardo
-        thumbnail_url = seriesDetails.select(seriesThumbnailSelector).imgAttr()
-        thumbnail_url = "https://resize.sardo.work/?width=300&quality=75&imageUrl=$thumbnail_url"
     }
-}
 
     protected fun String?.removeEmptyPlaceholder(): String? {
         return if (this.isNullOrBlank() || this == "-" || this == "N/A" || this == "n/a") null else this
