@@ -6,38 +6,23 @@ import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.lib.i18n.Intl
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.POST
-import eu.kanade.tachiyomi.source.model.Filter
-import eu.kanade.tachiyomi.source.model.FilterList
-import eu.kanade.tachiyomi.source.model.MangasPage
-import eu.kanade.tachiyomi.source.model.Page
-import eu.kanade.tachiyomi.source.model.SChapter
-import eu.kanade.tachiyomi.source.model.SManga
+import eu.kanade.tachiyomi.source.model.*
 import eu.kanade.tachiyomi.source.online.ParsedHttpSource
 import eu.kanade.tachiyomi.util.asJsoup
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonPrimitive
-import okhttp3.Call
-import okhttp3.Callback
-import okhttp3.FormBody
-import okhttp3.HttpUrl
-import okhttp3.HttpUrl.Companion.toHttpUrl
-import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
-import okhttp3.Request
-import okhttp3.Response
+import okhttp3.*
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.select.Elements
 import rx.Observable
 import uy.kohesive.injekt.injectLazy
-import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Locale
 
 // Formerly WPMangaStream & WPMangaReader -> MangaThemesia
 abstract class MangaThemesia(
     override val name: String,
-    override val baseUrl: String,
+    private val initialBaseUrl: String,
     final override val lang: String,
     val mangaUrlDirectory: String = "/manga",
     val dateFormat: SimpleDateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale.US),
@@ -45,13 +30,14 @@ abstract class MangaThemesia(
 
     protected open val json: Json by injectLazy()
 
+    // Use Cloudflare client for requests
     override val supportsLatest = true
-
     override val client = network.cloudflareClient
 
     override fun headersBuilder() = super.headersBuilder()
         .set("Referer", "$baseUrl/")
 
+    // Localization support
     protected val intl = Intl(
         language = lang,
         baseLanguage = "en",
@@ -59,24 +45,27 @@ abstract class MangaThemesia(
         classLoader = javaClass.classLoader!!,
     )
 
-    // Tambahkan di sini SharedPreferences dan baseUrl yang disesuaikan
-    protected val preferences: SharedPreferences by lazy {
-        Injekt.get<PreferencesHelper>().context.getSharedPreferences("source_$id", Context.MODE_PRIVATE)
+    // SharedPreferences for storing custom base URL
+    private val preferences: SharedPreferences by lazy {
+        Injekt.get<PreferencesHelper>().context.getSharedPreferences("source_$id", android.content.Context.MODE_PRIVATE)
     }
 
-    protected open val baseUrl: String
-        get() = preferences.getString(PREF_BASE_URL_KEY, baseUrl)!!
+    // Base URL that can be overridden by the user
+    override val baseUrl: String
+        get() = preferences.getString(PREF_BASE_URL_KEY, initialBaseUrl) ?: initialBaseUrl
 
+    // Setup preferences screen to allow changing the base URL
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
         val prefBaseUrl = EditTextPreference(screen.context).apply {
             key = PREF_BASE_URL_KEY
             title = "Base URL"
             summary = "Set the base URL of the source"
             dialogTitle = "Base URL"
-            setDefaultValue(baseUrl)
+            setDefaultValue(initialBaseUrl)
             setOnPreferenceChangeListener { _, newValue ->
                 val newUrl = newValue as String
-                preferences.edit().putString(PREF_BASE_URL_KEY, newUrl).commit()
+                preferences.edit().putString(PREF_BASE_URL_KEY, newUrl).apply()
+                true
             }
         }
         screen.addPreference(prefBaseUrl)
