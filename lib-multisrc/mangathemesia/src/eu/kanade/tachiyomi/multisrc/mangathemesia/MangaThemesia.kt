@@ -1,5 +1,8 @@
 package eu.kanade.tachiyomi.multisrc.mangathemesia
 
+import android.content.SharedPreferences
+import androidx.preference.EditTextPreference
+import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.lib.i18n.Intl
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.POST
@@ -55,6 +58,34 @@ abstract class MangaThemesia(
         availableLanguages = setOf("en", "es"),
         classLoader = javaClass.classLoader!!,
     )
+
+    // Tambahkan di sini SharedPreferences dan baseUrl yang disesuaikan
+    protected val preferences: SharedPreferences by lazy {
+        Injekt.get<PreferencesHelper>().context.getSharedPreferences("source_$id", Context.MODE_PRIVATE)
+    }
+
+    protected open val baseUrl: String
+        get() = preferences.getString(PREF_BASE_URL_KEY, baseUrl)!!
+
+    override fun setupPreferenceScreen(screen: PreferenceScreen) {
+        val prefBaseUrl = EditTextPreference(screen.context).apply {
+            key = PREF_BASE_URL_KEY
+            title = "Base URL"
+            summary = "Set the base URL of the source"
+            dialogTitle = "Base URL"
+            setDefaultValue(baseUrl)
+            setOnPreferenceChangeListener { _, newValue ->
+                val newUrl = newValue as String
+                preferences.edit().putString(PREF_BASE_URL_KEY, newUrl).commit()
+            }
+        }
+        screen.addPreference(prefBaseUrl)
+    }
+
+    companion object {
+        private const val PREF_BASE_URL_KEY = "base_url"
+    }
+}
 
     open val projectPageString = "/project"
 
@@ -263,7 +294,7 @@ override fun mangaDetailsParse(document: Document) = SManga.create().apply {
         genre = genres.joinToString(", ") { it.trim() }
 
         status = seriesDetails.selectFirst(seriesStatusSelector)?.text().parseStatus()
-        
+
         // Resize thumbnail menggunakan Sardo
         thumbnail_url = seriesDetails.select(seriesThumbnailSelector).imgAttr()
         thumbnail_url = "https://resize.sardo.work/?width=300&quality=75&imageUrl=$thumbnail_url"
