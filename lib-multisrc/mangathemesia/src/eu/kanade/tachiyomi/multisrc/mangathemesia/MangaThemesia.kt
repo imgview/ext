@@ -1,5 +1,8 @@
 package eu.kanade.tachiyomi.multisrc.mangathemesia
 
+import android.content.SharedPreferences
+import androidx.preference.ListPreference
+import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.lib.i18n.Intl
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.POST
@@ -34,7 +37,7 @@ import java.util.Locale
 // Formerly WPMangaStream & WPMangaReader -> MangaThemesia
 abstract class MangaThemesia(
     override val name: String,
-    override val baseUrl: String,
+    override var baseUrl: String,
     final override val lang: String,
     val mangaUrlDirectory: String = "/manga",
     val dateFormat: SimpleDateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale.US),
@@ -57,6 +60,29 @@ abstract class MangaThemesia(
     )
 
     open val projectPageString = "/project"
+
+    // Setting up preferences for dynamic domain
+    override fun setupPreferenceScreen(screen: PreferenceScreen) {
+        val domainPreference = ListPreference(screen.context).apply {
+            key = DOMAIN_PREF_KEY
+            title = "Pilih Domain"
+            entries = arrayOf("Domain 1", "Domain 2", "Domain 3")
+            entryValues = arrayOf("https://domain1.com", "https://domain2.com", "https://domain3.com")
+            setDefaultValue("https://domain1.com")
+            summary = "%s"
+        }
+        screen.addPreference(domainPreference)
+    }
+
+    // Load domain from preferences
+    private fun getDomain(preferences: SharedPreferences): String {
+        return preferences.getString(DOMAIN_PREF_KEY, baseUrl) ?: baseUrl
+    }
+
+    companion object {
+        private const val DOMAIN_PREF_KEY = "mangathemesia_domain"
+    }
+}
 
     // Popular (Search with popular order and nothing else)
     override fun popularMangaRequest(page: Int) = searchMangaRequest(page, "", popularFilter)
