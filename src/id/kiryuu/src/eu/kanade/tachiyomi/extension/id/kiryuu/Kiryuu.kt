@@ -20,14 +20,15 @@ import uy.kohesive.injekt.api.get
 import java.text.SimpleDateFormat
 import java.util.Locale
 
-class Kiryuu :
+class LunarScans :
     MangaThemesia(
-        name = "Kiryuu",
-        baseUrl = "https://kiryuu.org",
-        lang = "id",
-        mangaPath = "/manga", 
-        dateFormat = SimpleDateFormat("MMMM d, yyyy", Locale("id"))
-    ), ConfigurableSource {
+        "Lunar Scans",
+        "https://komiku.com",
+        "en",
+        "/manga",
+         dateFormat = SimpleDateFormat("MMMM d, yyyy", Locale("id"))
+    ),
+    ConfigurableSource {
 
     private val preferences: SharedPreferences by lazy {
         Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
