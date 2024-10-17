@@ -80,81 +80,80 @@ class KomikcastOne : ParsedHttpSource() {
     override fun searchMangaNextPageSelector() = popularMangaNextPageSelector()
 
     override fun searchMangaFromElement(element: Element) = SManga.create().apply {
-        thumbnail_url = element.select("img").imgAttr()
-        title = element.select("a").attr("title")
-        setUrlWithoutDomain(element.select("a").attr("href"))
-        }
-        return manga
-    }
+    thumbnail_url = element.select("img").imgAttr()
+    title = element.select("a").attr("title")
+    setUrlWithoutDomain(element.select("a").attr("href"))
+}
 
-    override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
-        val url = "$baseUrl/daftar-manga/page/$page/".toHttpUrl().newBuilder()
-            .addQueryParameter("title", query)
-        filters.forEach { filter ->
-            when (filter) {
-                is AuthorFilter -> {
-                    url.addQueryParameter("author", filter.state)
-                }
-                is YearFilter -> {
-                    url.addQueryParameter("yearx", filter.state)
-                }
-                is SortFilter -> {
-                    url.addQueryParameter("order", filter.toUriPart())
-                }
-                is OriginalLanguageFilter -> {
-                    filter.state.forEach { lang ->
-                        if (lang.state) {
-                            url.addQueryParameter("type[]", lang.id)
-                        }
-                    }
-                }
-                is FormatFilter -> {
-                    filter.state.forEach { format ->
-                        if (format.state) {
-                            url.addQueryParameter("format[]", format.id)
-                        }
-                    }
-                }
-                is DemographicFilter -> {
-                    filter.state.forEach { demographic ->
-                        if (demographic.state) {
-                            url.addQueryParameter("demografis[]", demographic.id)
-                        }
-                    }
-                }
-                is StatusFilter -> {
-                    filter.state.forEach { status ->
-                        if (status.state) {
-                            url.addQueryParameter("status[]", status.id)
-                        }
-                    }
-                }
-                is ContentRatingFilter -> {
-                    filter.state.forEach { rating ->
-                        if (rating.state) {
-                            url.addQueryParameter("konten[]", rating.id)
-                        }
-                    }
-                }
-                is ThemeFilter -> {
-                    filter.state.forEach { theme ->
-                        if (theme.state) {
-                            url.addQueryParameter("tema[]", theme.id)
-                        }
-                    }
-                }
-                is GenreFilter -> {
-                    filter.state.forEach { genre ->
-                        if (genre.state) {
-                            url.addQueryParameter("genre[]", genre.id)
-                        }
-                    }
-                }
-                else -> {}
+override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
+    val url = "$baseUrl/daftar-manga/page/$page/".toHttpUrl().newBuilder()
+        .addQueryParameter("title", query)
+
+    filters.forEach { filter ->
+        when (filter) {
+            is AuthorFilter -> {
+                url.addQueryParameter("author", filter.state)
             }
+            is YearFilter -> {
+                url.addQueryParameter("yearx", filter.state)
+            }
+            is SortFilter -> {
+                url.addQueryParameter("order", filter.toUriPart())
+            }
+            is OriginalLanguageFilter -> {
+                filter.state.forEach { lang ->
+                    if (lang.state) {
+                        url.addQueryParameter("type[]", lang.id)
+                    }
+                }
+            }
+            is FormatFilter -> {
+                filter.state.forEach { format ->
+                    if (format.state) {
+                        url.addQueryParameter("format[]", format.id)
+                    }
+                }
+            }
+            is DemographicFilter -> {
+                filter.state.forEach { demographic ->
+                    if (demographic.state) {
+                        url.addQueryParameter("demografis[]", demographic.id)
+                    }
+                }
+            }
+            is StatusFilter -> {
+                filter.state.forEach { status ->
+                    if (status.state) {
+                        url.addQueryParameter("status[]", status.id)
+                    }
+                }
+            }
+            is ContentRatingFilter -> {
+                filter.state.forEach { rating ->
+                    if (rating.state) {
+                        url.addQueryParameter("konten[]", rating.id)
+                    }
+                }
+            }
+            is ThemeFilter -> {
+                filter.state.forEach { theme ->
+                    if (theme.state) {
+                        url.addQueryParameter("tema[]", theme.id)
+                    }
+                }
+            }
+            is GenreFilter -> {
+                filter.state.forEach { genre ->
+                    if (genre.state) {
+                        url.addQueryParameter("genre[]", genre.id)
+                    }
+                }
+            }
+            else -> {}
         }
-        return GET(url.build(), headers)
     }
+    return GET(url.build().toString(), headers)
+}
     override fun mangaDetailsParse(document: Document): SManga {
         val infoElement = document.select("div.infoanime").first()!!
         val descElement = document.select("div.desc > .entry-content.entry-content-single").first()!!
