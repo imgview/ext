@@ -27,9 +27,8 @@ class Kiryuu :
         "https://kiryuu.org",
         "id",
         "/manga", 
-         dateFormat = SimpleDateFormat("MMMM d, yyyy", Locale("id"))
-    ),
-    ConfigurableSource {
+        dateFormat = SimpleDateFormat("MMMM d, yyyy", Locale("id"))
+    ), ConfigurableSource {
 
     private val preferences: SharedPreferences by lazy {
         Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
