@@ -68,6 +68,11 @@ class KomikcastOne : ParsedHttpSource() {
         return GET("$baseUrl/daftar-manga/page/$page/?order=update", headers)
     }
 
+    // Selector
+    override fun popularMangaSelector() = "div.animepost"
+    override fun latestUpdatesSelector() = popularMangaSelector()
+    override fun searchMangaSelector() = popularMangaSelector()
+
     companion object {
         private const val BASE_URL_PREF = "overrideBaseUrl"
         private const val BASE_URL_PREF_TITLE = "Ubah Domain"
@@ -75,10 +80,6 @@ class KomikcastOne : ParsedHttpSource() {
         private const val RESTART_APP = "Untuk menerapkan perubahan, restart aplikasi."
     }
 }
-
-    override fun popularMangaSelector() = "div.animepost"
-    override fun latestUpdatesSelector() = popularMangaSelector()
-    override fun searchMangaSelector() = popularMangaSelector()
 
     override fun popularMangaFromElement(element: Element): SManga = searchMangaFromElement(element)
     override fun latestUpdatesFromElement(element: Element): SManga = searchMangaFromElement(element)
