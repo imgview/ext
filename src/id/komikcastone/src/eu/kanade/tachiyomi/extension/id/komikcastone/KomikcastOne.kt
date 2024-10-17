@@ -19,11 +19,26 @@ import java.util.Locale
 
 class KomikcastOne : ParsedHttpSource() {
     override val name = "KomikcastOne"
-    override val baseUrl = "https://komikindo.lol"
+    
+    // Ubah inisialisasi baseUrl menjadi lazy
+    override val baseUrl by lazy { getPrefBaseUrl() } // Hapus deklarasi statis yang sebelumnya
+    
     override val lang = "id"
     override val supportsLatest = true
     override val client: OkHttpClient = network.cloudflareClient
     private val dateFormat: SimpleDateFormat = SimpleDateFormat("MMM d, yyyy", Locale.US)
+
+    // Fungsi untuk mengambil base URL dari preferensi
+    private fun getPrefBaseUrl(): String {
+        // Ambil dari shared preferences atau konfigurasi
+        return preferences.getString(BASE_URL_PREF, DEFAULT_BASE_URL) ?: DEFAULT_BASE_URL
+    }
+
+    companion object {
+        private const val BASE_URL_PREF = "overrideBaseUrl"
+        private const val DEFAULT_BASE_URL = "https://komikindo.lol"
+    }
+}
 
     // similar/modified theme of "https://bacakomik.co"
     override fun popularMangaRequest(page: Int): Request {
