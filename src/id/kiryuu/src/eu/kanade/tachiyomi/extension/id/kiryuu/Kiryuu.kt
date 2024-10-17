@@ -20,11 +20,11 @@ import uy.kohesive.injekt.api.get
 import java.text.SimpleDateFormat
 import java.util.Locale
 
-class LunarScans :
+class Kiryuu :
     MangaThemesia(
-        "Lunar Scans",
+        "Kiryuu",
         "https://komiku.com",
-        "en",
+        "id",
         "/manga",
          dateFormat = SimpleDateFormat("MMMM d, yyyy", Locale("id"))
     ),
