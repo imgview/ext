@@ -1,9 +1,5 @@
 package eu.kanade.tachiyomi.extension.id.komikcastone
 
-import android.app.Application
-import android.content.SharedPreferences
-import android.widget.Toast
-import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
@@ -11,6 +7,7 @@ import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.ParsedHttpSource
+import androidx.preference.PreferenceScreen
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -19,36 +16,32 @@ import org.jsoup.nodes.Element
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 
 class KomikcastOne : ParsedHttpSource() {
     override val name = "KomikcastOne"
-    override val baseUrl: String
-        get() = getPrefBaseUrl()
+    override val baseUrl = "https://komikindo.lol"
     override val lang = "id"
     override val supportsLatest = true
     override val client: OkHttpClient = network.cloudflareClient
     private val dateFormat: SimpleDateFormat = SimpleDateFormat("MMM d, yyyy", Locale.US)
 
-    // SharedPreferences untuk menyimpan URL
+    // similar/modified theme of "https://bacakomik.co"
+    override fun popularMangaRequest(page: Int): Request {
+        return GET("$baseUrl/daftar-manga/page/$page/?order=popular", headers)
+    }
+    
     private val preferences: SharedPreferences by lazy {
-        Injekt.get<Application>().getSharedPreferences("source_${id}", 0x0000)
+        Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
     }
 
-    private fun getPrefBaseUrl(): String {
-        return preferences.getString(BASE_URL_PREF, "https://komikcast.one")!!
-    }
-
-    // Setup PreferenceScreen
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
         val baseUrlPref = androidx.preference.EditTextPreference(screen.context).apply {
             key = BASE_URL_PREF
             title = BASE_URL_PREF_TITLE
             summary = BASE_URL_PREF_SUMMARY
-            setDefaultValue(baseUrl)
+            this.setDefaultValue(super.baseUrl)
             dialogTitle = BASE_URL_PREF_TITLE
-            dialogMessage = "Default: $baseUrl"
+            dialogMessage = "Default: ${super.baseUrl}"
 
             setOnPreferenceChangeListener { _, _ ->
                 Toast.makeText(screen.context, RESTART_APP, Toast.LENGTH_LONG).show()
@@ -58,28 +51,26 @@ class KomikcastOne : ParsedHttpSource() {
         screen.addPreference(baseUrlPref)
     }
 
-    // Mengambil request untuk manga populer
-    override fun popularMangaRequest(page: Int): Request {
-        return GET("$baseUrl/daftar-manga/page/$page/?order=popular", headers)
+    private fun getPrefBaseUrl(): String = preferences.getString(BASE_URL_PREF, super.baseUrl)!!
+
+    init {
+        preferences.getString(DEFAULT_BASE_URL_PREF, null).let { prefDefaultBaseUrl ->
+            if (prefDefaultBaseUrl != super.baseUrl) {
+                preferences.edit()
+                    .putString(BASE_URL_PREF, super.baseUrl)
+                    .putString(DEFAULT_BASE_URL_PREF, super.baseUrl)
+                    .apply()
+            }
+        }
     }
 
-    // Mengambil request untuk update terbaru
     override fun latestUpdatesRequest(page: Int): Request {
         return GET("$baseUrl/daftar-manga/page/$page/?order=update", headers)
     }
 
-    // Selector
     override fun popularMangaSelector() = "div.animepost"
     override fun latestUpdatesSelector() = popularMangaSelector()
     override fun searchMangaSelector() = popularMangaSelector()
-
-    companion object {
-        private const val BASE_URL_PREF = "overrideBaseUrl"
-        private const val BASE_URL_PREF_TITLE = "Ubah Domain"
-        private const val BASE_URL_PREF_SUMMARY = "Untuk penggunaan sementara. Memperbarui aplikasi akan menghapus pengaturan"
-        private const val RESTART_APP = "Untuk menerapkan perubahan, restart aplikasi."
-    }
-}
 
     override fun popularMangaFromElement(element: Element): SManga = searchMangaFromElement(element)
     override fun latestUpdatesFromElement(element: Element): SManga = searchMangaFromElement(element)
@@ -427,5 +418,18 @@ class KomikcastOne : ParsedHttpSource() {
     private open class UriPartFilter(displayName: String, val vals: Array<Pair<String, String>>) :
         Filter.Select<String>(displayName, vals.map { it.first }.toTypedArray()) {
         fun toUriPart() = vals[state].second
+    }
+}
+
+companion object {
+        private val KEY_REGEX by lazy { Regex("""_id\s+\+\s+'(.*?)'\s+\+\s+post_id\s+\+\s+'(.*?)'\s+\+\s+post_id""") }
+        private val CHAPTER_DATA_REGEX by lazy { Regex("""var chapter_data\s*=\s*'(.*?)'""") }
+        private val POST_ID_REGEX by lazy { Regex("""var post_id\s*=\s*'(.*?)'""") }
+        private val OTHER_ID_REGEX by lazy { Regex("""var (\w+)_id\s*=\s*'(.*?)'""") }
+        private const val RESTART_APP = "Untuk menerapkan perubahan, restart aplikasi."
+        private const val BASE_URL_PREF_TITLE = "Ubah Domain"
+        private const val BASE_URL_PREF = "overrideBaseUrl"
+        private const val BASE_URL_PREF_SUMMARY = "Untuk penggunaan sementara. Memperbarui aplikasi akan menghapus pengaturan"
+        private const val DEFAULT_BASE_URL_PREF = "defaultBaseUrl"
     }
 }
