@@ -22,10 +22,10 @@ import java.util.Locale
 
 class Kiryuu :
     MangaThemesia(
-        "Kiryuu",
-        "https://kiryuu.org",
-        "id",
-        "/manga", 
+        name = "Kiryuu",
+        baseUrl = "https://kiryuu.org",
+        lang = "id",
+        mangaPath = "/manga", 
         dateFormat = SimpleDateFormat("MMMM d, yyyy", Locale("id"))
     ), ConfigurableSource {
 
