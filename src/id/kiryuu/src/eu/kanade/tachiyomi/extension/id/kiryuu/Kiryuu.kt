@@ -24,7 +24,7 @@ class Kiryuu :
         "Kiryuu",
         "https://kiryuu.org",
         "id",
-        "/manga"
+        "/manga", dateFormat = SimpleDateFormat("MMMM d, yyyy", Locale("id"))
     ),
     ConfigurableSource {
 
