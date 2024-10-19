@@ -60,13 +60,13 @@ class BacaKomik : ParsedHttpSource() {
         return manga
     }
 
-    override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
-        val builtUrl = if (page == 1) "$baseUrl/daftar-komik/" else "$baseUrl/daftar-komik/page/$page/?order="
-        val url = builtUrl.toHttpUrl().newBuilder()
-        url.addQueryParameter("title", query)
-        url.addQueryParameter("page", page.toString())
-        return GET(url.build(), headers)
-    }
+    override fun searchMangaRequest(page: Int, query: String): Request {
+    val builtUrl = if (page == 1) "$baseUrl/daftar-komik/" else "$baseUrl/daftar-komik/page/$page/?order="
+    val url = builtUrl.toHttpUrl().newBuilder()
+    url.addQueryParameter("title", query)
+    url.addQueryParameter("page", page.toString())
+    return GET(url.build(), headers)
+}
     override fun mangaDetailsParse(document: Document): SManga {
         val infoElement = document.select("div.infoanime").first()!!
         val descElement = document.select("div.desc > .entry-content.entry-content-single").first()!!
