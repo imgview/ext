@@ -60,7 +60,7 @@ class BacaKomik : ParsedHttpSource() {
         return manga
     }
 
-    override fun searchMangaRequest(page: Int, query: String): Request {
+    override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
     val builtUrl = if (page == 1) "$baseUrl/daftar-komik/" else "$baseUrl/daftar-komik/page/$page/?order="
     val url = builtUrl.toHttpUrl().newBuilder()
     url.addQueryParameter("title", query)
