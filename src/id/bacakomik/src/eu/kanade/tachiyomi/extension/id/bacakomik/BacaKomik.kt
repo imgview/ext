@@ -151,8 +151,9 @@ class BacaKomik : ParsedHttpSource() {
     val pages = mutableListOf<Page>()
     var i = 0
     document.select("div.img-landmine img").forEach { element ->
-        // Ambil URL gambar dari atribut onError
-        val url = element.attr("onError").substringAfter("src='").substringBefore("';")
+        // Ambil URL gambar dari atribut yang relevan
+        val url = element.imgAttr()  // Ambil URL dari atribut gambar
+        
         i++
         if (url.isNotEmpty()) {
             // Modifikasi URL gambar dengan layanan resize
