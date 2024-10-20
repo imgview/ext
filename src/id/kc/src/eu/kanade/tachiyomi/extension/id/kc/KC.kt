@@ -24,6 +24,8 @@ class KC : ParsedHttpSource() {
     override val supportsLatest = true
     private val dateFormat = SimpleDateFormat("MMMM d, yyyy", Locale("id"))
 
+    override val id = 4383360263234319058
+
     override val client: OkHttpClient = network.cloudflareClient.newBuilder()
         .rateLimit(1)
         .build()
@@ -47,12 +49,13 @@ class KC : ParsedHttpSource() {
     override fun latestUpdatesNextPageSelector() = popularMangaNextPageSelector()
     override fun searchMangaNextPageSelector() = popularMangaNextPageSelector()
 
-        override fun searchMangaFromElement(element: Element): SManga {
+            override fun searchMangaFromElement(element: Element): SManga {
         val manga = SManga.create()
-        manga.setUrlWithoutDomain(element.select("div.post-item-box > a").first()!!.attr("href"))
+        manga.thumbnail_url = element.select("div.limit img").attr("src")
         manga.title = element.select("div.tt h4").text()
-        manga.thumbnail_url = element.select("div.limit img").imgAttr()
-
+        element.select("div.post-item-box > a").first()!!.let {
+            manga.setUrlWithoutDomain(it.attr("href"))
+        }
         return manga
     }
 
