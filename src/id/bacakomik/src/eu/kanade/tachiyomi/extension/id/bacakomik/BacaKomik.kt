@@ -17,12 +17,12 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
-class BacaKomik : ParsedHttpSource() {
+class BacaKomik: ParsedHttpSource() {
     override val name = "BacaKomik"
     override val baseUrl = "https://apkomik.cc"
     override val lang = "id"
     override val supportsLatest = true
-    private val dateFormat: SimpleDateFormat = SimpleDateFormat("MMMM d, yyyy", Locale.US)
+    private val dateFormat: SimpleDateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale.US)
 
     override val id = 4383360263234319058
 
@@ -49,7 +49,7 @@ class BacaKomik : ParsedHttpSource() {
     override fun latestUpdatesNextPageSelector() = popularMangaNextPageSelector()
     override fun searchMangaNextPageSelector() = popularMangaNextPageSelector()
 
-    // Versi modifikasi dari searchMangaFromElement
+    // Modifikasi searchMangaFromElement
     override fun searchMangaFromElement(element: Element): SManga = SManga.create().apply {
         thumbnail_url = element.select("img").imgAttr()
         title = element.select("a").attr("title")
@@ -91,23 +91,19 @@ class BacaKomik : ParsedHttpSource() {
 
     override fun chapterListSelector() = "#chapterlist ul li"
 
-override fun chapterFromElement(element: Element): SChapter {
-    val chapter = SChapter.create()
+    override fun chapterFromElement(element: Element): SChapter {
+        val chapter = SChapter.create()
 
-    // Mengambil elemen <a> dari dalam div.eph-num
-    val urlElement = element.select("div.eph-num a").first()!!
+        // Modifikasi untuk mendapatkan elemen <a> dalam div.eph-num
+        val urlElement = element.select("div.eph-num a").first()!!
 
-    // Mengambil URL chapter
-    chapter.setUrlWithoutDomain(urlElement.attr("href"))
+        chapter.setUrlWithoutDomain(urlElement.attr("href"))
+        chapter.name = urlElement.select("span.chapternum").text()
 
-    // Mengambil judul chapter dari span.chapternum
-    chapter.name = urlElement.select("span.chapternum").text()
+        chapter.date_upload = urlElement.select("span.chapterdate").text()?.let { parseChapterDate(it) } ?: 0
 
-    // Mengambil tanggal upload dari span.chapterdate (jika diperlukan)
-    chapter.date_upload = urlElement.select("span.chapterdate").text()?.let { parseChapterDate(it) } ?: 0
-
-    return chapter
-}
+        return chapter
+    }
 
     private fun parseChapterDate(date: String): Long {
         return if (date.contains("yang lalu")) {
@@ -157,21 +153,19 @@ override fun chapterFromElement(element: Element): SChapter {
     }
 
     override fun pageListParse(document: Document): List<Page> {
-    val pages = mutableListOf<Page>()
-    var i = 0
-    document.select("div.img-landmine img").forEach { element ->
-        // Ambil URL gambar dari atribut yang relevan
-        val url = element.imgAttr()  // Ambil URL dari atribut gambar
-        
-        i++
-        if (url.isNotEmpty()) {
-            // Modifikasi URL gambar dengan layanan resize
-            val resizedImageUrl = "https://resize.sardo.work/?width=300&quality=75&imageUrl=$url"
-            pages.add(Page(i, "", resizedImageUrl))  // Gunakan URL yang di-resize
+        val pages = mutableListOf<Page>()
+        var i = 0
+        document.select("div.img-landmine img").forEach { element ->
+            val url = element.imgAttr()  
+            i++
+            if (url.isNotEmpty()) {
+                // Modifikasi URL gambar
+                val resizedImageUrl = "https://resize.sardo.work/?width=300&quality=75&imageUrl=$url"
+                pages.add(Page(i, "", resizedImageUrl))  
+            }
         }
+        return pages
     }
-    return pages
-}
 
     override fun imageUrlParse(document: Document): String = throw UnsupportedOperationException()
 
