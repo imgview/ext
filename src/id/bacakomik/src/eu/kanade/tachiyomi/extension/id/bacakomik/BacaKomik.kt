@@ -24,9 +24,6 @@ class BacaKomik : ParsedHttpSource() {
     override val supportsLatest = true
     private val dateFormat: SimpleDateFormat = SimpleDateFormat("MMM d, yyyy", Locale.US)
 
-    // similar/modified theme of "https://komikindo.id"
-
-    // Formerly "Bacakomik" -> now "BacaKomik"
     override val id = 4383360263234319058
 
     override val client: OkHttpClient = network.cloudflareClient.newBuilder()
@@ -52,22 +49,21 @@ class BacaKomik : ParsedHttpSource() {
     override fun latestUpdatesNextPageSelector() = popularMangaNextPageSelector()
     override fun searchMangaNextPageSelector() = popularMangaNextPageSelector()
 
-    override fun searchMangaFromElement(element: Element): SManga {
-        val manga = SManga.create()
-        manga.setUrlWithoutDomain(element.select("div.animposx > a").first()!!.attr("href"))
-        manga.title = element.select(".animposx .tt h4").text()
-        manga.thumbnail_url = element.select("div.limit img").imgAttr()
-
-        return manga
+    // Versi modifikasi dari searchMangaFromElement
+    override fun searchMangaFromElement(element: Element): SManga = SManga.create().apply {
+        thumbnail_url = element.select("img").imgAttr()
+        title = element.select("a").attr("title")
+        setUrlWithoutDomain(element.select("a").attr("href"))
     }
 
     override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
-    val builtUrl = if (page == 1) "$baseUrl/daftar-komik/" else "$baseUrl/daftar-komik/page/$page/?order="
-    val url = builtUrl.toHttpUrl().newBuilder()
-    url.addQueryParameter("title", query)
-    url.addQueryParameter("page", page.toString())
-    return GET(url.build(), headers)
-}
+        val builtUrl = if (page == 1) "$baseUrl/daftar-komik/" else "$baseUrl/daftar-komik/page/$page/?order="
+        val url = builtUrl.toHttpUrl().newBuilder()
+        url.addQueryParameter("title", query)
+        url.addQueryParameter("page", page.toString())
+        return GET(url.build(), headers)
+    }
+
     override fun mangaDetailsParse(document: Document): SManga {
         val infoElement = document.select("div.infoanime").first()!!
         val descElement = document.select("div.desc > .entry-content.entry-content-single").first()!!
@@ -144,11 +140,9 @@ class BacaKomik : ParsedHttpSource() {
 
     override fun prepareNewChapter(chapter: SChapter, manga: SManga) {
         val basic = Regex("""Chapter\s([0-9]+)""")
-        when {
-            basic.containsMatchIn(chapter.name) -> {
-                basic.find(chapter.name)?.let {
-                    chapter.chapter_number = it.groups[1]?.value!!.toFloat()
-                }
+        if (basic.containsMatchIn(chapter.name)) {
+            basic.find(chapter.name)?.let {
+                chapter.chapter_number = it.groups[1]?.value!!.toFloat()
             }
         }
     }
