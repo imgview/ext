@@ -30,11 +30,11 @@ class BacaKomik : ParsedHttpSource() {
         .build()
 
     override fun popularMangaRequest(page: Int): Request {
-        return GET("$baseUrl/manga/?page=$page/?order=popular", headers)
+        return GET("$baseUrl/manga/?page=$page&order=popular", headers)
     }
 
     override fun latestUpdatesRequest(page: Int): Request {
-        return GET("$baseUrl/manga/?page=$page/?order=update", headers)
+        return GET("$baseUrl/manga/?page=$page&order=update", headers)
     }
 
     override fun popularMangaSelector() = "div.bs"
@@ -127,7 +127,7 @@ class BacaKomik : ParsedHttpSource() {
     override fun pageListParse(document: Document): List<Page> {
         val pages = mutableListOf<Page>()
         var i = 0
-        document.select("div.img-landmine img").forEach { element ->
+        document.select("div#readerarea img").forEach { element ->
             val url = element.imgAttr()
             i++
             if (url.isNotEmpty()) {
