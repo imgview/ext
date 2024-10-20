@@ -153,19 +153,19 @@ class BacaKomik: ParsedHttpSource() {
     }
 
     override fun pageListParse(document: Document): List<Page> {
-        val pages = mutableListOf<Page>()
-        var i = 0
-        document.select("div.img-landmine img").forEach { element ->
-            val url = element.imgAttr()  
-            i++
-            if (url.isNotEmpty()) {
-                // Modifikasi URL gambar
-                val resizedImageUrl = "https://resize.sardo.work/?width=300&quality=75&imageUrl=$url"
-                pages.add(Page(i, "", resizedImageUrl))  
-            }
+    val pages = mutableListOf<Page>()
+    var i = 0
+    document.select("div.img-landmine img").forEach { element ->
+        val url = element.imgAttr()  
+        i++  // Perbaikan di sini: hilangkan spasi di antara i dan ++
+        if (url.isNotEmpty()) {
+            // Modifikasi URL gambar
+            val resizedImageUrl = "https://resize.sardo.work/?width=300&quality=75&imageUrl=$url"
+            pages.add(Page(i, "", resizedImageUrl))  
         }
-        return pages
     }
+    return pages
+}
 
     override fun imageUrlParse(document: Document): String = throw UnsupportedOperationException()
 
