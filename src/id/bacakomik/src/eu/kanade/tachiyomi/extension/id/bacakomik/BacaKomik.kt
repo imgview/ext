@@ -19,7 +19,7 @@ import java.util.Locale
 
 class BacaKomik : ParsedHttpSource() {
     override val name = "BacaKomik"
-    override val baseUrl = "https://bacakomik.net"
+    override val baseUrl = "https://apkomik.cc"
     override val lang = "id"
     override val supportsLatest = true
     private val dateFormat = SimpleDateFormat("MMMM d, yyyy", Locale("id"))
@@ -27,18 +27,18 @@ class BacaKomik : ParsedHttpSource() {
     override val id = 4383360263234319058
 
     override val client: OkHttpClient = network.cloudflareClient.newBuilder()
-        .rateLimit(12, 3)
+        .rateLimit(1)
         .build()
 
     override fun popularMangaRequest(page: Int): Request {
-        return GET("$baseUrl/daftar-komik/page/$page/?order=popular", headers)
+        return GET("$baseUrl/manga/?page=$page/?order=popular", headers)
     }
 
     override fun latestUpdatesRequest(page: Int): Request {
-        return GET("$baseUrl/daftar-komik/page/$page/?order=update", headers)
+        return GET("$baseUrl/manga/?page=$page/?order=update", headers)
     }
 
-    override fun popularMangaSelector() = "div.animepost"
+    override fun popularMangaSelector() = "div.bs"
     override fun latestUpdatesSelector() = popularMangaSelector()
     override fun searchMangaSelector() = popularMangaSelector()
 
@@ -57,7 +57,7 @@ class BacaKomik : ParsedHttpSource() {
     }
 
     override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
-        val builtUrl = if (page == 1) "$baseUrl/daftar-komik/" else "$baseUrl/daftar-komik/page/$page/?order="
+        val builtUrl = if (page == 1) "$baseUrl/manga/" else "$baseUrl/manga/?page=$page/?order="
         val url = builtUrl.toHttpUrl().newBuilder()
         url.addQueryParameter("title", query)
         url.addQueryParameter("page", page.toString())
@@ -89,14 +89,14 @@ class BacaKomik : ParsedHttpSource() {
         else -> SManga.UNKNOWN
     }
 
-    override fun chapterListSelector() = "#chapter_list li"
+    override fun chapterListSelector() = "#chapterlist li"
 
     override fun chapterFromElement(element: Element): SChapter {
-        val urlElement = element.select(".lchx a").first()!!
+        val urlElement = element.select(".eph-num a").first()!!
         val chapter = SChapter.create()
         chapter.setUrlWithoutDomain(urlElement.attr("href"))
         chapter.name = urlElement.text()
-        chapter.date_upload = element.select(".dt a").first()?.text()?.let { parseChapterDate(it) } ?: 0
+        chapter.date_upload = element.select(".chapterdate").first()?.text()?.let { parseChapterDate(it) } ?: 0
         return chapter
     }
 
