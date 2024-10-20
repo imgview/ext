@@ -38,7 +38,7 @@ class KC : ParsedHttpSource() {
         return GET("$baseUrl/daftar-komik/page/$page/?order=update", headers)
     }
 
-    override fun popularMangaSelector() = "div.item-post"
+    override fun popularMangaSelector() = "div.post-item"
     override fun latestUpdatesSelector() = popularMangaSelector()
     override fun searchMangaSelector() = popularMangaSelector()
 
