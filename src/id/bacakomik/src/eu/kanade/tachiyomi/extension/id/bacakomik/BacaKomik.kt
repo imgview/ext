@@ -49,11 +49,13 @@ class BacaKomik : ParsedHttpSource() {
     override fun latestUpdatesNextPageSelector() = popularMangaNextPageSelector()
     override fun searchMangaNextPageSelector() = popularMangaNextPageSelector()
 
-    // Versi modifikasi dari searchMangaFromElement
-    override fun searchMangaFromElement(element: Element): SManga = SManga.create().apply {
-        thumbnail_url = element.select("img").imgAttr()
-        title = element.select("a").attr("title")
-        setUrlWithoutDomain(element.select("a").attr("href"))
+        override fun searchMangaFromElement(element: Element): SManga {
+        val manga = SManga.create()
+        manga.setUrlWithoutDomain(element.select("div.animposx > a").first()!!.attr("href"))
+        manga.title = element.select(".animposx .tt h4").text()
+        manga.thumbnail_url = element.select("div.limit img").imgAttr()
+
+        return manga
     }
 
     override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
@@ -151,9 +153,8 @@ class BacaKomik : ParsedHttpSource() {
     val pages = mutableListOf<Page>()
     var i = 0
     document.select("div.img-landmine img").forEach { element ->
-        // Ambil URL gambar dari atribut yang relevan
-        val url = element.imgAttr()  // Ambil URL dari atribut gambar
-
+        // Ambil URL gambar dari atribut onError
+        val url = element.attr("onError").substringAfter("src='").substringBefore("';")
         i++
         if (url.isNotEmpty()) {
             // Modifikasi URL gambar dengan layanan resize
