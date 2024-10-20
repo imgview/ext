@@ -92,13 +92,18 @@ class BacaKomik : ParsedHttpSource() {
     override fun chapterListSelector() = "#chapterlist li"
 
     override fun chapterFromElement(element: Element): SChapter {
-        val urlElement = element.select(".eph-num a").first()!!
-        val chapter = SChapter.create()
-        chapter.setUrlWithoutDomain(urlElement.attr("href"))
-        chapter.name = urlElement.text()
-        chapter.date_upload = element.select(".chapterdate").first()?.text()?.let { parseChapterDate(it) } ?: 0
-        return chapter
-    }
+    val urlElement = element.select(".eph-num a").first()!!
+    val chapter = SChapter.create()
+    chapter.setUrlWithoutDomain(urlElement.attr("href"))
+    chapter.name = urlElement.text()
+
+    // Hapus atau comment bagian berikut jika tidak ingin mengambil tanggal
+    // chapter.date_upload = element.select(".chapterdate").first()?.text()?.let { parseChapterDate(it) } ?: 0
+
+    // Untuk memastikan chapter muncul tanpa tanggal, kita bisa set date_upload ke 0 atau menghapus baris di atas
+    chapter.date_upload = 0 // Atau bisa di-comment baris di atas untuk mengabaikan pengambilan tanggal
+    return chapter
+}
 
     private fun parseChapterDate(date: String): Long {
         return if (date.contains("yang lalu")) {
