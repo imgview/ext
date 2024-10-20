@@ -14,11 +14,12 @@ import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.select.Elements
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Locale
 
 class BacaKomik : ParsedHttpSource() {
     override val name = "BacaKomik"
-    override val baseUrl = "https://apkomik.cc"
+    override val baseUrl = "https://bacakomik.net"
     override val lang = "id"
     override val supportsLatest = true
     private val dateFormat = SimpleDateFormat("MMMM d, yyyy", Locale("id"))
@@ -26,18 +27,18 @@ class BacaKomik : ParsedHttpSource() {
     override val id = 4383360263234319058
 
     override val client: OkHttpClient = network.cloudflareClient.newBuilder()
-        .rateLimit(1)
+        .rateLimit(12, 3)
         .build()
 
     override fun popularMangaRequest(page: Int): Request {
-        return GET("$baseUrl/manga/?page=$page&order=popular", headers)
+        return GET("$baseUrl/daftar-komik/page/$page/?order=popular", headers)
     }
 
     override fun latestUpdatesRequest(page: Int): Request {
-        return GET("$baseUrl/manga/?page=$page&order=update", headers)
+        return GET("$baseUrl/daftar-komik/page/$page/?order=update", headers)
     }
 
-    override fun popularMangaSelector() = "div.bs"
+    override fun popularMangaSelector() = "div.animepost"
     override fun latestUpdatesSelector() = popularMangaSelector()
     override fun searchMangaSelector() = popularMangaSelector()
 
@@ -48,6 +49,7 @@ class BacaKomik : ParsedHttpSource() {
     override fun latestUpdatesNextPageSelector() = popularMangaNextPageSelector()
     override fun searchMangaNextPageSelector() = popularMangaNextPageSelector()
 
+    // Versi modifikasi dari searchMangaFromElement
     override fun searchMangaFromElement(element: Element): SManga = SManga.create().apply {
         thumbnail_url = element.select("img").imgAttr()
         title = element.select("a").attr("title")
@@ -55,7 +57,7 @@ class BacaKomik : ParsedHttpSource() {
     }
 
     override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
-        val builtUrl = if (page == 1) "$baseUrl/manga/" else "$baseUrl/manga/?page=$page/?order="
+        val builtUrl = if (page == 1) "$baseUrl/daftar-komik/" else "$baseUrl/daftar-komik/page/$page/?order="
         val url = builtUrl.toHttpUrl().newBuilder()
         url.addQueryParameter("title", query)
         url.addQueryParameter("page", page.toString())
@@ -87,31 +89,52 @@ class BacaKomik : ParsedHttpSource() {
         else -> SManga.UNKNOWN
     }
 
-    override fun chapterListSelector() = "#chapterlist li"
+    override fun chapterListSelector() = "#chapter_list li"
 
     override fun chapterFromElement(element: Element): SChapter {
-    val urlElement = element.select(".eph-num a").firstOrNull() ?: return SChapter.create()
-    
-    val chapter = SChapter.create()
-    chapter.setUrlWithoutDomain(urlElement.attr("href"))
+        val urlElement = element.select(".lchx a").first()!!
+        val chapter = SChapter.create()
+        chapter.setUrlWithoutDomain(urlElement.attr("href"))
+        chapter.name = urlElement.text()
+        chapter.date_upload = element.select(".dt a").first()?.text()?.let { parseChapterDate(it) } ?: 0
+        return chapter
+    }
 
-    // Ambil hanya teks dari elemen .chapternum di dalam <a>
-    val chapterNumElement = urlElement.select(".chapternum").firstOrNull()
-    chapter.name = chapterNumElement?.text() ?: "Unknown Chapter" // Mengambil teks dari <span class="chapternum">
-
-    // Mengambil tanggal dari elemen .chapterdate terpisah
-    val dateElement = urlElement.select(".chapterdate").firstOrNull()
-    chapter.date_upload = dateElement?.text()?.let { parseChapterDate(it) } ?: 0 // Mengambil tanggal jika ada
-
-    return chapter
-}
-
-    // Hapus kode ini jika tidak ingin memparsing tanggal sama sekali
     private fun parseChapterDate(date: String): Long {
-        return try {
-            dateFormat.parse(date)?.time ?: 0
-        } catch (_: Exception) {
-            0L
+        return if (date.contains("yang lalu")) {
+            val value = date.split(' ')[0].toInt()
+            when {
+                "detik" in date -> Calendar.getInstance().apply {
+                    add(Calendar.SECOND, value * -1)
+                }.timeInMillis
+                "menit" in date -> Calendar.getInstance().apply {
+                    add(Calendar.MINUTE, value * -1)
+                }.timeInMillis
+                "jam" in date -> Calendar.getInstance().apply {
+                    add(Calendar.HOUR_OF_DAY, value * -1)
+                }.timeInMillis
+                "hari" in date -> Calendar.getInstance().apply {
+                    add(Calendar.DATE, value * -1)
+                }.timeInMillis
+                "minggu" in date -> Calendar.getInstance().apply {
+                    add(Calendar.DATE, value * 7 * -1)
+                }.timeInMillis
+                "bulan" in date -> Calendar.getInstance().apply {
+                    add(Calendar.MONTH, value * -1)
+                }.timeInMillis
+                "tahun" in date -> Calendar.getInstance().apply {
+                    add(Calendar.YEAR, value * -1)
+                }.timeInMillis
+                else -> {
+                    0L
+                }
+            }
+        } else {
+            try {
+                dateFormat.parse(date)?.time ?: 0
+            } catch (_: Exception) {
+                0L
+            }
         }
     }
 
@@ -124,47 +147,21 @@ class BacaKomik : ParsedHttpSource() {
         }
     }
 
-    // Pages
-open val pageSelector = "div#readerarea img"
+    override fun pageListParse(document: Document): List<Page> {
+    val pages = mutableListOf<Page>()
+    var i = 0
+    document.select("div.img-landmine img").forEach { element ->
+        // Ambil URL gambar dari atribut yang relevan
+        val url = element.imgAttr()  // Ambil URL dari atribut gambar
 
-override fun pageListParse(document: Document): List<Page> {
-    // Menghitung views jika diperlukan
-    countViews(document)
-
-    val chapterUrl = document.location()
-    
-    // Ambil gambar yang ada di HTML
-    val htmlPages = document.select(pageSelector)
-        .filterNot { it.imgAttr().isEmpty() }
-        .mapIndexed { i, img -> Page(i, chapterUrl, img.imgAttr()) }
-
-    // Jika gambar dari HTML ditemukan, kembalikan hasilnya
-    if (htmlPages.isNotEmpty()) { 
-        return htmlPages 
+        i++
+        if (url.isNotEmpty()) {
+            // Modifikasi URL gambar dengan layanan resize
+            val resizedImageUrl = "https://resize.sardo.work/?width=300&quality=75&imageUrl=$url"
+            pages.add(Page(i, "", resizedImageUrl))  // Gunakan URL yang di-resize
+        }
     }
-
-    // Jika tidak ada gambar di HTML, coba ambil gambar dari skrip JavaScript
-    val docString = document.toString()
-
-    // Regex untuk menemukan daftar gambar dalam skrip JavaScript
-    val JSON_IMAGE_LIST_REGEX = Regex("""images\s*:\s*\[([^\]]+)\]""")
-
-    // Mencoba mengekstrak daftar gambar dari JSON dalam JavaScript
-    val imageListJson = JSON_IMAGE_LIST_REGEX.find(docString)?.destructured?.toList()?.get(0).orEmpty()
-
-    val imageList = try {
-        // Parsing JSON menjadi daftar gambar
-        json.parseToJsonElement("[$imageListJson]").jsonArray // Menambahkan [ dan ] agar JSON valid
-    } catch (_: IllegalArgumentException) {
-        emptyList()
-    }
-
-    // Membuat daftar halaman berdasarkan hasil dari skrip JavaScript
-    val scriptPages = imageList.mapIndexed { i, jsonEl ->
-        Page(i, chapterUrl, jsonEl.jsonPrimitive.content)
-    }
-
-    return scriptPages
+    return pages
 }
 
     override fun imageUrlParse(document: Document): String = throw UnsupportedOperationException()
