@@ -124,35 +124,47 @@ class BacaKomik : ParsedHttpSource() {
         }
     }
 
-    override fun pageListParse(document: Document): List<Page> {
-    val pages = mutableListOf<Page>()
-    val scriptElements = document.select("script")
-    
-    // Mencari dan mengambil URL gambar dari script
-    for (script in scriptElements) {
-        val scriptContent = script.data() // Mengambil isi script
-        if (scriptContent.contains("sources")) {
-            // Menggunakan regex untuk mengekstrak URL gambar
-            val regex = Regex("""images:\s*\[(.*?)\]""")
-            val matchResult = regex.find(scriptContent)
-            matchResult?.let {
-                val imageUrls = it.groupValues[1]
-                    .split(",") // Memisahkan URL gambar
-                    .map { url -> url.trim().removeSurrounding("\"") } // Menghapus tanda kutip
+    // Pages
+open val pageSelector = "div#readerarea img"
 
-                var i = 0
-                imageUrls.forEach { url ->
-                    i++
-                    if (url.isNotEmpty()) {
-                        val resizedImageUrl = "https://resize.sardo.work/?width=300&quality=75&imageUrl=$url"
-                        pages.add(Page(i, "", resizedImageUrl))
-                    }
-                }
-            }
-            break // Hentikan pencarian setelah menemukan
-        }
+override fun pageListParse(document: Document): List<Page> {
+    // Menghitung views jika diperlukan
+    countViews(document)
+
+    val chapterUrl = document.location()
+    
+    // Ambil gambar yang ada di HTML
+    val htmlPages = document.select(pageSelector)
+        .filterNot { it.imgAttr().isEmpty() }
+        .mapIndexed { i, img -> Page(i, chapterUrl, img.imgAttr()) }
+
+    // Jika gambar dari HTML ditemukan, kembalikan hasilnya
+    if (htmlPages.isNotEmpty()) { 
+        return htmlPages 
     }
-    return pages
+
+    // Jika tidak ada gambar di HTML, coba ambil gambar dari skrip JavaScript
+    val docString = document.toString()
+
+    // Regex untuk menemukan daftar gambar dalam skrip JavaScript
+    val JSON_IMAGE_LIST_REGEX = Regex("""images\s*:\s*\[([^\]]+)\]""")
+
+    // Mencoba mengekstrak daftar gambar dari JSON dalam JavaScript
+    val imageListJson = JSON_IMAGE_LIST_REGEX.find(docString)?.destructured?.toList()?.get(0).orEmpty()
+
+    val imageList = try {
+        // Parsing JSON menjadi daftar gambar
+        json.parseToJsonElement("[$imageListJson]").jsonArray // Menambahkan [ dan ] agar JSON valid
+    } catch (_: IllegalArgumentException) {
+        emptyList()
+    }
+
+    // Membuat daftar halaman berdasarkan hasil dari skrip JavaScript
+    val scriptPages = imageList.mapIndexed { i, jsonEl ->
+        Page(i, chapterUrl, jsonEl.jsonPrimitive.content)
+    }
+
+    return scriptPages
 }
 
     override fun imageUrlParse(document: Document): String = throw UnsupportedOperationException()
