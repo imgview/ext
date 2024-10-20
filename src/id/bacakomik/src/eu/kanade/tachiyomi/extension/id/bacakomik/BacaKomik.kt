@@ -17,28 +17,28 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
-class BacaKomik: ParsedHttpSource() {
+class BacaKomik : ParsedHttpSource() {
     override val name = "BacaKomik"
-    override val baseUrl = "https://apkomik.cc"
+    override val baseUrl = "https://bacakomik.net"
     override val lang = "id"
     override val supportsLatest = true
-    private val dateFormat: SimpleDateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale.US)
+    private val dateFormat = SimpleDateFormat("MMMM d, yyyy", Locale("id"))
 
     override val id = 4383360263234319058
 
     override val client: OkHttpClient = network.cloudflareClient.newBuilder()
-        .rateLimit(1)
+        .rateLimit(12, 3)
         .build()
 
     override fun popularMangaRequest(page: Int): Request {
-        return GET("$baseUrl/manga/?page=$page&order=popular", headers)
+        return GET("$baseUrl/daftar-komik/page/$page/?order=popular", headers)
     }
 
     override fun latestUpdatesRequest(page: Int): Request {
-        return GET("$baseUrl/manga/?page=$page&order=update", headers)
+        return GET("$baseUrl/daftar-komik/page/$page/?order=update", headers)
     }
 
-    override fun popularMangaSelector() = "div.bs"
+    override fun popularMangaSelector() = "div.animepost"
     override fun latestUpdatesSelector() = popularMangaSelector()
     override fun searchMangaSelector() = popularMangaSelector()
 
@@ -49,7 +49,7 @@ class BacaKomik: ParsedHttpSource() {
     override fun latestUpdatesNextPageSelector() = popularMangaNextPageSelector()
     override fun searchMangaNextPageSelector() = popularMangaNextPageSelector()
 
-    // Modifikasi searchMangaFromElement
+    // Versi modifikasi dari searchMangaFromElement
     override fun searchMangaFromElement(element: Element): SManga = SManga.create().apply {
         thumbnail_url = element.select("img").imgAttr()
         title = element.select("a").attr("title")
@@ -57,7 +57,7 @@ class BacaKomik: ParsedHttpSource() {
     }
 
     override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
-        val builtUrl = if (page == 1) "$baseUrl/manga/" else "$baseUrl/manga/?page=$page&order="
+        val builtUrl = if (page == 1) "$baseUrl/daftar-komik/" else "$baseUrl/daftar-komik/page/$page/?order="
         val url = builtUrl.toHttpUrl().newBuilder()
         url.addQueryParameter("title", query)
         url.addQueryParameter("page", page.toString())
@@ -89,19 +89,14 @@ class BacaKomik: ParsedHttpSource() {
         else -> SManga.UNKNOWN
     }
 
-    override fun chapterListSelector() = "#chapterlist ul li"
+    override fun chapterListSelector() = "#chapter_list li"
 
     override fun chapterFromElement(element: Element): SChapter {
+        val urlElement = element.select(".lchx a").first()!!
         val chapter = SChapter.create()
-
-        // Modifikasi untuk mendapatkan elemen <a> dalam div.eph-num
-        val urlElement = element.select("div.eph-num a").first()!!
-
         chapter.setUrlWithoutDomain(urlElement.attr("href"))
-        chapter.name = urlElement.select("span.chapternum").text()
-
-        chapter.date_upload = urlElement.select("span.chapterdate").text()?.let { parseChapterDate(it) } ?: 0
-
+        chapter.name = urlElement.text()
+        chapter.date_upload = element.select(".dt a").first()?.text()?.let { parseChapterDate(it) } ?: 0
         return chapter
     }
 
@@ -156,12 +151,14 @@ class BacaKomik: ParsedHttpSource() {
     val pages = mutableListOf<Page>()
     var i = 0
     document.select("div.img-landmine img").forEach { element ->
-        val url = element.imgAttr()  
-        i++  // Perbaikan di sini: hilangkan spasi di antara i dan ++
+        // Ambil URL gambar dari atribut yang relevan
+        val url = element.imgAttr()  // Ambil URL dari atribut gambar
+
+        i++
         if (url.isNotEmpty()) {
-            // Modifikasi URL gambar
+            // Modifikasi URL gambar dengan layanan resize
             val resizedImageUrl = "https://resize.sardo.work/?width=300&quality=75&imageUrl=$url"
-            pages.add(Page(i, "", resizedImageUrl))  
+            pages.add(Page(i, "", resizedImageUrl))  // Gunakan URL yang di-resize
         }
     }
     return pages
