@@ -1,4 +1,4 @@
-package eu.kanade.tachiyomi.extension.id.bacakomik
+package eu.kanade.tachiyomi.extension.id.kc
 
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.interceptor.rateLimit
@@ -17,17 +17,15 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
-class BacaKomik : ParsedHttpSource() {
-    override val name = "BacaKomik"
-    override val baseUrl = "https://bacakomik.net"
+class KC : ParsedHttpSource() {
+    override val name = "KC"
+    override val baseUrl = "https://komikcast.one"
     override val lang = "id"
     override val supportsLatest = true
     private val dateFormat = SimpleDateFormat("MMMM d, yyyy", Locale("id"))
 
-    override val id = 4383360263234319058
-
     override val client: OkHttpClient = network.cloudflareClient.newBuilder()
-        .rateLimit(12, 3)
+        .rateLimit(1)
         .build()
 
     override fun popularMangaRequest(page: Int): Request {
@@ -38,7 +36,7 @@ class BacaKomik : ParsedHttpSource() {
         return GET("$baseUrl/daftar-komik/page/$page/?order=update", headers)
     }
 
-    override fun popularMangaSelector() = "div.animepost"
+    override fun popularMangaSelector() = "div.item-post"
     override fun latestUpdatesSelector() = popularMangaSelector()
     override fun searchMangaSelector() = popularMangaSelector()
 
@@ -51,8 +49,8 @@ class BacaKomik : ParsedHttpSource() {
 
         override fun searchMangaFromElement(element: Element): SManga {
         val manga = SManga.create()
-        manga.setUrlWithoutDomain(element.select("div.animposx > a").first()!!.attr("href"))
-        manga.title = element.select(".animposx .tt h4").text()
+        manga.setUrlWithoutDomain(element.select("div.post-item-box > a").first()!!.attr("href"))
+        manga.title = element.select("div.tt h4").text()
         manga.thumbnail_url = element.select("div.limit img").imgAttr()
 
         return manga
@@ -67,19 +65,19 @@ class BacaKomik : ParsedHttpSource() {
     }
 
     override fun mangaDetailsParse(document: Document): SManga {
-        val infoElement = document.select("div.infoanime").first()!!
+        val infoElement = document.select("div.info-chapter-manga").first()!!
         val descElement = document.select("div.desc > .entry-content.entry-content-single").first()!!
         val manga = SManga.create()
         manga.title = document.select("#breadcrumbs li:last-child span").text()
-        manga.author = document.select(".infox .spe span:contains(Author) :not(b)").text()
-        manga.artist = document.select(".infox .spe span:contains(Artis) :not(b)").text()
+        manga.author = document.select(".info-chapter-manga-box .col-info-manga-box span:contains(Author) :not(b)").text()
+        manga.artist = document.select(".info-chapter-manga-box .col-info-manga-box span:contains(Artis) :not(b)").text()
         val genres = mutableListOf<String>()
-        infoElement.select(".infox > .genre-info > a, .infox .spe span:contains(Jenis Komik) a").forEach { element ->
+        infoElement.select(".info-chapter-manga-box > .genre-info-manga > a, .info-chapter-manga-box .col-info-manga-box span:contains(Jenis Komik) a").forEach { element ->
             val genre = element.text()
             genres.add(genre)
         }
         manga.genre = genres.joinToString(", ")
-        manga.status = parseStatus(document.select(".infox .spe span:contains(Status)").text())
+        manga.status = parseStatus(document.select(".info-chapter-manga-box .col-info-manga-box span:contains(Status)").text())
         manga.description = descElement.select("p").text().substringAfter("bercerita tentang ")
         manga.thumbnail_url = document.select(".thumb > img:nth-child(1)").imgAttr()
         return manga
@@ -94,11 +92,11 @@ class BacaKomik : ParsedHttpSource() {
     override fun chapterListSelector() = "#chapter_list li"
 
     override fun chapterFromElement(element: Element): SChapter {
-        val urlElement = element.select(".lchx a").first()!!
+        val urlElement = element.select(".list-chapter-chapter a").first()!!
         val chapter = SChapter.create()
         chapter.setUrlWithoutDomain(urlElement.attr("href"))
         chapter.name = urlElement.text()
-        chapter.date_upload = element.select(".dt a").first()?.text()?.let { parseChapterDate(it) } ?: 0
+        chapter.date_upload = element.select(".list-chapter-date a").first()?.text()?.let { parseChapterDate(it) } ?: 0
         return chapter
     }
 
@@ -152,7 +150,7 @@ class BacaKomik : ParsedHttpSource() {
     override fun pageListParse(document: Document): List<Page> {
     val pages = mutableListOf<Page>()
     var i = 0
-    document.select("div.img-landmine img").forEach { element ->
+    document.select("div.oi_ada_class_skrng img").forEach { element ->
         // Ambil URL gambar dari atribut onError
         val url = element.attr("onError").substringAfter("src='").substringBefore("';")
         i++
