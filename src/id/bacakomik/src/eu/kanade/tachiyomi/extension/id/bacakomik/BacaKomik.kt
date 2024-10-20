@@ -19,7 +19,7 @@ import java.util.Locale
 
 class BacaKomik : ParsedHttpSource() {
     override val name = "BacaKomik"
-    override val baseUrl = "https://bacakomik.net"
+    override val baseUrl = "https://apkomik.cc"
     override val lang = "id"
     override val supportsLatest = true
     private val dateFormat: SimpleDateFormat = SimpleDateFormat("MMM d, yyyy", Locale.US)
@@ -31,14 +31,14 @@ class BacaKomik : ParsedHttpSource() {
         .build()
 
     override fun popularMangaRequest(page: Int): Request {
-        return GET("$baseUrl/daftar-komik/page/$page/?order=popular", headers)
+        return GET("$baseUrl/manga/?page=$page/?order=popular", headers)
     }
 
     override fun latestUpdatesRequest(page: Int): Request {
-        return GET("$baseUrl/daftar-komik/page/$page/?order=update", headers)
+        return GET("$baseUrl/manga/?page=$page/?order=update", headers)
     }
 
-    override fun popularMangaSelector() = "div.animepost"
+    override fun popularMangaSelector() = "div.bs"
     override fun latestUpdatesSelector() = popularMangaSelector()
     override fun searchMangaSelector() = popularMangaSelector()
 
@@ -57,7 +57,7 @@ class BacaKomik : ParsedHttpSource() {
     }
 
     override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
-        val builtUrl = if (page == 1) "$baseUrl/daftar-komik/" else "$baseUrl/daftar-komik/page/$page/?order="
+        val builtUrl = if (page == 1) "$baseUrl/daftar-komik/" else "$baseUrl/manga/?page=$page/?order="
         val url = builtUrl.toHttpUrl().newBuilder()
         url.addQueryParameter("title", query)
         url.addQueryParameter("page", page.toString())
