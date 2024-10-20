@@ -14,7 +14,6 @@ import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.select.Elements
 import java.text.SimpleDateFormat
-import java.util.Calendar
 import java.util.Locale
 
 class BacaKomik : ParsedHttpSource() {
@@ -49,7 +48,6 @@ class BacaKomik : ParsedHttpSource() {
     override fun latestUpdatesNextPageSelector() = popularMangaNextPageSelector()
     override fun searchMangaNextPageSelector() = popularMangaNextPageSelector()
 
-    // Versi modifikasi dari searchMangaFromElement
     override fun searchMangaFromElement(element: Element): SManga = SManga.create().apply {
         thumbnail_url = element.select("img").imgAttr()
         title = element.select("a").attr("title")
@@ -92,54 +90,22 @@ class BacaKomik : ParsedHttpSource() {
     override fun chapterListSelector() = "#chapterlist li"
 
     override fun chapterFromElement(element: Element): SChapter {
-    val urlElement = element.select(".eph-num a").first()!!
-    val chapter = SChapter.create()
-    chapter.setUrlWithoutDomain(urlElement.attr("href"))
-    chapter.name = urlElement.text()
+        val urlElement = element.select(".eph-num a").first()!!
+        val chapter = SChapter.create()
+        chapter.setUrlWithoutDomain(urlElement.attr("href"))
+        chapter.name = urlElement.text()
 
-    // Hapus atau comment bagian berikut jika tidak ingin mengambil tanggal
-    // chapter.date_upload = element.select(".chapterdate").first()?.text()?.let { parseChapterDate(it) } ?: 0
+        // Mengabaikan tanggal
+        chapter.date_upload = 0
+        return chapter
+    }
 
-    // Untuk memastikan chapter muncul tanpa tanggal, kita bisa set date_upload ke 0 atau menghapus baris di atas
-    chapter.date_upload = 0 // Atau bisa di-comment baris di atas untuk mengabaikan pengambilan tanggal
-    return chapter
-}
-
+    // Hapus kode ini jika tidak ingin memparsing tanggal sama sekali
     private fun parseChapterDate(date: String): Long {
-        return if (date.contains("yang lalu")) {
-            val value = date.split(' ')[0].toInt()
-            when {
-                "detik" in date -> Calendar.getInstance().apply {
-                    add(Calendar.SECOND, value * -1)
-                }.timeInMillis
-                "menit" in date -> Calendar.getInstance().apply {
-                    add(Calendar.MINUTE, value * -1)
-                }.timeInMillis
-                "jam" in date -> Calendar.getInstance().apply {
-                    add(Calendar.HOUR_OF_DAY, value * -1)
-                }.timeInMillis
-                "hari" in date -> Calendar.getInstance().apply {
-                    add(Calendar.DATE, value * -1)
-                }.timeInMillis
-                "minggu" in date -> Calendar.getInstance().apply {
-                    add(Calendar.DATE, value * 7 * -1)
-                }.timeInMillis
-                "bulan" in date -> Calendar.getInstance().apply {
-                    add(Calendar.MONTH, value * -1)
-                }.timeInMillis
-                "tahun" in date -> Calendar.getInstance().apply {
-                    add(Calendar.YEAR, value * -1)
-                }.timeInMillis
-                else -> {
-                    0L
-                }
-            }
-        } else {
-            try {
-                dateFormat.parse(date)?.time ?: 0
-            } catch (_: Exception) {
-                0L
-            }
+        return try {
+            dateFormat.parse(date)?.time ?: 0
+        } catch (_: Exception) {
+            0L
         }
     }
 
@@ -153,21 +119,18 @@ class BacaKomik : ParsedHttpSource() {
     }
 
     override fun pageListParse(document: Document): List<Page> {
-    val pages = mutableListOf<Page>()
-    var i = 0
-    document.select("div.img-landmine img").forEach { element ->
-        // Ambil URL gambar dari atribut yang relevan
-        val url = element.imgAttr()  // Ambil URL dari atribut gambar
-
-        i++
-        if (url.isNotEmpty()) {
-            // Modifikasi URL gambar dengan layanan resize
-            val resizedImageUrl = "https://resize.sardo.work/?width=300&quality=75&imageUrl=$url"
-            pages.add(Page(i, "", resizedImageUrl))  // Gunakan URL yang di-resize
+        val pages = mutableListOf<Page>()
+        var i = 0
+        document.select("div.img-landmine img").forEach { element ->
+            val url = element.imgAttr()
+            i++
+            if (url.isNotEmpty()) {
+                val resizedImageUrl = "https://resize.sardo.work/?width=300&quality=75&imageUrl=$url"
+                pages.add(Page(i, "", resizedImageUrl))
+            }
         }
+        return pages
     }
-    return pages
-}
 
     override fun imageUrlParse(document: Document): String = throw UnsupportedOperationException()
 
