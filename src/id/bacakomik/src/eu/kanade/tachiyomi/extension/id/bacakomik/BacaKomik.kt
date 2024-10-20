@@ -27,15 +27,15 @@ class BacaKomik : ParsedHttpSource() {
     override val id = 4383360263234319058
 
     override val client: OkHttpClient = network.cloudflareClient.newBuilder()
-        .rateLimit(12, 3)
+        .rateLimit(1)
         .build()
 
     override fun popularMangaRequest(page: Int): Request {
-        return GET("$baseUrl/manga/?page=$page/?order=popular", headers)
+        return GET("$baseUrl/manga/?page=$page&order=popular", headers)
     }
 
     override fun latestUpdatesRequest(page: Int): Request {
-        return GET("$baseUrl/manga/?page=$page/?order=update", headers)
+        return GET("$baseUrl/manga/?page=$page&order=update", headers)
     }
 
     override fun popularMangaSelector() = "div.bs"
@@ -57,7 +57,7 @@ class BacaKomik : ParsedHttpSource() {
     }
 
     override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
-        val builtUrl = if (page == 1) "$baseUrl/daftar-komik/" else "$baseUrl/manga/?page=$page/?order="
+        val builtUrl = if (page == 1) "$baseUrl/manga/" else "$baseUrl/manga/?page=$page&order="
         val url = builtUrl.toHttpUrl().newBuilder()
         url.addQueryParameter("title", query)
         url.addQueryParameter("page", page.toString())
