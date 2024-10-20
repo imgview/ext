@@ -22,7 +22,7 @@ class BacaKomik : ParsedHttpSource() {
     override val baseUrl = "https://apkomik.cc"
     override val lang = "id"
     override val supportsLatest = true
-    private val dateFormat: SimpleDateFormat = SimpleDateFormat("MMM d, yyyy", Locale.US)
+    private val dateFormat: SimpleDateFormat = SimpleDateFormat("MMMM d, yyyy", Locale.US)
 
     override val id = 4383360263234319058
 
