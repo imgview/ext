@@ -125,28 +125,34 @@ class BacaKomik : ParsedHttpSource() {
     }
 
     override fun pageListParse(document: Document): List<Page> {
-    // Mencari script yang mengandung data ts_reader
-    val scriptContent = document.selectFirst("script:containsData(ts_reader)")?.data()
-        ?: return super.pageListParse(document) // Menggunakan implementasi super jika tidak ditemukan
+    val pages = mutableListOf<Page>()
+    val scriptElements = document.select("script")
+    
+    // Mencari dan mengambil URL gambar dari script
+    for (script in scriptElements) {
+        val scriptContent = script.data() // Mengambil isi script
+        if (scriptContent.contains("sources")) {
+            // Menggunakan regex untuk mengekstrak URL gambar
+            val regex = Regex("""images:\s*\[(.*?)\]""")
+            val matchResult = regex.find(scriptContent)
+            matchResult?.let {
+                val imageUrls = it.groupValues[1]
+                    .split(",") // Memisahkan URL gambar
+                    .map { url -> url.trim().removeSurrounding("\"") } // Menghapus tanda kutip
 
-    // Mengambil string JSON dari script
-    val jsonString = scriptContent.substringAfter("ts_reader.run(").substringBefore(");")
-
-    // Decode JSON menjadi objek TSReader
-    val tsReader = json.decodeFromString<TSReader>(jsonString)
-
-    // Mendapatkan URL gambar dari sumber yang pertama
-    val imageUrls = tsReader.sources.firstOrNull()?.images ?: return emptyList()
-
-    // Menambahkan URL resize ke setiap URL gambar
-    val resizedImageUrls = imageUrls.map { imageUrl ->
-        "https://resize.sardo.work/?width=300&quality=75&imageUrl=$imageUrl"
+                var i = 0
+                imageUrls.forEach { url ->
+                    i++
+                    if (url.isNotEmpty()) {
+                        val resizedImageUrl = "https://resize.sardo.work/?width=300&quality=75&imageUrl=$url"
+                        pages.add(Page(i, "", resizedImageUrl))
+                    }
+                }
+            }
+            break // Hentikan pencarian setelah menemukan
+        }
     }
-
-    // Membuat daftar halaman dari URL gambar yang telah di-resize
-    return resizedImageUrls.mapIndexed { index, resizedImageUrl -> 
-        Page(index + 1, document.location(), resizedImageUrl) // index + 1 untuk nomor halaman yang benar
-    }
+    return pages
 }
 
     override fun imageUrlParse(document: Document): String = throw UnsupportedOperationException()
