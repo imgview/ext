@@ -125,18 +125,29 @@ class BacaKomik : ParsedHttpSource() {
     }
 
     override fun pageListParse(document: Document): List<Page> {
-        val pages = mutableListOf<Page>()
-        var i = 0
-        document.select("div#readerarea img").forEach { element ->
-            val url = element.imgAttr()
-            i++
-            if (url.isNotEmpty()) {
-                val resizedImageUrl = "https://resize.sardo.work/?width=300&quality=75&imageUrl=$url"
-                pages.add(Page(i, "", resizedImageUrl))
-            }
-        }
-        return pages
+    // Mencari script yang mengandung data ts_reader
+    val scriptContent = document.selectFirst("script:containsData(ts_reader)")?.data()
+        ?: return super.pageListParse(document) // Menggunakan implementasi super jika tidak ditemukan
+
+    // Mengambil string JSON dari script
+    val jsonString = scriptContent.substringAfter("ts_reader.run(").substringBefore(");")
+
+    // Decode JSON menjadi objek TSReader
+    val tsReader = json.decodeFromString<TSReader>(jsonString)
+
+    // Mendapatkan URL gambar dari sumber yang pertama
+    val imageUrls = tsReader.sources.firstOrNull()?.images ?: return emptyList()
+
+    // Menambahkan URL resize ke setiap URL gambar
+    val resizedImageUrls = imageUrls.map { imageUrl ->
+        "https://resize.sardo.work/?width=300&quality=75&imageUrl=$imageUrl"
     }
+
+    // Membuat daftar halaman dari URL gambar yang telah di-resize
+    return resizedImageUrls.mapIndexed { index, resizedImageUrl -> 
+        Page(index + 1, document.location(), resizedImageUrl) // index + 1 untuk nomor halaman yang benar
+    }
+}
 
     override fun imageUrlParse(document: Document): String = throw UnsupportedOperationException()
 
