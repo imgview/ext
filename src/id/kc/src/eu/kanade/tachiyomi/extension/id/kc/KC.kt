@@ -74,7 +74,7 @@ class KC : ParsedHttpSource() {
         .substringAfter(artistCleaner).ifBlank { "Ilustrator tidak diketahui" }
 
     val genres = mutableListOf<String>()
-    infoElement.select(".info-chapter-manga-box genre-info-manga a").forEach { element ->
+    infoElement.select(".info-chapter-manga-box .genre-info-manga a").forEach { element ->
         val genre = element.text()
         genres.add(genre)
     }
