@@ -1,4 +1,4 @@
-package eu.kanade.tachiyomi.extension.id.kc
+package.eu.kanade.tachiyomi.extension.id.kc
 
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.source.model.FilterList
