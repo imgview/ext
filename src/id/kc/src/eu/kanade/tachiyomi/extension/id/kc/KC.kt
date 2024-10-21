@@ -167,7 +167,6 @@ class KC : ParsedHttpSource() {
 
     override fun getFilterList(): FilterList {
     return FilterList(
-        Filter.Header("NOTE: <a href='https://example.com'>Ignored if using text search!</a>")
+        Filter.Header("NOTE: Ignored if using text search!")
     )
 }
-
