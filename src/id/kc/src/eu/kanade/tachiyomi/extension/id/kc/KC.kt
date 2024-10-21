@@ -61,18 +61,24 @@ class KC : ParsedHttpSource() {
     }
 
     override fun mangaDetailsParse(document: Document): SManga {
-        val infoElement = document.select("div.info-chapter-manga").first()!!
-        val descElement = document.select("div.desc > .entry-content.entry-content-single").first()!!
-        val manga = SManga.create()
-        val authorCleaner = document.select(".info-chapter-manga-box .col-info-manga-box b:contains(Author)").text()
-        manga.author = document.select(".info-chapter-manga-box .col-info-manga-box b:contains(Author)").text().substringAfter(authorCleaner)
-        val artistCleaner = document.select(".info-chapter-manga-box .col-info-manga-box b:contains(Artis)").text()
-        manga.artist = document.select(".info-chapter-manga-box .col-info-manga-box b:contains(Artis)").text().substringAfter(artistCleaner)
-        val genres = mutableListOf<String>()
-        infoElement.select(".info-chapter-manga-box genre-info-manga a").forEach { element ->
-            val genre = element.text()
-            genres.add(genre)
-        }
+    val infoElement = document.select("div.info-chapter-manga").first()!!
+    val descElement = document.select("div.desc > .entry-content.entry-content-single").first()!!
+    val manga = SManga.create()
+
+    val authorCleaner = document.select("div.col-info-manga-box span:contains(Author) b").text()
+    manga.author = document.select("div.col-info-manga-box span:contains(Author) a").text()
+        .substringAfter(authorCleaner).ifBlank { "Pengarang tidak diketahui" }
+
+    val artistCleaner = document.select("div.col-info-manga-box span:contains(Artis) b").text()
+    manga.artist = document.select("div.col-info-manga-box span:contains(Artis) a").text()
+        .substringAfter(artistCleaner).ifBlank { "Ilustrator tidak diketahui" }
+
+    val genres = mutableListOf<String>()
+    infoElement.select(".info-chapter-manga-box genre-info-manga a").forEach { element ->
+        val genre = element.text()
+        genres.add(genre)
+    }
+
         manga.genre = genres.joinToString(", ")
         manga.status = parseStatus(infoElement.select(".info-chapter-manga-box > .col-info-manga-box > span:nth-child(2)").text())
         manga.description = descElement.select("p").text().substringAfter("bercerita tentang ")
