@@ -166,5 +166,5 @@ class KC : ParsedHttpSource() {
     override fun imageUrlParse(document: Document): String = throw UnsupportedOperationException()
 
     override fun getFilterList() = FilterList(
-    Filter.Header("NOTE: <a href='https://example.com'>Ignored if using text search!</a>")
+    Filter.Header("NOTE: kk")
 )
