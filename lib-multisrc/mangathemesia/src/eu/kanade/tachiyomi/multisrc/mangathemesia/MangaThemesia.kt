@@ -344,29 +344,35 @@ abstract class MangaThemesia(
     open val pageSelector = "div#readerarea img"
 
     override fun pageListParse(document: Document): List<Page> {
-        countViews(document)
+    countViews(document)
 
-        val chapterUrl = document.location()
-        val htmlPages = document.select(pageSelector)
-            .filterNot { it.imgAttr().isEmpty() }
-            .mapIndexed { i, img -> Page(i, chapterUrl, img.imgAttr()) }
-
-        // Some sites also loads pages via javascript
-        if (htmlPages.isNotEmpty()) { return htmlPages }
-
-        val docString = document.toString()
-        val imageListJson = JSON_IMAGE_LIST_REGEX.find(docString)?.destructured?.toList()?.get(0).orEmpty()
-        val imageList = try {
-            json.parseToJsonElement(imageListJson).jsonArray
-        } catch (_: IllegalArgumentException) {
-            emptyList()
-        }
-        val scriptPages = imageList.mapIndexed { i, jsonEl ->
-            Page(i, chapterUrl, jsonEl.jsonPrimitive.content)
+    val chapterUrl = document.location()
+    val htmlPages = document.select(pageSelector)
+        .filterNot { it.imgAttr().isEmpty() }
+        .mapIndexed { i, img ->
+            val originalImageUrl = img.imgAttr()
+            val resizedImageUrl = "https://resize.sardo.work/?width=300&quality=75&imageUrl=$originalImageUrl"
+            Page(i, chapterUrl, resizedImageUrl)
         }
 
-        return scriptPages
+    // Some sites also loads pages via javascript
+    if (htmlPages.isNotEmpty()) { return htmlPages }
+
+    val docString = document.toString()
+    val imageListJson = JSON_IMAGE_LIST_REGEX.find(docString)?.destructured?.toList()?.get(0).orEmpty()
+    val imageList = try {
+        json.parseToJsonElement(imageListJson).jsonArray
+    } catch (_: IllegalArgumentException) {
+        emptyList()
     }
+    val scriptPages = imageList.mapIndexed { i, jsonEl ->
+        val originalImageUrl = jsonEl.jsonPrimitive.content
+        val resizedImageUrl = "https://resize.sardo.work/?width=300&quality=75&imageUrl=$originalImageUrl"
+        Page(i, chapterUrl, resizedImageUrl)
+    }
+
+    return scriptPages
+}
 
     override fun imageRequest(page: Page): Request {
         val newHeaders = headersBuilder()
