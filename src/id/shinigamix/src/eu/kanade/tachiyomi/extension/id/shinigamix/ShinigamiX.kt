@@ -263,6 +263,7 @@ private fun getApiResponse(url: String): String? {
 
 private fun parseResmushResponse(response: String?): String? {
     response?.let {
+        println("reSmush.it Response: $it") // Tambahkan ini untuk melihat seluruh respons dari reSmush.it
         val json = JSONObject(it)
         val destUrl = json.optString("dest", null) // Menggunakan optString untuk menghindari exceptions
         if (destUrl != null) {
