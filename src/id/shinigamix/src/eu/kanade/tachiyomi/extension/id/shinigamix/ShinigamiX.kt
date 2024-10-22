@@ -232,7 +232,8 @@ override fun pageListParse(response: Response): List<Page> {
             // Step 1: Optimize image using reSmush.it
             val resmushUrl = "http://api.resmush.it/ws.php?img=$data"
             val resmushResponse = getApiResponse(resmushUrl)
-            val optimizedImageUrl = parseResmushResponse(resmushResponse)?.replace("\\/", "/") ?: data
+            // Menghapus semua backslash dari URL yang dioptimalkan
+            val optimizedImageUrl = parseResmushResponse(resmushResponse)?.replace("\\", "") ?: data
 
             // Debugging: Print optimized image URL after processing
             println("Optimized Image URL: $optimizedImageUrl")
