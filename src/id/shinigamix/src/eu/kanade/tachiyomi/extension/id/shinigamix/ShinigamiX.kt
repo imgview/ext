@@ -224,7 +224,7 @@ class ShinigamiX : ConfigurableSource, HttpSource() {
         return GET(chapter.url, apiHeaders)
     }
 
-    override fun pageListParse(response: Response): List<Page> {
+override fun pageListParse(response: Response): List<Page> {
     val result = response.parseAs<ShinigamiXChapterDto>()
     return result.pages.mapIndexedNotNull { index, data ->
         // Filtering image
@@ -244,6 +244,34 @@ class ShinigamiX : ConfigurableSource, HttpSource() {
             Page(index = index, imageUrl = resizedImageUrl)
         }
     }
+}
+
+// Tambahkan kedua metode di bawah ini
+private fun getApiResponse(url: String): String? {
+    val request = Request.Builder()
+        .url(url)
+        .build()
+    return client.newCall(request).execute().use { response ->
+        if (response.isSuccessful) {
+            response.body?.string()
+        } else {
+            println("Failed to get response from $url: ${response.code}")
+            null
+        }
+    }
+}
+
+private fun parseResmushResponse(response: String?): String? {
+    response?.let {
+        val json = JSONObject(it)
+        val destUrl = json.optString("dest", null) // Menggunakan optString untuk menghindari exceptions
+        if (destUrl != null) {
+            return destUrl // Mengembalikan URL gambar yang dioptimalkan
+        } else {
+            println("No destination URL found in reSmush.it response.")
+        }
+    }
+    return null
 }
 
     override fun fetchImageUrl(page: Page): Observable<String> = Observable.just(page.imageUrl!!)
