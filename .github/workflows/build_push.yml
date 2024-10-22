@@ -10,6 +10,7 @@ on:
       - '!.github/**'
       - '.github/scripts/**'
       - '.github/workflows/build_push.yml'
+  workflow_dispatch: # Menambahkan ini untuk mendukung run manual
 
 concurrency:
   group: ${{ github.workflow }}
