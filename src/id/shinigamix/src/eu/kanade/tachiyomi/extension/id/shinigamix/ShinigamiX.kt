@@ -234,32 +234,16 @@ class ShinigamiX : ConfigurableSource, HttpSource() {
             val resmushResponse = getApiResponse(resmushUrl)
             val optimizedImageUrl = parseResmushResponse(resmushResponse)
 
+            // Debug: Print optimized image URL
+            println("Optimized Image URL: $optimizedImageUrl")
+
             // Step 2: Process optimized image with weserv.nl for resizing
             val resizedImageUrl = "https://images.weserv.nl/?w=300&q=70&url=$optimizedImageUrl"
+            println("Resized Image URL: $resizedImageUrl") // Debug print
+
             Page(index = index, imageUrl = resizedImageUrl)
         }
     }
-}
-
-// Function to send the request to reSmush.it and get the response
-private fun getApiResponse(url: String): String? {
-    val request = Request.Builder().url(url).build()
-    return client.newCall(request).execute().use { response ->
-        if (response.isSuccessful) {
-            response.body?.string()
-        } else {
-            null
-        }
-    }
-}
-
-// Function to parse reSmush.it response and extract optimized image URL
-private fun parseResmushResponse(response: String?): String? {
-    response?.let {
-        val json = JSONObject(it)
-        return json.getString("dest") // Extract the optimized image URL
-    }
-    return null
 }
 
     override fun fetchImageUrl(page: Page): Observable<String> = Observable.just(page.imageUrl!!)
