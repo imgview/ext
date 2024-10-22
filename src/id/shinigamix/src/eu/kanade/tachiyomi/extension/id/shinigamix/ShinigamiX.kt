@@ -232,14 +232,20 @@ override fun pageListParse(response: Response): List<Page> {
             // Step 1: Optimize image using reSmush.it
             val resmushUrl = "http://api.resmush.it/ws.php?img=$data"
             val resmushResponse = getApiResponse(resmushUrl)
-            // Menghapus semua backslash dari URL yang dioptimalkan
-            val optimizedImageUrl = parseResmushResponse(resmushResponse)?.replace("\\", "") ?: data
+
+            // Mengambil URL gambar yang dioptimalkan dari respons reSmush.it
+            val optimizedImageUrl = parseResmushResponse(resmushResponse)
 
             // Debugging: Print optimized image URL after processing
             println("Optimized Image URL: $optimizedImageUrl")
 
-            // Return the optimized image URL without further processing by weserv.nl
-            Page(index = index, imageUrl = optimizedImageUrl)
+            // Pastikan optimizedImageUrl tidak null
+            if (optimizedImageUrl != null) {
+                Page(index = index, imageUrl = optimizedImageUrl)
+            } else {
+                println("Optimized image URL is null for index $index. Returning original data.")
+                Page(index = index, imageUrl = data) // Mengembalikan URL asli jika optimisasi gagal
+            }
         }
     }
 }
@@ -265,7 +271,7 @@ private fun parseResmushResponse(response: String?): String? {
         println("reSmush.it Response: $it") // Debugging: Melihat seluruh respons dari reSmush.it
         val json = JSONObject(it)
         val destUrl = json.optString("dest", null) // Menggunakan optString untuk mencegah error
-        if (destUrl != null) {
+        if (destUrl != null && destUrl.isNotEmpty()) {
             return destUrl // Kembalikan URL gambar yang sudah dioptimalkan
         } else {
             println("No destination URL found in reSmush.it response.")
