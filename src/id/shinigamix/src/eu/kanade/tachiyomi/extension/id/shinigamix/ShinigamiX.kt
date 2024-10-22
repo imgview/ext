@@ -238,11 +238,8 @@ override fun pageListParse(response: Response): List<Page> {
             // Debugging: Print optimized image URL after processing
             println("Optimized Image URL: $optimizedImageUrl")
 
-            // Step 2: Process optimized image with weserv.nl for resizing
-            val resizedImageUrl = "https://images.weserv.nl/?w=300&q=70&url=$optimizedImageUrl"
-            println("Resized Image URL: $resizedImageUrl") // Debug print
-
-            Page(index = index, imageUrl = resizedImageUrl)
+            // Return the optimized image URL without further processing by weserv.nl
+            Page(index = index, imageUrl = optimizedImageUrl)
         }
     }
 }
