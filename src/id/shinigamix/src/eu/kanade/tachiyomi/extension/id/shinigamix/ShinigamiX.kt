@@ -232,9 +232,9 @@ override fun pageListParse(response: Response): List<Page> {
             // Step 1: Optimize image using reSmush.it
             val resmushUrl = "http://api.resmush.it/ws.php?img=$data"
             val resmushResponse = getApiResponse(resmushUrl)
-            val optimizedImageUrl = parseResmushResponse(resmushResponse)
+            val optimizedImageUrl = parseResmushResponse(resmushResponse)?.replace("\\/", "/") ?: data
 
-            // Debug: Print optimized image URL
+            // Debugging: Print optimized image URL after processing
             println("Optimized Image URL: $optimizedImageUrl")
 
             // Step 2: Process optimized image with weserv.nl for resizing
@@ -246,7 +246,7 @@ override fun pageListParse(response: Response): List<Page> {
     }
 }
 
-// Tambahkan kedua metode di bawah ini
+// Fungsi untuk mendapatkan respons dari reSmush.it API
 private fun getApiResponse(url: String): String? {
     val request = Request.Builder()
         .url(url)
@@ -261,13 +261,14 @@ private fun getApiResponse(url: String): String? {
     }
 }
 
+// Fungsi untuk mem-parsing respons dari reSmush.it dan mengambil URL optimized image dari "dest"
 private fun parseResmushResponse(response: String?): String? {
     response?.let {
-        println("reSmush.it Response: $it") // Tambahkan ini untuk melihat seluruh respons dari reSmush.it
+        println("reSmush.it Response: $it") // Debugging: Melihat seluruh respons dari reSmush.it
         val json = JSONObject(it)
-        val destUrl = json.optString("dest", null) // Menggunakan optString untuk menghindari exceptions
+        val destUrl = json.optString("dest", null) // Menggunakan optString untuk mencegah error
         if (destUrl != null) {
-            return destUrl // Mengembalikan URL gambar yang dioptimalkan
+            return destUrl // Kembalikan URL gambar yang sudah dioptimalkan
         } else {
             println("No destination URL found in reSmush.it response.")
         }
