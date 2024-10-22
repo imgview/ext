@@ -224,12 +224,15 @@ class ShinigamiX : ConfigurableSource, HttpSource() {
     }
 
     override fun pageListParse(response: Response): List<Page> {
-        val result = response.parseAs<ShinigamiXChapterDto>()
-        return result.pages.mapIndexedNotNull { index, data ->
-            // filtering image
-            if (data == null || data.contains("_desktop")) null else Page(index = index, imageUrl = data)
+    val result = response.parseAs<ShinigamiXChapterDto>()
+    return result.pages.mapIndexedNotNull { index, data ->
+        // filtering image
+        if (data == null || data.contains("_desktop")) null else {
+            val resizedImageUrl = "https://resize.sardo.work/?width=300&quality=75&imageUrl=$data"
+            Page(index = index, imageUrl = resizedImageUrl)
         }
     }
+}
 
     override fun fetchImageUrl(page: Page): Observable<String> = Observable.just(page.imageUrl!!)
 
