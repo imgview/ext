@@ -240,8 +240,10 @@ override fun pageListParse(response: Response): List<Page> {
             println("Optimized Image URL: $optimizedImageUrl")
 
             // Pastikan optimizedImageUrl tidak null
-            if (optimizedImageUrl != null) {
-                Page(index = index, imageUrl = optimizedImageUrl)
+            if (!optimizedImageUrl.isNullOrEmpty()) {
+                // Menghapus simbol backslash dari URL yang dioptimalkan
+                val cleanUrl = optimizedImageUrl.replace("\\", "")
+                Page(index = index, imageUrl = cleanUrl)
             } else {
                 println("Optimized image URL is null for index $index. Returning original data.")
                 Page(index = index, imageUrl = data) // Mengembalikan URL asli jika optimisasi gagal
@@ -272,7 +274,8 @@ private fun parseResmushResponse(response: String?): String? {
         val json = JSONObject(it)
         val destUrl = json.optString("dest", null) // Menggunakan optString untuk mencegah error
         if (destUrl != null && destUrl.isNotEmpty()) {
-            return destUrl // Kembalikan URL gambar yang sudah dioptimalkan
+            // Menghapus simbol backslash dari URL dest
+            return destUrl.replace("\\", "") // Kembalikan URL gambar yang sudah dioptimalkan setelah menghapus backslash
         } else {
             println("No destination URL found in reSmush.it response.")
         }
