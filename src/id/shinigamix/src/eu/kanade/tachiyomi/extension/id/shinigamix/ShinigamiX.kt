@@ -17,6 +17,7 @@ import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.HttpSource
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
+import org.json.JSONObject
 import okhttp3.Headers
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
@@ -226,12 +227,39 @@ class ShinigamiX : ConfigurableSource, HttpSource() {
     override fun pageListParse(response: Response): List<Page> {
     val result = response.parseAs<ShinigamiXChapterDto>()
     return result.pages.mapIndexedNotNull { index, data ->
-        // filtering image
+        // Filtering image
         if (data == null || data.contains("_desktop")) null else {
-            val resizedImageUrl = "https://resize.sardo.work/?width=300&quality=75&imageUrl=$data"
+            // Step 1: Optimize image using reSmush.it
+            val resmushUrl = "http://api.resmush.it/ws.php?img=$data"
+            val resmushResponse = getApiResponse(resmushUrl)
+            val optimizedImageUrl = parseResmushResponse(resmushResponse)
+
+            // Step 2: Process optimized image with weserv.nl for resizing
+            val resizedImageUrl = "https://images.weserv.nl/?w=300&q=70&url=$optimizedImageUrl"
             Page(index = index, imageUrl = resizedImageUrl)
         }
     }
+}
+
+// Function to send the request to reSmush.it and get the response
+private fun getApiResponse(url: String): String? {
+    val request = Request.Builder().url(url).build()
+    return client.newCall(request).execute().use { response ->
+        if (response.isSuccessful) {
+            response.body?.string()
+        } else {
+            null
+        }
+    }
+}
+
+// Function to parse reSmush.it response and extract optimized image URL
+private fun parseResmushResponse(response: String?): String? {
+    response?.let {
+        val json = JSONObject(it)
+        return json.getString("dest") // Extract the optimized image URL
+    }
+    return null
 }
 
     override fun fetchImageUrl(page: Page): Observable<String> = Observable.just(page.imageUrl!!)
