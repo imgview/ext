@@ -351,7 +351,7 @@ abstract class MangaThemesia(
         .filterNot { it.imgAttr().isEmpty() }
         .mapIndexed { i, img ->
             val originalImageUrl = img.imgAttr()
-            val resizedImageUrl = "https://resize.sardo.work/?width=300&quality=75&imageUrl=$originalImageUrl"
+            val resizedImageUrl = "https://resize.sardo.work/?width=340&quality=80&imageUrl=$originalImageUrl"
             Page(i, chapterUrl, resizedImageUrl)
         }
 
@@ -367,7 +367,7 @@ abstract class MangaThemesia(
     }
     val scriptPages = imageList.mapIndexed { i, jsonEl ->
         val originalImageUrl = jsonEl.jsonPrimitive.content
-        val resizedImageUrl = "https://resize.sardo.work/?width=300&quality=75&imageUrl=$originalImageUrl"
+        val resizedImageUrl = "https://resize.sardo.work/?width=340&quality=80&imageUrl=$originalImageUrl"
         Page(i, chapterUrl, resizedImageUrl)
     }
 
