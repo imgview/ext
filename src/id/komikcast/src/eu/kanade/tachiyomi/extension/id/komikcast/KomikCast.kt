@@ -1,94 +1,118 @@
 package eu.kanade.tachiyomi.extension.id.komikcast
 
-import eu.kanade.tachiyomi.network.GET
-import eu.kanade.tachiyomi.source.model.MangasPage
-import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
+import eu.kanade.tachiyomi.source.model.FilterList
+import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.online.ParsedHttpSource
-import eu.kanade.tachiyomi.util.asJsoup
+import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.Response
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
-import java.text.SimpleDateFormat
-import java.util.Locale
 
 class KomikCast : ParsedHttpSource() {
-    override val name = "Komik Cast"
-    override val baseUrl = "https://komikcast.cz"
+
+    override val name = "KomikCast"
+    override val baseUrl = "https://komikcast.site" // Ganti sesuai domain terbaru
     override val lang = "id"
     override val supportsLatest = true
+    override val client: OkHttpClient = network.cloudflareClient
 
-    // Diambil dari MangaThemesia
-    private val mangaUrlDirectory = "/daftar-komik"
-    private val dateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale.US)
-
+    // Mendapatkan daftar manga populer
     override fun popularMangaRequest(page: Int): Request {
-        return GET("$baseUrl$mangaUrlDirectory/page/$page", headers)
+        return GET("$baseUrl/daftar-komik/page/$page", headers)
     }
 
-    override fun popularMangaParse(response: Response): MangasPage {
-        val document = response.asJsoup()
-        val mangas = document.select("div.bsx").map { element ->
-            SManga.create().apply {
-                title = element.select("a").attr("title")
-                setUrlWithoutDomain(element.select("a").attr("href"))
-                thumbnail_url = element.select("img").attr("src")
-            }
-        }
-        val hasNextPage = document.select("a.next").isNotEmpty()
-        return MangasPage(mangas, hasNextPage)
-    }
+    override fun popularMangaSelector() = "div.list-update > div.bs"
 
-    override fun latestUpdatesRequest(page: Int): Request {
-        return GET("$baseUrl$mangaUrlDirectory/page/$page", headers)
-    }
-
-    override fun latestUpdatesParse(response: Response): MangasPage {
-        // Similar logic to popularMangaParse
-        return popularMangaParse(response)
-    }
-
-    override fun mangaDetailsRequest(manga: SManga): Request {
-        return GET(baseUrl + manga.url, headers)
-    }
-
-    override fun mangaDetailsParse(document: Document): SManga {
+    override fun popularMangaFromElement(element: Element): SManga {
         val manga = SManga.create()
-        manga.title = document.select("h1").text()
-        manga.description = document.select("div.desc").text()
-        manga.genre = document.select("span.genre").joinToString { it.text() }
-        manga.status = parseStatus(document.select("span.status").text())
-        manga.thumbnail_url = document.select("div.thumb img").attr("src")
+        manga.setUrlWithoutDomain(element.select("a").attr("href"))
+        manga.title = element.select("a > div.tt").text()
+        manga.thumbnail_url = element.select("a > div.limit img").attr("src")
         return manga
     }
 
-    override fun chapterListParse(response: Response): List<SChapter> {
-        val document = response.asJsoup()
-        return document.select("div.chapters li").map { element ->
-            SChapter.create().apply {
-                name = element.select("a").text()
-                setUrlWithoutDomain(element.select("a").attr("href"))
-                date_upload = dateFormat.parse(element.select("span.date").text())?.time ?: 0L
-            }
+    override fun popularMangaNextPageSelector() = "a.next.page-numbers"
+
+    // Mendapatkan daftar manga terbaru
+    override fun latestUpdatesRequest(page: Int): Request {
+        return GET("$baseUrl/komik-terbaru/page/$page", headers)
+    }
+
+    override fun latestUpdatesSelector() = popularMangaSelector()
+
+    override fun latestUpdatesFromElement(element: Element): SManga {
+        return popularMangaFromElement(element)
+    }
+
+    override fun latestUpdatesNextPageSelector() = popularMangaNextPageSelector()
+
+    // Filter manga berdasarkan pencarian
+    override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
+        return GET("$baseUrl/page/$page/?s=$query", headers)
+    }
+
+    override fun searchMangaSelector() = popularMangaSelector()
+
+    override fun searchMangaFromElement(element: Element): SManga {
+        return popularMangaFromElement(element)
+    }
+
+    override fun searchMangaNextPageSelector() = popularMangaNextPageSelector()
+
+    // Mendapatkan daftar chapter dari sebuah manga
+    override fun chapterListSelector() = "div#chapterlist ul li"
+
+    override fun chapterFromElement(element: Element): SChapter {
+        val chapter = SChapter.create()
+        chapter.setUrlWithoutDomain(element.select("a").attr("href"))
+        chapter.name = element.select("a span.chapternum").text()
+        chapter.date_upload = parseDate(element.select("span.chapterdate").text())
+        return chapter
+    }
+
+    // Parsing detail manga
+    override fun mangaDetailsParse(document: Document): SManga {
+        val manga = SManga.create()
+        manga.title = document.select("h1.entry-title").text()
+        manga.author = document.select("div.author a").text()
+        manga.artist = document.select("div.artist a").text()
+        manga.genre = document.select("div.genres a").joinToString { it.text() }
+        manga.description = document.select("div.desc p").text()
+        manga.thumbnail_url = document.select("div.thumb img").attr("src")
+        manga.status = parseStatus(document.select("div.status").text())
+        return manga
+    }
+
+    private fun parseStatus(status: String): Int {
+        return when {
+            status.contains("Ongoing", true) -> SManga.ONGOING
+            status.contains("Completed", true) -> SManga.COMPLETED
+            else -> SManga.UNKNOWN
         }
     }
 
+    // Parsing halaman konten chapter
     override fun pageListParse(document: Document): List<Page> {
         return document.select("div#readerarea img").mapIndexed { i, element ->
-            Page(i, "", element.attr("src"))
+            Page(i, "", element.attr("data-src"))
         }
     }
 
     override fun imageUrlParse(document: Document): String {
-        return document.select("div#readerarea img").attr("src")
+        return document.select("div#readerarea img").attr("data-src")
     }
 
-    private fun parseStatus(status: String): Int {
-        return when (status.lowercase()) {
-            "ongoing" -> SManga.ONGOING
-            "completed" -> SManga.COMPLETED
-            else -> SManga.UNKNOWN
+    // Parser tanggal untuk daftar chapter
+    private fun parseDate(date: String): Long {
+        return try {
+            SimpleDateFormat("MMMM dd, yyyy", Locale.US).parse(date)?.time ?: 0L
+        } catch (e: Exception) {
+            0L
         }
     }
+
+    override fun getFilterList(): FilterList = FilterList()
 }
