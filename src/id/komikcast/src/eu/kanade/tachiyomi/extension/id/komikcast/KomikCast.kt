@@ -14,6 +14,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
+import org.jsoup.select.Elements // Pastikan ini diimpor
 import java.util.Calendar
 import java.util.Locale
 
@@ -95,27 +96,27 @@ class KomikCast : MangaThemesia("Komik Cast", "https://komikcast.cz", "id", "/da
 
     override fun chapterListSelector() = "div.komik_info-chapters li"
 
+    // Fungsi untuk mendapatkan daftar chapters tanpa chapter terbaru
     fun chaptersFromElements(elements: Elements): List<SChapter> {
-    // Buat list dari semua chapters
-    val chapters = elements.map { element ->
-        SChapter.create().apply {
-            val urlElements = element.select("a")
-            setUrlWithoutDomain(urlElements.attr("href"))
-            name = element.select(".chapter-link-item").text()
-            date_upload = parseChapterDate2(element.select(".chapter-link-time").text())
+        val chapters = elements.map { element: Element ->  // Tentukan tipe eksplisit untuk element
+            SChapter.create().apply {
+                val urlElements = element.select("a")
+                setUrlWithoutDomain(urlElements.attr("href"))
+                name = element.select(".chapter-link-item").text()
+                date_upload = parseChapterDate2(element.select(".chapter-link-time").text())
+            }
+        }
+
+        // Urutkan berdasarkan `date_upload` untuk menentukan yang terbaru
+        val sortedChapters = chapters.sortedByDescending { it.date_upload }
+
+        // Mengabaikan hanya chapter terbaru (indeks 0) dan menampilkan sisanya
+        return if (sortedChapters.size > 1) {
+            sortedChapters.drop(1)  // Drop chapter terbaru
+        } else {
+            sortedChapters  // Jika hanya ada 1 chapter, tetap tampilkan
         }
     }
-
-    // Urutkan berdasarkan `date_upload` untuk menentukan yang terbaru
-    val sortedChapters = chapters.sortedByDescending { it.date_upload }
-
-    // Mengabaikan hanya chapter terbaru (indeks 0) dan menampilkan sisanya
-    return if (sortedChapters.size > 1) {
-        sortedChapters.drop(1)  // Drop chapter terbaru
-    } else {
-        sortedChapters  // Jika hanya ada 1 chapter, tetap tampilkan
-    }
-}
 
     private fun parseChapterDate2(date: String): Long {
         return if (date.endsWith("ago")) {
