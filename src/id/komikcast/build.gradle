@@ -2,7 +2,7 @@ ext {
     extName = 'Komik Cast'
     extClass = '.KomikCast'
     baseUrl = 'https://komikcast.cz'
-    overrideVersionCode = 30
+    extVersionCode = 70
     isNsfw = false
 }
 
