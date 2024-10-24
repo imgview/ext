@@ -1,9 +1,0 @@
-ext {
-    extName = 'MangaSwat'
-    extClass = '.MangaSwat'
-    themePkg = 'mangathemesia'
-    baseUrl = 'https://healteer.com'
-    overrideVersionCode = 23
-}
-
-apply from: "$rootDir/common.gradle"

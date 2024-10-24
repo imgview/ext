@@ -1,9 +1,0 @@
-ext {
-    extName = 'MHScans'
-    extClass = '.MHScans'
-    themePkg = 'madara'
-    baseUrl = 'https://mh.cookni.net'
-    overrideVersionCode = 4
-}
-
-apply from: "$rootDir/common.gradle"

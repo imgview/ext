@@ -1,9 +1,0 @@
-ext {
-    extName = 'Komik Cast'
-    extClass = '.KomikCast'
-    baseUrl = 'https://komikcast.cz'
-    extVersionCode = 70
-    isNsfw = false
-}
-
-apply from: "$rootDir/common.gradle"

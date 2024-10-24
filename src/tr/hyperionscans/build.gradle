@@ -1,9 +1,0 @@
-ext {
-    extName = 'Hyperion Scans'
-    extClass = '.HyperionScans'
-    themePkg = 'zeistmanga'
-    baseUrl = 'https://www.hyperionscans.site'
-    overrideVersionCode = 0
-}
-
-apply from: "$rootDir/common.gradle"

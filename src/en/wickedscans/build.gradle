@@ -1,9 +1,0 @@
-ext {
-    extName = 'Wicked Scans'
-    extClass = '.WickedScans'
-    themePkg = 'keyoapp'
-    baseUrl = 'https://rudrascans.com'
-    overrideVersionCode = 0
-}
-
-apply from: "$rootDir/common.gradle"
