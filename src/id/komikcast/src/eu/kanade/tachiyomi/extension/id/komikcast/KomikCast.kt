@@ -41,17 +41,18 @@ class KomikCast : ParsedHttpSource() {
     override fun popularMangaNextPageSelector() = "a.next.page-numbers"
 
     // Mendapatkan daftar manga terbaru
-    override fun latestUpdatesRequest(page: Int): Request {
-        return GET("$baseUrl/komik-terbaru/page/$page", headers)
-    }
+    // Mendapatkan daftar manga terbaru
+override fun latestUpdatesRequest(page: Int): Request {
+    return GET("$baseUrl/daftar-komik/?orderby=update&page=$page", headers)
+}
 
-    override fun latestUpdatesSelector() = popularMangaSelector()
+override fun latestUpdatesSelector() = popularMangaSelector()
 
-    override fun latestUpdatesFromElement(element: Element): SManga {
-        return popularMangaFromElement(element)
-    }
+override fun latestUpdatesFromElement(element: Element): SManga {
+    return popularMangaFromElement(element)
+}
 
-    override fun latestUpdatesNextPageSelector() = popularMangaNextPageSelector()
+override fun latestUpdatesNextPageSelector() = popularMangaNextPageSelector()
 
     // Filter manga berdasarkan pencarian
     override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
