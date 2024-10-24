@@ -95,12 +95,27 @@ class KomikCast : MangaThemesia("Komik Cast", "https://komikcast.cz", "id", "/da
 
     override fun chapterListSelector() = "div.komik_info-chapters li"
 
-    override fun chapterFromElement(element: Element) = SChapter.create().apply {
-        val urlElements = element.select("a")
-        setUrlWithoutDomain(urlElements.attr("href"))
-        name = element.select(".chapter-link-item").text()
-        date_upload = parseChapterDate2(element.select(".chapter-link-time").text())
+    fun chaptersFromElements(elements: Elements): List<SChapter> {
+    // Buat list dari semua chapters
+    val chapters = elements.map { element ->
+        SChapter.create().apply {
+            val urlElements = element.select("a")
+            setUrlWithoutDomain(urlElements.attr("href"))
+            name = element.select(".chapter-link-item").text()
+            date_upload = parseChapterDate2(element.select(".chapter-link-time").text())
+        }
     }
+
+    // Urutkan berdasarkan `date_upload` untuk menentukan yang terbaru
+    val sortedChapters = chapters.sortedByDescending { it.date_upload }
+
+    // Mengabaikan hanya chapter terbaru (indeks 0) dan menampilkan sisanya
+    return if (sortedChapters.size > 1) {
+        sortedChapters.drop(1)  // Drop chapter terbaru
+    } else {
+        sortedChapters  // Jika hanya ada 1 chapter, tetap tampilkan
+    }
+}
 
     private fun parseChapterDate2(date: String): Long {
         return if (date.endsWith("ago")) {
