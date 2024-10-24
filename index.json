@@ -1,0 +1,22 @@
+[
+  {
+    "name": "Tachiyomi: Tukangkomik",
+    "pkg": "eu.kanade.tachiyomi.extension.id.tukangkomik",
+    "apk": "tachiyomi-id.tukangkomik-v1.4.31.apk",
+    "lang": "id",
+    "code": 31,
+    "version": "1.4.31",
+    "nsfw": 0,
+    "hasReadme": 0,
+    "hasChangelog": 0,
+    "sources": [
+      {
+        "name": "Tukangkomik",
+        "lang": "id",
+        "id": "5808419379780108473",
+        "baseUrl": "https://tukangkomik.co",
+        "versionId": 1
+      }
+    ]
+  }
+]
