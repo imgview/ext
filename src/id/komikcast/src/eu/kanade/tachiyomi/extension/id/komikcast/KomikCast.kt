@@ -7,6 +7,7 @@ import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
+import eu.kanade.tachiyomi.source.online.ParsedHttpSource
 import okhttp3.Headers
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
@@ -17,7 +18,7 @@ import org.jsoup.select.Elements // Pastikan ini diimpor
 import java.util.Calendar
 import java.util.Locale
 
-class KomikCast : MangaThemesia("Komik Cast", "https://komikcast.cz", "id", "/daftar-komik") {
+class KomikCast : ParsedHttpSource("Komik Cast", "https://komikcast.cz", "id", "/daftar-komik") {
 
     // Formerly "Komik Cast (WP Manga Stream)"
     override val id = 972717448578983812
