@@ -1,159 +1,94 @@
 package eu.kanade.tachiyomi.extension.id.komikcast
 
 import eu.kanade.tachiyomi.network.GET
-import eu.kanade.tachiyomi.network.interceptor.rateLimit
+import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.ParsedHttpSource
-import okhttp3.Headers
-import okhttp3.HttpUrl.Companion.toHttpUrl
-import okhttp3.OkHttpClient
+import eu.kanade.tachiyomi.util.asJsoup
 import okhttp3.Request
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
-import org.jsoup.select.Elements
-import java.util.Calendar
+import java.text.SimpleDateFormat
 import java.util.Locale
 
-class KomikCast : ParsedHttpSource("Komik Cast", "https://komikcast.cz", "id", "/daftar-komik") {
+class KomikCast : ParsedHttpSource() {
+    override val name = "Komik Cast"
+    override val baseUrl = "https://komikcast.cz"
+    override val lang = "id"
+    override val supportsLatest = true
 
-    // Formerly "Komik Cast (WP Manga Stream)"
-    override val id = 972717448578983812
+    // Diambil dari MangaThemesia
+    private val mangaUrlDirectory = "/daftar-komik"
+    private val dateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale.US)
 
-    override val client: OkHttpClient = super.client.newBuilder()
-        .rateLimit(3)
-        .build()
-
-    override fun headersBuilder(): Headers.Builder = super.headersBuilder()
-        .add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9")
-        .add("Accept-language", "en-US,en;q=0.9,id;q=0.8")
-
-    override fun imageRequest(page: Page): Request {
-        val newHeaders = headersBuilder()
-            .set("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
-            .set("Referer", "$baseUrl/")
-            .build()
-
-        return GET(page.imageUrl!!, newHeaders)
+    override fun popularMangaRequest(page: Int): Request {
+        return GET("$baseUrl$mangaUrlDirectory/page/$page", headers)
     }
 
-    override fun popularMangaRequest(page: Int) = customPageRequest(page, "orderby", "popular")
-    override fun latestUpdatesRequest(page: Int) = customPageRequest(page, "sortby", "update")
-
-    private fun customPageRequest(page: Int, filterKey: String, filterValue: String): Request {
-        val pagePath = if (page > 1) "page/$page/" else ""
-
-        return GET("$baseUrl$mangaUrlDirectory/$pagePath?$filterKey=$filterValue", headers)
-    }
-
-    override fun searchMangaSelector() = "div.list-update_item"
-
-    override fun searchMangaFromElement(element: Element) = super.searchMangaFromElement(element).apply {
-        title = element.selectFirst("h3.title")!!.ownText()
-    }
-
-    override val seriesDetailsSelector = "div.komik_info:has(.komik_info-content)"
-    override val seriesTitleSelector = "h1.komik_info-content-body-title"
-    override val seriesDescriptionSelector = ".komik_info-description-sinopsis"
-    override val seriesAltNameSelector = ".komik_info-content-native"
-    override val seriesGenreSelector = ".komik_info-content-genre a"
-    override val seriesThumbnailSelector = ".komik_info-content-thumbnail img"
-    override val seriesStatusSelector = ".komik_info-content-info:contains(Status)"
-
-    override fun mangaDetailsParse(document: Document) = SManga.create().apply {
-        document.selectFirst(seriesDetailsSelector)?.let { seriesDetails ->
-            title = seriesDetails.selectFirst(seriesTitleSelector)?.text()
-                ?.replace("bahasa indonesia", "", ignoreCase = true)?.trim().orEmpty()
-            artist = seriesDetails.selectFirst(seriesArtistSelector)?.ownText().removeEmptyPlaceholder()
-            author = seriesDetails.selectFirst(seriesAuthorSelector)?.ownText().removeEmptyPlaceholder()
-            description = seriesDetails.select(seriesDescriptionSelector).joinToString("\n") { it.text() }.trim()
-            // Add alternative name to manga description
-            val altName = seriesDetails.selectFirst(seriesAltNameSelector)?.ownText().takeIf { it.isNullOrBlank().not() }
-            altName?.let {
-                description = "$description\n\n$altNamePrefix$altName".trim()
+    override fun popularMangaParse(response: Response): MangasPage {
+        val document = response.asJsoup()
+        val mangas = document.select("div.bsx").map { element ->
+            SManga.create().apply {
+                title = element.select("a").attr("title")
+                setUrlWithoutDomain(element.select("a").attr("href"))
+                thumbnail_url = element.select("img").attr("src")
             }
-            val genres = seriesDetails.select(seriesGenreSelector).map { it.text() }.toMutableList()
-            // Add series type (manga/manhwa/manhua/other) to genre
-            seriesDetails.selectFirst(seriesTypeSelector)?.ownText().takeIf { it.isNullOrBlank().not() }?.let { genres.add(it) }
-            genre = genres.map { genre ->
-                genre.lowercase(Locale.forLanguageTag(lang)).replaceFirstChar { char ->
-                    if (char.isLowerCase()) {
-                        char.titlecase(Locale.forLanguageTag(lang))
-                    } else {
-                        char.toString()
-                    }
-                }
-            }
-                .joinToString { it.trim() }
-
-            status = seriesDetails.selectFirst(seriesStatusSelector)?.text().parseStatus()
-            thumbnail_url = seriesDetails.select(seriesThumbnailSelector).imgAttr()
         }
+        val hasNextPage = document.select("a.next").isNotEmpty()
+        return MangasPage(mangas, hasNextPage)
     }
 
-    override fun chapterListSelector() = "div.komik_info-chapters li"
+    override fun latestUpdatesRequest(page: Int): Request {
+        return GET("$baseUrl$mangaUrlDirectory/page/$page", headers)
+    }
 
-    // Fungsi untuk mendapatkan daftar chapters tanpa chapter terbaru
-    fun chaptersFromElements(elements: Elements): List<SChapter> {
-        val chapters = elements.map { element: Element ->  // Tentukan tipe eksplisit untuk element
+    override fun latestUpdatesParse(response: Response): MangasPage {
+        // Similar logic to popularMangaParse
+        return popularMangaParse(response)
+    }
+
+    override fun mangaDetailsRequest(manga: SManga): Request {
+        return GET(baseUrl + manga.url, headers)
+    }
+
+    override fun mangaDetailsParse(document: Document): SManga {
+        val manga = SManga.create()
+        manga.title = document.select("h1").text()
+        manga.description = document.select("div.desc").text()
+        manga.genre = document.select("span.genre").joinToString { it.text() }
+        manga.status = parseStatus(document.select("span.status").text())
+        manga.thumbnail_url = document.select("div.thumb img").attr("src")
+        return manga
+    }
+
+    override fun chapterListParse(response: Response): List<SChapter> {
+        val document = response.asJsoup()
+        return document.select("div.chapters li").map { element ->
             SChapter.create().apply {
-                val urlElements = element.select("a")
-                setUrlWithoutDomain(urlElements.attr("href"))
-                name = element.select(".chapter-link-item").text()
-                date_upload = parseChapterDate2(element.select(".chapter-link-time").text())
-            }
-        }
-
-        // Urutkan berdasarkan `date_upload` untuk menentukan yang terbaru
-        val sortedChapters = chapters.sortedByDescending { it.date_upload }
-
-        // Mengabaikan hanya chapter terbaru (indeks 0) dan menampilkan sisanya
-        return if (sortedChapters.size > 1) {
-            sortedChapters.drop(1)  // Drop chapter terbaru
-        } else {
-            sortedChapters  // Jika hanya ada 1 chapter, tetap tampilkan
-        }
-    }
-
-    private fun parseChapterDate2(date: String): Long {
-        return if (date.endsWith("ago")) {
-            val value = date.split(' ')[0].toInt()
-            when {
-                "min" in date -> Calendar.getInstance().apply {
-                    add(Calendar.MINUTE, value * -1)
-                }.timeInMillis
-                "hour" in date -> Calendar.getInstance().apply {
-                    add(Calendar.HOUR_OF_DAY, value * -1)
-                }.timeInMillis
-                "day" in date -> Calendar.getInstance().apply {
-                    add(Calendar.DATE, value * -1)
-                }.timeInMillis
-                "week" in date -> Calendar.getInstance().apply {
-                    add(Calendar.DATE, value * 7 * -1)
-                }.timeInMillis
-                "month" in date -> Calendar.getInstance().apply {
-                    add(Calendar.MONTH, value * -1)
-                }.timeInMillis
-                "year" in date -> Calendar.getInstance().apply {
-                    add(Calendar.YEAR, value * -1)
-                }.timeInMillis
-                else -> {
-                    0L
-                }
-            }
-        } else {
-            try {
-                dateFormat.parse(date)?.time ?: 0
-            } catch (_: Exception) {
-                0L
+                name = element.select("a").text()
+                setUrlWithoutDomain(element.select("a").attr("href"))
+                date_upload = dateFormat.parse(element.select("span.date").text())?.time ?: 0L
             }
         }
     }
 
     override fun pageListParse(document: Document): List<Page> {
-        return document.select("div#chapter_body .main-reading-area img.size-full")
-            .distinctBy { img -> img.imgAttr() }
-            .mapIndexed { i, img -> Page(i, document.location(), img.imgAttr()) }
+        return document.select("div#readerarea img").mapIndexed { i, element ->
+            Page(i, "", element.attr("src"))
+        }
+    }
+
+    override fun imageUrlParse(document: Document): String {
+        return document.select("div#readerarea img").attr("src")
+    }
+
+    private fun parseStatus(status: String): Int {
+        return when (status.lowercase()) {
+            "ongoing" -> SManga.ONGOING
+            "completed" -> SManga.COMPLETED
+            else -> SManga.UNKNOWN
+        }
     }
 }
