@@ -18,51 +18,39 @@ import java.util.Locale
 class KomikCast : ParsedHttpSource() {
 
     override val name = "KomikCast"
-    override val baseUrl = "https://komikcast.site" // Ganti sesuai domain terbaru
+    override val baseUrl = "https://komikcast.cz" // Ganti sesuai domain terbaru
     override val lang = "id"
     override val supportsLatest = true
-    override val client: OkHttpClient = network.cloudflareClient
+        override val client: OkHttpClient = super.client.newBuilder()
+        .rateLimit(3)
+        .build()
 
-    // Mendapatkan daftar manga populer
-    override fun popularMangaRequest(page: Int): Request {
-        return GET("$baseUrl/daftar-komik/page/$page", headers)
+    override fun headersBuilder(): Headers.Builder = super.headersBuilder()
+        .add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9")
+        .add("Accept-language", "en-US,en;q=0.9,id;q=0.8")
+
+    override fun imageRequest(page: Page): Request {
+        val newHeaders = headersBuilder()
+            .set("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
+            .set("Referer", "$baseUrl/")
+            .build()
+
+        return GET(page.imageUrl!!, newHeaders)
     }
 
-    override fun popularMangaSelector() = "div.list-update > div.bs"
+    override fun popularMangaRequest(page: Int) = customPageRequest(page, "orderby", "popular")
+    override fun latestUpdatesRequest(page: Int) = customPageRequest(page, "sortby", "update")
 
-    override fun popularMangaFromElement(element: Element): SManga {
-        val manga = SManga.create()
-        manga.setUrlWithoutDomain(element.select("a").attr("href"))
-        manga.title = element.select("a > div.tt").text()
-        manga.thumbnail_url = element.select("a > div.limit img").attr("src")
-        return manga
+    private fun customPageRequest(page: Int, filterKey: String, filterValue: String): Request {
+        val pagePath = if (page > 1) "page/$page/" else ""
+
+        return GET("$baseUrl$mangaUrlDirectory/$pagePath?$filterKey=$filterValue", headers)
     }
 
-    override fun popularMangaNextPageSelector() = "a.next.page-numbers"
+    override fun searchMangaSelector() = "div.list-update_item"
 
-    // Mendapatkan daftar manga terbaru
-    // Mendapatkan daftar manga terbaru
-override fun latestUpdatesRequest(page: Int): Request {
-    return GET("$baseUrl/daftar-komik/?orderby=update&page=$page", headers)
-}
-
-override fun latestUpdatesSelector() = popularMangaSelector()
-
-override fun latestUpdatesFromElement(element: Element): SManga {
-    return popularMangaFromElement(element)
-}
-
-override fun latestUpdatesNextPageSelector() = popularMangaNextPageSelector()
-
-    // Filter manga berdasarkan pencarian
-    override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
-        return GET("$baseUrl/page/$page/?s=$query", headers)
-    }
-
-    override fun searchMangaSelector() = popularMangaSelector()
-
-    override fun searchMangaFromElement(element: Element): SManga {
-        return popularMangaFromElement(element)
+        override fun searchMangaFromElement(element: Element) = super.searchMangaFromElement(element).apply {
+        title = element.selectFirst("h3.title")!!.ownText()
     }
 
     override fun searchMangaNextPageSelector() = popularMangaNextPageSelector()
