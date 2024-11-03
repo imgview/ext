@@ -1,12 +1,10 @@
 package eu.kanade.tachiyomi.extension.id.komikindoid
 
 import android.app.Application
-import android.content.Context
 import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.source.ConfigurableSource
-import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
@@ -32,27 +30,25 @@ class KomikIndoID : ParsedHttpSource(), ConfigurableSource {
     }
 
     private fun getResizeServiceUrl(): String {
-        return preferences.getString("resize_service_url", "https://resize.sardo.work/?width=300&quality=75&imageUrl=") ?: "https://resize.sardo.work/?width=300&quality=75&imageUrl="
+        return preferences.getString("resize_service_url", "https://resize.sardo.work/?width=300&quality=75&imageUrl=")
+            ?: "https://resize.sardo.work/?width=300&quality=75&imageUrl="
     }
 
-    override var baseUrl = preferences.getString(BASE_URL_PREF, "https://www.manhwaindo.st")!!
+    override var baseUrl = preferences.getString(BASE_URL_PREF, "https://komikindo.lol")!!
 
-    override val client = super.client.newBuilder()
+    override val client: OkHttpClient = network.cloudflareClient.newBuilder()
         .addInterceptor { chain ->
             val original = chain.request()
             val requestBuilder = original.newBuilder()
                 .header("User-Agent", getPrefCustomUA())
             chain.proceed(requestBuilder.build())
-        }
-        
+        }.build()
+
     override val name = "KomikIndoID"
-    override var baseUrl = "https://komikindo.lol"
     override val lang = "id"
     override val supportsLatest = true
-    override val client: OkHttpClient = network.cloudflareClient
-    private val dateFormat: SimpleDateFormat = SimpleDateFormat("MMM d, yyyy", Locale.US)
+    private val dateFormat = SimpleDateFormat("MMM d, yyyy", Locale.US)
 
-    // Setup preference screen to allow changing base URL
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
         val customUserAgentPref = EditTextPreference(screen.context).apply {
             key = "custom_ua"
@@ -72,7 +68,6 @@ class KomikIndoID : ParsedHttpSource(), ConfigurableSource {
         }
         screen.addPreference(resizeServicePref)
 
-        // Preference untuk mengubah base URL
         val baseUrlPref = EditTextPreference(screen.context).apply {
             key = BASE_URL_PREF
             title = BASE_URL_PREF_TITLE
@@ -80,12 +75,11 @@ class KomikIndoID : ParsedHttpSource(), ConfigurableSource {
             setDefaultValue(baseUrl)
             dialogTitle = BASE_URL_PREF_TITLE
             dialogMessage = "Original: $baseUrl"
-
             setOnPreferenceChangeListener { _, newValue ->
                 val newUrl = newValue as String
                 baseUrl = newUrl
                 preferences.edit().putString(BASE_URL_PREF, newUrl).apply()
-                summary = "Current domain: $newUrl" // Update summary untuk domain yang baru
+                summary = "Current domain: $newUrl"
                 true
             }
         }
@@ -127,103 +121,21 @@ class KomikIndoID : ParsedHttpSource(), ConfigurableSource {
         return manga
     }
 
-    override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
-        val url = "$baseUrl/daftar-manga/page/$page/".toHttpUrl().newBuilder()
-            .addQueryParameter("title", query)
-        filters.forEach { filter ->
-            when (filter) {
-                is AuthorFilter -> {
-                    url.addQueryParameter("author", filter.state)
-                }
-                is YearFilter -> {
-                    url.addQueryParameter("yearx", filter.state)
-                }
-                is SortFilter -> {
-                    url.addQueryParameter("order", filter.toUriPart())
-                }
-                is OriginalLanguageFilter -> {
-                    filter.state.forEach { lang ->
-                        if (lang.state) {
-                            url.addQueryParameter("type[]", lang.id)
-                        }
-                    }
-                }
-                is FormatFilter -> {
-                    filter.state.forEach { format ->
-                        if (format.state) {
-                            url.addQueryParameter("format[]", format.id)
-                        }
-                    }
-                }
-                is DemographicFilter -> {
-                    filter.state.forEach { demographic ->
-                        if (demographic.state) {
-                            url.addQueryParameter("demografis[]", demographic.id)
-                        }
-                    }
-                }
-                is StatusFilter -> {
-                    filter.state.forEach { status ->
-                        if (status.state) {
-                            url.addQueryParameter("status[]", status.id)
-                        }
-                    }
-                }
-                is ContentRatingFilter -> {
-                    filter.state.forEach { rating ->
-                        if (rating.state) {
-                            url.addQueryParameter("konten[]", rating.id)
-                        }
-                    }
-                }
-                is ThemeFilter -> {
-                    filter.state.forEach { theme ->
-                        if (theme.state) {
-                            url.addQueryParameter("tema[]", theme.id)
-                        }
-                    }
-                }
-                is GenreFilter -> {
-                    filter.state.forEach { genre ->
-                        if (genre.state) {
-                            url.addQueryParameter("genre[]", genre.id)
-                        }
-                    }
-                }
-                else -> {}
-            }
-        }
-        return GET(url.build(), headers)
-    }
     override fun mangaDetailsParse(document: Document): SManga {
         val infoElement = document.select("div.infoanime").first()!!
-        val descElement = document.select("div.desc > .entry-content.entry-content-single").first()!!
         val manga = SManga.create()
-        // need authorCleaner to take "pengarang:" string to remove it from author
-        val authorCleaner = document.select(".infox .spe b:contains(Pengarang)").text()
-        manga.author = document.select(".infox .spe span:contains(Pengarang)").text().substringAfter(authorCleaner)
-        val artistCleaner = document.select(".infox .spe b:contains(Ilustrator)").text()
-        manga.artist = document.select(".infox .spe span:contains(Ilustrator)").text().substringAfter(artistCleaner)
-        val genres = mutableListOf<String>()
-        infoElement.select(".infox .genre-info a, .infox .spe span:contains(Grafis:) a, .infox .spe span:contains(Tema:) a, .infox .spe span:contains(Konten:) a, .infox .spe span:contains(Jenis Komik:) a").forEach { element ->
-            val genre = element.text()
-            genres.add(genre)
-        }
-        manga.genre = genres.joinToString(", ")
+        manga.author = document.select(".infox .spe span:contains(Pengarang)").text()
+        manga.artist = document.select(".infox .spe span:contains(Ilustrator)").text()
+        manga.genre = infoElement.select(".genre-info a").joinToString { it.text() }
         manga.status = parseStatus(infoElement.select(".infox > .spe > span:nth-child(2)").text())
-        manga.description = descElement.select("p").text().substringAfter("bercerita tentang ")
-        // Add alternative name to manga description
-        val altName = document.selectFirst(".infox > .spe > span:nth-child(1)")?.text().takeIf { it.isNullOrBlank().not() }
-        altName?.let {
-            manga.description = manga.description + "\n\n$altName"
-        }
+        manga.description = document.select("div.desc > .entry-content.entry-content-single p").text()
         manga.thumbnail_url = document.select(".thumb > img:nth-child(1)").attr("src").substringBeforeLast("?")
         return manga
     }
 
-    private fun parseStatus(element: String): Int = when {
-        element.contains("berjalan", true) -> SManga.ONGOING
-        element.contains("tamat", true) -> SManga.COMPLETED
+    private fun parseStatus(status: String): Int = when {
+        status.contains("berjalan", true) -> SManga.ONGOING
+        status.contains("tamat", true) -> SManga.COMPLETED
         else -> SManga.UNKNOWN
     }
 
@@ -239,62 +151,31 @@ class KomikIndoID : ParsedHttpSource(), ConfigurableSource {
     }
 
     private fun parseChapterDate(date: String): Long {
-        return if (date.contains("yang lalu")) {
-            val value = date.split(' ')[0].toInt()
+        val value = date.split(' ')[0].toInt()
+        return Calendar.getInstance().apply {
             when {
-                "detik" in date -> Calendar.getInstance().apply {
-                    add(Calendar.SECOND, value * -1)
-                }.timeInMillis
-                "menit" in date -> Calendar.getInstance().apply {
-                    add(Calendar.MINUTE, value * -1)
-                }.timeInMillis
-                "jam" in date -> Calendar.getInstance().apply {
-                    add(Calendar.HOUR_OF_DAY, value * -1)
-                }.timeInMillis
-                "hari" in date -> Calendar.getInstance().apply {
-                    add(Calendar.DATE, value * -1)
-                }.timeInMillis
-                "minggu" in date -> Calendar.getInstance().apply {
-                    add(Calendar.DATE, value * 7 * -1)
-                }.timeInMillis
-                "bulan" in date -> Calendar.getInstance().apply {
-                    add(Calendar.MONTH, value * -1)
-                }.timeInMillis
-                "tahun" in date -> Calendar.getInstance().apply {
-                    add(Calendar.YEAR, value * -1)
-                }.timeInMillis
-                else -> {
-                    0L
-                }
+                "detik" in date -> add(Calendar.SECOND, -value)
+                "menit" in date -> add(Calendar.MINUTE, -value)
+                "jam" in date -> add(Calendar.HOUR_OF_DAY, -value)
+                "hari" in date -> add(Calendar.DATE, -value)
+                "minggu" in date -> add(Calendar.DATE, -value * 7)
+                "bulan" in date -> add(Calendar.MONTH, -value)
+                "tahun" in date -> add(Calendar.YEAR, -value)
             }
-        } else {
-            try {
-                dateFormat.parse(date)?.time ?: 0
-            } catch (_: Exception) {
-                0L
-            }
-        }
+        }.timeInMillis
     }
 
     override fun prepareNewChapter(chapter: SChapter, manga: SManga) {
-        val basic = Regex("""Chapter\s([0-9]+)""")
-        when {
-            basic.containsMatchIn(chapter.name) -> {
-                basic.find(chapter.name)?.let {
-                    chapter.chapter_number = it.groups[1]?.value!!.toFloat()
-                }
-            }
-        }
+        chapter.chapter_number = Regex("""Chapter\s([0-9]+)""")
+            .find(chapter.name)
+            ?.groupValues?.get(1)?.toFloat() ?: 0f
     }
 
     override fun pageListParse(document: Document): List<Page> {
-        val pages = mutableListOf<Page>()
-        var i = 0
-        document.select("div.img-landmine img").forEach { element ->
-            val url = element.attr("onError").substringAfter("src='").substringBefore("';")
-            i++
-            if (url.isNotEmpty()) {
-                pages.add(Page(i, "", url))
+        return document.select("div.img-landmine img")
+            .mapIndexed { i, element ->
+                val url = element.attr("onError").substringAfter("src='").substringBefore("';")
+                Page(i, "", url)
             }
         }
         return pages
