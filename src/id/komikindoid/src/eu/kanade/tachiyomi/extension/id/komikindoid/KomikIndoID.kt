@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.extension.id.komikindoid
 
+import android.app.Application
 import android.content.SharedPreferences
 import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceScreen
