@@ -20,19 +20,14 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
-class KomikIndoID(context: Context) : ParsedHttpSource(), ConfigurableSource {
-
+class KomikIndoID : ParsedHttpSource(), ConfigurableSource {
     override val name = "KomikIndoID"
-    override var baseUrl: String = getSavedBaseUrl(context) // Load saved URL from SharedPreferences
+    override var baseUrl = "https://komikindo.lol"
     override val lang = "id"
     override val supportsLatest = true
     override val client: OkHttpClient = network.cloudflareClient
-    private val dateFormat: SimpleDateFormat = SimpleDateFormat("MMM d, yyyy", Locale.US)
+    private val dateFormat = SimpleDateFormat("MMM d, yyyy", Locale.US)
 
-    // Fungsi untuk mengakses SharedPreferences
-    private val preferences = context.getSharedPreferences("source_${id}", Context.MODE_PRIVATE)
-
-    // Setup preference screen untuk mengubah base URL
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
         val baseUrlPref = EditTextPreference(screen.context).apply {
             key = BASE_URL_PREF
@@ -44,22 +39,15 @@ class KomikIndoID(context: Context) : ParsedHttpSource(), ConfigurableSource {
 
             setOnPreferenceChangeListener { _, newValue ->
                 val newUrl = newValue as String
-                baseUrl = newUrl
-                saveBaseUrl(screen.context, newUrl) // Simpan nilai baru ke SharedPreferences
-                true
+                if (newUrl.isBlank() || !newUrl.startsWith("http")) {
+                    false // Menolak perubahan jika URL tidak valid
+                } else {
+                    baseUrl = newUrl
+                    true
+                }
             }
         }
         screen.addPreference(baseUrlPref)
-    }
-
-    // Fungsi untuk menyimpan base URL ke SharedPreferences
-    private fun saveBaseUrl(context: Context, url: String) {
-        preferences.edit().putString(BASE_URL_PREF, url).apply()
-    }
-
-    // Fungsi untuk mengambil base URL dari SharedPreferences
-    private fun getSavedBaseUrl(context: Context): String {
-        return preferences.getString(BASE_URL_PREF, "https://komikindo.lol") ?: "https://komikindo.lol"
     }
 
     companion object {
@@ -69,11 +57,11 @@ class KomikIndoID(context: Context) : ParsedHttpSource(), ConfigurableSource {
     }
 
     override fun popularMangaRequest(page: Int): Request {
-        return GET("$baseUrl/daftar-manga/page/$page/komik-popular", headers)
+        return GET("$baseUrl/daftar-manga/page/$page/?order=popular", headers)
     }
 
     override fun latestUpdatesRequest(page: Int): Request {
-        return GET("$baseUrl/daftar-manga/page/$page/komik-terbaru", headers)
+        return GET("$baseUrl/daftar-manga/page/$page/?order=update", headers)
     }
 
     override fun popularMangaSelector() = "div.animepost"
@@ -102,98 +90,48 @@ class KomikIndoID(context: Context) : ParsedHttpSource(), ConfigurableSource {
             .addQueryParameter("title", query)
         filters.forEach { filter ->
             when (filter) {
-                is AuthorFilter -> {
-                    url.addQueryParameter("author", filter.state)
-                }
-                is YearFilter -> {
-                    url.addQueryParameter("yearx", filter.state)
-                }
-                is SortFilter -> {
-                    url.addQueryParameter("order", filter.toUriPart())
-                }
-                is OriginalLanguageFilter -> {
-                    filter.state.forEach { lang ->
-                        if (lang.state) {
-                            url.addQueryParameter("type[]", lang.id)
-                        }
-                    }
-                }
-                is FormatFilter -> {
-                    filter.state.forEach { format ->
-                        if (format.state) {
-                            url.addQueryParameter("format[]", format.id)
-                        }
-                    }
-                }
-                is DemographicFilter -> {
-                    filter.state.forEach { demographic ->
-                        if (demographic.state) {
-                            url.addQueryParameter("demografis[]", demographic.id)
-                        }
-                    }
-                }
-                is StatusFilter -> {
-                    filter.state.forEach { status ->
-                        if (status.state) {
-                            url.addQueryParameter("status[]", status.id)
-                        }
-                    }
-                }
-                is ContentRatingFilter -> {
-                    filter.state.forEach { rating ->
-                        if (rating.state) {
-                            url.addQueryParameter("konten[]", rating.id)
-                        }
-                    }
-                }
-                is ThemeFilter -> {
-                    filter.state.forEach { theme ->
-                        if (theme.state) {
-                            url.addQueryParameter("tema[]", theme.id)
-                        }
-                    }
-                }
-                is GenreFilter -> {
-                    filter.state.forEach { genre ->
-                        if (genre.state) {
-                            url.addQueryParameter("genre[]", genre.id)
-                        }
-                    }
-                }
+                is AuthorFilter -> url.addQueryParameter("author", filter.state)
+                is YearFilter -> url.addQueryParameter("yearx", filter.state)
+                is SortFilter -> url.addQueryParameter("order", filter.toUriPart())
+                is OriginalLanguageFilter -> filter.state.forEach { lang -> if (lang.state) url.addQueryParameter("type[]", lang.id) }
+                is FormatFilter -> filter.state.forEach { format -> if (format.state) url.addQueryParameter("format[]", format.id) }
+                is DemographicFilter -> filter.state.forEach { demographic -> if (demographic.state) url.addQueryParameter("demografis[]", demographic.id) }
+                is StatusFilter -> filter.state.forEach { status -> if (status.state) url.addQueryParameter("status[]", status.id) }
+                is ContentRatingFilter -> filter.state.forEach { rating -> if (rating.state) url.addQueryParameter("konten[]", rating.id) }
+                is ThemeFilter -> filter.state.forEach { theme -> if (theme.state) url.addQueryParameter("tema[]", theme.id) }
+                is GenreFilter -> filter.state.forEach { genre -> if (genre.state) url.addQueryParameter("genre[]", genre.id) }
                 else -> {}
             }
         }
         return GET(url.build(), headers)
     }
+
     override fun mangaDetailsParse(document: Document): SManga {
-        val infoElement = document.select("div.infoanime").first()!!
-        val descElement = document.select("div.desc > .entry-content.entry-content-single").first()!!
         val manga = SManga.create()
-        // need authorCleaner to take "pengarang:" string to remove it from author
-        val authorCleaner = document.select(".infox .spe b:contains(Pengarang)").text()
-        manga.author = document.select(".infox .spe span:contains(Pengarang)").text().substringAfter(authorCleaner)
-        val artistCleaner = document.select(".infox .spe b:contains(Ilustrator)").text()
-        manga.artist = document.select(".infox .spe span:contains(Ilustrator)").text().substringAfter(artistCleaner)
-        val genres = mutableListOf<String>()
-        infoElement.select(".infox .genre-info a, .infox .spe span:contains(Grafis:) a, .infox .spe span:contains(Tema:) a, .infox .spe span:contains(Konten:) a, .infox .spe span:contains(Jenis Komik:) a").forEach { element ->
-            val genre = element.text()
-            genres.add(genre)
-        }
-        manga.genre = genres.joinToString(", ")
-        manga.status = parseStatus(infoElement.select(".infox > .spe > span:nth-child(2)").text())
-        manga.description = descElement.select("p").text().substringAfter("bercerita tentang ")
-        // Add alternative name to manga description
-        val altName = document.selectFirst(".infox > .spe > span:nth-child(1)")?.text().takeIf { it.isNullOrBlank().not() }
-        altName?.let {
-            manga.description = manga.description + "\n\n$altName"
-        }
+        manga.author = document.extractTextAfterLabel("Pengarang")
+        manga.artist = document.extractTextAfterLabel("Ilustrator")
+        manga.genre = document.extractGenres()
+        manga.status = parseStatus(document.select(".infox > .spe > span:nth-child(2)").text())
+        manga.description = document.select("div.desc > .entry-content.entry-content-single p").text().substringAfter("bercerita tentang ")
         manga.thumbnail_url = document.select(".thumb > img:nth-child(1)").attr("src").substringBeforeLast("?")
         return manga
     }
 
-    private fun parseStatus(element: String): Int = when {
-        element.contains("berjalan", true) -> SManga.ONGOING
-        element.contains("tamat", true) -> SManga.COMPLETED
+    private fun Document.extractTextAfterLabel(label: String): String {
+        return this.select(".infox .spe span:contains($label)").text().substringAfter(this.select(".infox .spe b:contains($label)").text())
+    }
+
+    private fun Document.extractGenres(): String {
+        val genres = mutableListOf<String>()
+        this.select(".infox .genre-info a, .infox .spe span:contains(Grafis:) a, .infox .spe span:contains(Tema:) a, .infox .spe span:contains(Konten:) a, .infox .spe span:contains(Jenis Komik:) a").forEach { element ->
+            genres.add(element.text())
+        }
+        return genres.joinToString(", ")
+    }
+
+    private fun parseStatus(statusText: String): Int = when {
+        statusText.contains("berjalan", true) -> SManga.ONGOING
+        statusText.contains("tamat", true) -> SManga.COMPLETED
         else -> SManga.UNKNOWN
     }
 
