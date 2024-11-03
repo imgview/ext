@@ -20,15 +20,19 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
-class KomikIndoID : ParsedHttpSource(), ConfigurableSource {
+class KomikIndoID(context: Context) : ParsedHttpSource(), ConfigurableSource {
+
     override val name = "KomikIndoID"
-    override var baseUrl = "https://komikindo.lol"
+    override var baseUrl: String = getSavedBaseUrl(context) // Load saved URL from SharedPreferences
     override val lang = "id"
     override val supportsLatest = true
     override val client: OkHttpClient = network.cloudflareClient
     private val dateFormat: SimpleDateFormat = SimpleDateFormat("MMM d, yyyy", Locale.US)
 
-    // Setup preference screen to allow changing base URL
+    // Fungsi untuk mengakses SharedPreferences
+    private val preferences = context.getSharedPreferences("source_${id}", Context.MODE_PRIVATE)
+
+    // Setup preference screen untuk mengubah base URL
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
         val baseUrlPref = EditTextPreference(screen.context).apply {
             key = BASE_URL_PREF
@@ -41,10 +45,21 @@ class KomikIndoID : ParsedHttpSource(), ConfigurableSource {
             setOnPreferenceChangeListener { _, newValue ->
                 val newUrl = newValue as String
                 baseUrl = newUrl
+                saveBaseUrl(screen.context, newUrl) // Simpan nilai baru ke SharedPreferences
                 true
             }
         }
         screen.addPreference(baseUrlPref)
+    }
+
+    // Fungsi untuk menyimpan base URL ke SharedPreferences
+    private fun saveBaseUrl(context: Context, url: String) {
+        preferences.edit().putString(BASE_URL_PREF, url).apply()
+    }
+
+    // Fungsi untuk mengambil base URL dari SharedPreferences
+    private fun getSavedBaseUrl(context: Context): String {
+        return preferences.getString(BASE_URL_PREF, "https://komikindo.lol") ?: "https://komikindo.lol"
     }
 
     companion object {
