@@ -17,18 +17,61 @@ import okhttp3.Request
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import java.text.SimpleDateFormat
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 import java.util.Calendar
 import java.util.Locale
 
 class KomikIndoID : ParsedHttpSource(), ConfigurableSource {
+
+    private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
+
+    private fun getPrefCustomUA(): String {
+        return preferences.getString("custom_ua", "Default User-Agent") ?: "Default User-Agent"
+    }
+
+    private fun getResizeServiceUrl(): String {
+        return preferences.getString("resize_service_url", "https://resize.sardo.work/?width=300&quality=75&imageUrl=") ?: "https://resize.sardo.work/?width=300&quality=75&imageUrl="
+    }
+
+    override var baseUrl = preferences.getString(BASE_URL_PREF, "https://www.manhwaindo.st")!!
+
+    override val client = super.client.newBuilder()
+        .addInterceptor { chain ->
+            val original = chain.request()
+            val requestBuilder = original.newBuilder()
+                .header("User-Agent", getPrefCustomUA())
+            chain.proceed(requestBuilder.build())
+        }
+        
     override val name = "KomikIndoID"
     override var baseUrl = "https://komikindo.lol"
     override val lang = "id"
     override val supportsLatest = true
     override val client: OkHttpClient = network.cloudflareClient
-    private val dateFormat = SimpleDateFormat("MMM d, yyyy", Locale.US)
+    private val dateFormat: SimpleDateFormat = SimpleDateFormat("MMM d, yyyy", Locale.US)
 
+    // Setup preference screen to allow changing base URL
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
+        val customUserAgentPref = EditTextPreference(screen.context).apply {
+            key = "custom_ua"
+            title = "Custom User-Agent"
+            summary = "Masukkan custom User-Agent Anda di sini."
+            setDefaultValue("Default User-Agent")
+        }
+        screen.addPreference(customUserAgentPref)
+
+        val resizeServicePref = EditTextPreference(screen.context).apply {
+            key = "resize_service_url"
+            title = "Resize Service URL"
+            summary = "Masukkan URL layanan resize gambar."
+            setDefaultValue("https://resize.sardo.work/?width=300&quality=75&imageUrl=")
+            dialogTitle = "Resize Service URL"
+            dialogMessage = "Masukkan URL layanan resize gambar. (default: https://resize.sardo.work/?width=300&quality=75&imageUrl=)"
+        }
+        screen.addPreference(resizeServicePref)
+
+        // Preference untuk mengubah base URL
         val baseUrlPref = EditTextPreference(screen.context).apply {
             key = BASE_URL_PREF
             title = BASE_URL_PREF_TITLE
@@ -39,12 +82,10 @@ class KomikIndoID : ParsedHttpSource(), ConfigurableSource {
 
             setOnPreferenceChangeListener { _, newValue ->
                 val newUrl = newValue as String
-                if (newUrl.isBlank() || !newUrl.startsWith("http")) {
-                    false // Menolak perubahan jika URL tidak valid
-                } else {
-                    baseUrl = newUrl
-                    true
-                }
+                baseUrl = newUrl
+                preferences.edit().putString(BASE_URL_PREF, newUrl).apply()
+                summary = "Current domain: $newUrl" // Update summary untuk domain yang baru
+                true
             }
         }
         screen.addPreference(baseUrlPref)
@@ -90,48 +131,98 @@ class KomikIndoID : ParsedHttpSource(), ConfigurableSource {
             .addQueryParameter("title", query)
         filters.forEach { filter ->
             when (filter) {
-                is AuthorFilter -> url.addQueryParameter("author", filter.state)
-                is YearFilter -> url.addQueryParameter("yearx", filter.state)
-                is SortFilter -> url.addQueryParameter("order", filter.toUriPart())
-                is OriginalLanguageFilter -> filter.state.forEach { lang -> if (lang.state) url.addQueryParameter("type[]", lang.id) }
-                is FormatFilter -> filter.state.forEach { format -> if (format.state) url.addQueryParameter("format[]", format.id) }
-                is DemographicFilter -> filter.state.forEach { demographic -> if (demographic.state) url.addQueryParameter("demografis[]", demographic.id) }
-                is StatusFilter -> filter.state.forEach { status -> if (status.state) url.addQueryParameter("status[]", status.id) }
-                is ContentRatingFilter -> filter.state.forEach { rating -> if (rating.state) url.addQueryParameter("konten[]", rating.id) }
-                is ThemeFilter -> filter.state.forEach { theme -> if (theme.state) url.addQueryParameter("tema[]", theme.id) }
-                is GenreFilter -> filter.state.forEach { genre -> if (genre.state) url.addQueryParameter("genre[]", genre.id) }
+                is AuthorFilter -> {
+                    url.addQueryParameter("author", filter.state)
+                }
+                is YearFilter -> {
+                    url.addQueryParameter("yearx", filter.state)
+                }
+                is SortFilter -> {
+                    url.addQueryParameter("order", filter.toUriPart())
+                }
+                is OriginalLanguageFilter -> {
+                    filter.state.forEach { lang ->
+                        if (lang.state) {
+                            url.addQueryParameter("type[]", lang.id)
+                        }
+                    }
+                }
+                is FormatFilter -> {
+                    filter.state.forEach { format ->
+                        if (format.state) {
+                            url.addQueryParameter("format[]", format.id)
+                        }
+                    }
+                }
+                is DemographicFilter -> {
+                    filter.state.forEach { demographic ->
+                        if (demographic.state) {
+                            url.addQueryParameter("demografis[]", demographic.id)
+                        }
+                    }
+                }
+                is StatusFilter -> {
+                    filter.state.forEach { status ->
+                        if (status.state) {
+                            url.addQueryParameter("status[]", status.id)
+                        }
+                    }
+                }
+                is ContentRatingFilter -> {
+                    filter.state.forEach { rating ->
+                        if (rating.state) {
+                            url.addQueryParameter("konten[]", rating.id)
+                        }
+                    }
+                }
+                is ThemeFilter -> {
+                    filter.state.forEach { theme ->
+                        if (theme.state) {
+                            url.addQueryParameter("tema[]", theme.id)
+                        }
+                    }
+                }
+                is GenreFilter -> {
+                    filter.state.forEach { genre ->
+                        if (genre.state) {
+                            url.addQueryParameter("genre[]", genre.id)
+                        }
+                    }
+                }
                 else -> {}
             }
         }
         return GET(url.build(), headers)
     }
-
     override fun mangaDetailsParse(document: Document): SManga {
+        val infoElement = document.select("div.infoanime").first()!!
+        val descElement = document.select("div.desc > .entry-content.entry-content-single").first()!!
         val manga = SManga.create()
-        manga.author = document.extractTextAfterLabel("Pengarang")
-        manga.artist = document.extractTextAfterLabel("Ilustrator")
-        manga.genre = document.extractGenres()
-        manga.status = parseStatus(document.select(".infox > .spe > span:nth-child(2)").text())
-        manga.description = document.select("div.desc > .entry-content.entry-content-single p").text().substringAfter("bercerita tentang ")
+        // need authorCleaner to take "pengarang:" string to remove it from author
+        val authorCleaner = document.select(".infox .spe b:contains(Pengarang)").text()
+        manga.author = document.select(".infox .spe span:contains(Pengarang)").text().substringAfter(authorCleaner)
+        val artistCleaner = document.select(".infox .spe b:contains(Ilustrator)").text()
+        manga.artist = document.select(".infox .spe span:contains(Ilustrator)").text().substringAfter(artistCleaner)
+        val genres = mutableListOf<String>()
+        infoElement.select(".infox .genre-info a, .infox .spe span:contains(Grafis:) a, .infox .spe span:contains(Tema:) a, .infox .spe span:contains(Konten:) a, .infox .spe span:contains(Jenis Komik:) a").forEach { element ->
+            val genre = element.text()
+            genres.add(genre)
+        }
+        manga.genre = genres.joinToString(", ")
+        manga.status = parseStatus(infoElement.select(".infox > .spe > span:nth-child(2)").text())
+        manga.description = descElement.select("p").text().substringAfter("bercerita tentang ")
+        // Add alternative name to manga description
+        val altName = document.selectFirst(".infox > .spe > span:nth-child(1)")?.text().takeIf { it.isNullOrBlank().not() }
+        altName?.let {
+            manga.description = manga.description + "\n\n$altName"
+        }
         manga.thumbnail_url = document.select(".thumb > img:nth-child(1)").attr("src").substringBeforeLast("?")
         return manga
     }
 
-    private fun Document.extractTextAfterLabel(label: String): String {
-        return this.select(".infox .spe span:contains($label)").text().substringAfter(this.select(".infox .spe b:contains($label)").text())
-    }
-
-    private fun Document.extractGenres(): String {
-        val genres = mutableListOf<String>()
-        this.select(".infox .genre-info a, .infox .spe span:contains(Grafis:) a, .infox .spe span:contains(Tema:) a, .infox .spe span:contains(Konten:) a, .infox .spe span:contains(Jenis Komik:) a").forEach { element ->
-            genres.add(element.text())
-        }
-        return genres.joinToString(", ")
-    }
-
-    private fun parseStatus(statusText: String): Int = when {
-        statusText.contains("berjalan", true) -> SManga.ONGOING
-        statusText.contains("tamat", true) -> SManga.COMPLETED
+    private fun parseStatus(element: String): Int = when {
+        element.contains("berjalan", true) -> SManga.ONGOING
+        element.contains("tamat", true) -> SManga.COMPLETED
         else -> SManga.UNKNOWN
     }
 
