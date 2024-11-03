@@ -85,6 +85,18 @@ class Shinigami : Madara("Shinigami", "https://shinigami06.com", "id"), Configur
         add("Upgrade-Insecure-Requests", "1")
         add("X-Requested-With", randomString((1..20).random()))
     }
+    
+    override val client = network.cloudflareClient.newBuilder()
+        .addInterceptor { chain ->
+            val request = chain.request()
+            val headers = request.headers.newBuilder().apply {
+                removeAll("X-Requested-With")
+            }.build()
+
+            chain.proceed(request.newBuilder().headers(headers).build())
+        }
+        .rateLimit(3)
+        .build()
 
     @Serializable
     data class CDT(val ct: String, val s: String)
