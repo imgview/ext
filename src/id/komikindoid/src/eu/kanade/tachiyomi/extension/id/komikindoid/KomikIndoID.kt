@@ -172,13 +172,11 @@ chapter.chapter_number = Regex("""Chapter\s([0-9]+)""")
 }
 
 override fun pageListParse(document: Document): List<Page> {
-return document.select("div.img-landmine img")
-.mapIndexed { i, element ->
-val url = element.attr("onError").substringAfter("src='").substringBefore("';")
-Page(i, "", url)
-}
-}
-return pages
+    return document.select("div.img-landmine img")
+        .mapIndexed { i, element ->
+            val url = element.attr("onError").substringAfter("src='").substringBefore("';")
+            Page(i, "", url)
+        }
 }
 
 override fun imageUrlParse(document: Document): String = throw UnsupportedOperationException()
