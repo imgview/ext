@@ -234,7 +234,7 @@ abstract class MangaThemesia(
         ),
     )
 
-    open val seriesThumbnailSelector = ".infomanga > div[itemprop=image] img, .thumb img"
+    open val seriesThumbnailSelector = "div.thumb img"
 
     open val altNamePrefix = "${intl["alt_names_heading"]} "
 
