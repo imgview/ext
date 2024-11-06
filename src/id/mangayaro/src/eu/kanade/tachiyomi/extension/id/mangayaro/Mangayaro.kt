@@ -13,12 +13,15 @@ import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.Page
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
+import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.Response
 import org.jsoup.nodes.Document
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.text.SimpleDateFormat
 import java.util.Locale
+import java.io.IOException
 
 class Mangayaro : MangaThemesia(
     "Mangayaro",
@@ -29,20 +32,38 @@ class Mangayaro : MangaThemesia(
 ), ConfigurableSource {
 
     private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
+    private val client = OkHttpClient()
 
     private fun getPrefCustomUA(): String {
         return preferences.getString("custom_ua", "Default User-Agent") ?: "Default User-Agent"
     }
 
-    private fun getProxyImageUrl(imageUrl: String): String {
-        // URL deploy Bandwidth Hero di Netlify
+    private fun getBandwidthHeroUrl(imageUrl: String): String {
+        // URL Bandwidth Hero
         val proxyBaseUrl = "https://apaan.netlify.app/api/index"
         return "$proxyBaseUrl?url=$imageUrl&bw=false"
     }
 
-    private fun optimizeImageWithWeserv(imageUrl: String): String {
-        // Optimalkan gambar yang dikembalikan oleh Bandwidth Hero menggunakan Weserv
-        return "https://images.weserv.nl/?w=300&q=70&url=$imageUrl"
+    private fun fetchProcessedUrlFromBandwidthHero(imageUrl: String): String {
+        val bandwidthHeroUrl = getBandwidthHeroUrl(imageUrl)
+        val request = Request.Builder()
+            .url(bandwidthHeroUrl)
+            .build()
+
+        client.newCall(request).execute().use { response: Response ->
+            if (!response.isSuccessful) throw IOException("Unexpected code $response")
+            // Mengembalikan URL gambar hasil dari Bandwidth Hero
+            return response.request.url.toString()
+        }
+    }
+
+    private fun getWeservOptimizedUrl(bandwidthHeroUrl: String): String {
+        return "https://images.weserv.nl/?w=300&q=70&url=$bandwidthHeroUrl"
+    }
+
+    private fun getFinalOptimizedImageUrl(originalImageUrl: String): String {
+        val processedUrl = fetchProcessedUrlFromBandwidthHero(originalImageUrl)
+        return getWeservOptimizedUrl(processedUrl)
     }
 
     override var baseUrl = preferences.getString(BASE_URL_PREF, "https://komiku.com")!!
@@ -109,11 +130,9 @@ class Mangayaro : MangaThemesia(
         val tsReader = json.decodeFromString<TSReader>(jsonString)
         val imageUrls = tsReader.sources.firstOrNull()?.images ?: return emptyList()
 
-        // Tahapan: Bandwidth Hero -> Weserv -> Tampilkan
-        return imageUrls.mapIndexed { index, imageUrl -> 
-            val proxyImageUrl = getProxyImageUrl(imageUrl) // Gambar dikirim ke Bandwidth Hero
-            val optimizedImageUrl = optimizeImageWithWeserv(proxyImageUrl) // Gambar dari Bandwidth Hero dioptimalkan oleh Weserv
-            Page(index, document.location(), optimizedImageUrl)
+        return imageUrls.mapIndexed { index, imageUrl ->
+            val finalUrl = getFinalOptimizedImageUrl(imageUrl)
+            Page(index, document.location(), finalUrl)
         }
     }
 
