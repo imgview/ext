@@ -37,7 +37,7 @@ class MELOKOMIK : MangaThemesia(
     private fun getProxyImageUrl(imageUrl: String): String {
         // URL deploy Bandwidth Hero di Netlify
         val proxyBaseUrl = "https://apaan.netlify.app/api/index"
-        return "$proxyBaseUrl?url=$imageUrl"
+        return "$proxyBaseUrl?url=$imageUrl&bw=false"
     }
 
     override var baseUrl = preferences.getString(BASE_URL_PREF, "https://komiku.com")!!
