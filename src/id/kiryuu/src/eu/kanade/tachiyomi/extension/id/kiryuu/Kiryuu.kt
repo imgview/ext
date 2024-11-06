@@ -45,7 +45,7 @@ class Kiryuu : MangaThemesia(
                 .header("User-Agent", getPrefCustomUA())
             chain.proceed(requestBuilder.build())
         }
-        .rateLimit(1)
+        .rateLimit(4)
         .build()
 
     override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
