@@ -1,297 +1,124 @@
 package eu.kanade.tachiyomi.extension.id.kiryuu
 
+import android.app.Application
+import androidx.preference.EditTextPreference
+import androidx.preference.PreferenceScreen
+import eu.kanade.tachiyomi.lib.domain.Domain
+import eu.kanade.tachiyomi.multisrc.mangathemesia.MangaThemesia
 import eu.kanade.tachiyomi.network.GET
-import eu.kanade.tachiyomi.source.model.Filter
-import eu.kanade.tachiyomi.source.model.FilterList
+import eu.kanade.tachiyomi.network.interceptor.rateLimit
+import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.model.Page
-import eu.kanade.tachiyomi.source.model.SChapter
-import eu.kanade.tachiyomi.source.model.SManga
-import eu.kanade.tachiyomi.source.online.ParsedHttpSource
-import okhttp3.Headers
-import okhttp3.HttpUrl
-import okhttp3.OkHttpClient
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
 import okhttp3.Request
 import org.jsoup.nodes.Document
-import org.jsoup.nodes.Element
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
+import java.text.SimpleDateFormat
+import java.util.Locale
 
-class Kiryuu : ParsedHttpSource() {
+class Kiryuu : MangaThemesia(
+    "Kiryuu",
+    "https://kiryuu.org",
+    "id",
+    "/manga",
+    dateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale("id"))
+), ConfigurableSource {
 
-    override val name = "Kiryuu"
-    override val baseUrl = "https://kiryuu.org"
-    override val lang = "id"
-    override val supportsLatest = true
-    override val client: OkHttpClient = network.cloudflareClient
+    private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
 
-    override fun popularMangaRequest(page: Int): Request {
-        return GET("$baseUrl/manga/?order=popular&page=$page", headers)
+    private fun getPrefCustomUA(): String {
+        return preferences.getString("custom_ua", "Default User-Agent") ?: "Default User-Agent"
     }
 
-    override fun latestUpdatesRequest(page: Int): Request {
-        return GET("$baseUrl/manga/?order=update&page=$page", headers)
+    private fun getResizeServiceUrl(): String {
+        return preferences.getString("resize_service_url", "https://resize.sardo.work/?width=300&quality=75&imageUrl=") ?: "https://resize.sardo.work/?width=300&quality=75&imageUrl="
     }
 
-    override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
-        val builtUrl = if (page == 1) "$baseUrl/manga/" else "$baseUrl/manga/?page=$page"
-        val url = HttpUrl.parse(builtUrl)!!.newBuilder()
-        url.addQueryParameter("title", query)
-        url.addQueryParameter("page", page.toString())
-        filters.forEach { filter ->
-            when (filter) {
-                is AuthorFilter -> {
-                    url.addQueryParameter("author", filter.state)
-                }
-                is YearFilter -> {
-                    url.addQueryParameter("yearx", filter.state)
-                }
-                is StatusFilter -> {
-                    val status = when (filter.state) {
-                        Filter.TriState.STATE_INCLUDE -> "completed"
-                        Filter.TriState.STATE_EXCLUDE -> "ongoing"
-                        else -> ""
-                    }
-                    url.addQueryParameter("status", status)
-                }
-                is TypeFilter -> {
-                    url.addQueryParameter("type", filter.toUriPart())
-                }
-                is SortByFilter -> {
-                    url.addQueryParameter("order", filter.toUriPart())
-                }
-                is GenreListFilter -> {
-                    filter.state
-                        .filter { it.state != Filter.TriState.STATE_IGNORE }
-                        .forEach { url.addQueryParameter("genre[]", it.id) }
-                }
-            }
+    override var baseUrl = preferences.getString(BASE_URL_PREF, "https://kiryuu.org")!!
+
+    override val client = super.client.newBuilder()
+        .addInterceptor { chain ->
+            val original = chain.request()
+            val requestBuilder = original.newBuilder()
+                .header("User-Agent", getPrefCustomUA())
+            chain.proceed(requestBuilder.build())
         }
-        return GET(url.build().toString(), headers)
-    }
+        .rateLimit(1)
+        .build()
 
-    override fun popularMangaSelector() = "div.bs"
-    override fun latestUpdatesSelector() = popularMangaSelector()
-    override fun searchMangaSelector() = popularMangaSelector()
-
-    override fun popularMangaFromElement(element: Element): SManga {
-        val manga = SManga.create()
-        manga.thumbnail_url = element.select("div.limit img").attr("src")
-        element.select("div.bsx > a").first().let {
-            manga.setUrlWithoutDomain(it.attr("href"))
-            manga.title = it.attr("title")
-        }
-        return manga
-    }
-
-    override fun searchMangaFromElement(element: Element): SManga = popularMangaFromElement(element)
-    override fun latestUpdatesFromElement(element: Element): SManga = popularMangaFromElement(element)
-
-    override fun popularMangaNextPageSelector() = "a.r"
-    override fun latestUpdatesNextPageSelector() = popularMangaNextPageSelector()
-    override fun searchMangaNextPageSelector() = popularMangaNextPageSelector()
-
-        override fun mangaDetailsParse(document: Document): SManga {
-    return SManga.create().apply {
-        document.select("div.bigcontent, div.animefull, div.main-info, div.postbody").firstOrNull()?.let { infoElement ->
-            genre = infoElement.select(".mgen a").joinToString { it.text() }
-            status = parseStatus(infoElement.select(".imptdt:contains(Status) i").firstOrNull()?.ownText() ?: "")
-            author = infoElement.select(".fmed b:contains(Author)+span").firstOrNull()?.ownText()
-            artist = infoElement.select(".fmed b:contains(Artist)+span").firstOrNull()?.ownText()
-            description = infoElement.select("div.entry-content p").joinToString("\n") { it.text() }
-            thumbnail_url = infoElement.select("div.thumb img").attr("src") ?: ""
-
-            // Some wpmangastream sites still use old wpmangastream manga detail layout
-            if (author == artist && artist == null) {
-                genre = infoElement.select("span:contains(Genres:) a").joinToString { it.text() }
-                status = parseStatus(infoElement.select("span:contains(Status:)").firstOrNull()?.ownText() ?: "")
-                author = infoElement.select("span:contains(Author:)").firstOrNull()?.ownText()
-                artist = author
-                description = infoElement.select(".desc, .entry-content[itemprop=description]").joinToString("\n") { it.text() }
-            }
-        }
-    }
-}
-
-    private fun parseStatus(element: String): Int = when {
-
-        element.toLowerCase().contains("ongoing") -> SManga.ONGOING
-        element.toLowerCase().contains("completed") -> SManga.COMPLETED
-        else -> SManga.UNKNOWN
-    }
-
-    override fun chapterListSelector() = "div.bxcl li, div.cl li, #chapterlist li, ul li:has(div.chbox):has(div.eph-num)"
-
-    override fun chapterFromElement(element: Element) = SChapter.create().apply {
-        val urlElements = element.select("a")
-        setUrlWithoutDomain(urlElements.attr("href"))
-        name = element.select(".lch a, .chapternum").text().ifBlank { urlElements.first()!!.text() }
-        date_upload = element.selectFirst(".chapterdate")?.text().parseChapterDate()
-    }
-
-    protected open fun String?.parseChapterDate(): Long {
-        if (this == null) return 0
-        return try {
-            dateFormat.parse(this)?.time ?: 0
-        } catch (_: Exception) {
-            0
-        }
-    }
-
-    override fun prepareNewChapter(chapter: SChapter, manga: SManga) {
-        val basic = Regex("""Chapter\s([0-9]+)""")
-        when {
-            basic.containsMatchIn(chapter.name) -> {
-                basic.find(chapter.name)?.let {
-                    chapter.chapter_number = it.groups[1]?.value!!.toFloat()
-                }
-            }
-        }
+    override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
+        title = document.selectFirst(seriesThumbnailSelector)!!.attr("alt")
     }
 
     override fun pageListParse(document: Document): List<Page> {
-        val pages = mutableListOf<Page>()
-        var i = 0
-        document.select("div#readerarea img").forEach { element ->
-            val url = element.attr("src")
-            i++
-            if (url.isNotEmpty()) {
-                pages.add(Page(i, "", url))
+        val scriptContent = document.selectFirst("script:containsData(ts_reader)")?.data()
+            ?: return super.pageListParse(document)
+        val jsonString = scriptContent.substringAfter("ts_reader.run(").substringBefore(");")
+        val tsReader = json.decodeFromString<TSReader>(jsonString)
+        val imageUrls = tsReader.sources.firstOrNull()?.images ?: return emptyList()
+
+        // Menggunakan URL resize
+        val resizeServiceUrl = getResizeServiceUrl()
+        return imageUrls.mapIndexed { index, imageUrl -> 
+            Page(index, document.location(), "$resizeServiceUrl$imageUrl")
+        }
+    }
+
+    override fun setupPreferenceScreen(screen: PreferenceScreen) {
+        val customUserAgentPref = EditTextPreference(screen.context).apply {
+            key = "custom_ua"
+            title = "Custom User-Agent"
+            summary = "Masukkan custom User-Agent Anda di sini."
+            setDefaultValue("Default User-Agent")
+        }
+        screen.addPreference(customUserAgentPref)
+
+        val resizeServicePref = EditTextPreference(screen.context).apply {
+            key = "resize_service_url"
+            title = "Resize Service URL"
+            summary = "Masukkan URL layanan resize gambar."
+            setDefaultValue("https://resize.sardo.work/?width=300&quality=75&imageUrl=")
+            dialogTitle = "Resize Service URL"
+            dialogMessage = "Masukkan URL layanan resize gambar. (default: https://resize.sardo.work/?width=300&quality=75&imageUrl=)"
+        }
+        screen.addPreference(resizeServicePref)
+
+        // Preference untuk mengubah base URL
+        val baseUrlPref = EditTextPreference(screen.context).apply {
+            key = BASE_URL_PREF
+            title = BASE_URL_PREF_TITLE
+            summary = BASE_URL_PREF_SUMMARY
+            setDefaultValue(baseUrl)
+            dialogTitle = BASE_URL_PREF_TITLE
+            dialogMessage = "Original: $baseUrl"
+
+            setOnPreferenceChangeListener { _, newValue ->
+                val newUrl = newValue as String
+                baseUrl = newUrl
+                preferences.edit().putString(BASE_URL_PREF, newUrl).apply()
+                summary = "Current domain: $newUrl" // Update summary untuk domain yang baru
+                true
             }
         }
-        return pages
+        screen.addPreference(baseUrlPref)
     }
 
-    override fun imageUrlParse(document: Document) = ""
-
-    override fun imageRequest(page: Page): Request {
-        val imgHeader = Headers.Builder().apply {
-            add("User-Agent", "Mozilla/5.0 (Linux; U; Android 4.1.1; en-gb; Build/KLP) AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Safari/534.30")
-            add("Referer", baseUrl)
-        }.build()
-        return GET(page.imageUrl!!, imgHeader)
+    companion object {
+        private const val BASE_URL_PREF_TITLE = "Ubah Domain"
+        private const val BASE_URL_PREF = "overrideBaseUrl"
+        private const val BASE_URL_PREF_SUMMARY = "Update domain untuk ekstensi ini"
     }
 
-    private class AuthorFilter : Filter.Text("Author")
-
-    private class YearFilter : Filter.Text("Year")
-
-    private class TypeFilter : UriPartFilter(
-        "Type",
-        arrayOf(
-            Pair("Default", ""),
-            Pair("Manga", "Manga"),
-            Pair("Manhwa", "Manhwa"),
-            Pair("Manhua", "Manhua"),
-            Pair("Comic", "Comic")
-        )
+    @Serializable
+    data class TSReader(
+        val sources: List<ReaderImageSource>,
     )
 
-    private class SortByFilter : UriPartFilter(
-        "Sort By",
-        arrayOf(
-            Pair("Default", ""),
-            Pair("A-Z", "title"),
-            Pair("Z-A", "titlereverse"),
-            Pair("Latest Update", "update"),
-            Pair("Latest Added", "latest"),
-            Pair("Popular", "popular")
-        )
+    @Serializable
+    data class ReaderImageSource(
+        val source: String,
+        val images: List<String>,
     )
-
-    private class StatusFilter : UriPartFilter(
-        "Status",
-        arrayOf(
-            Pair("All", ""),
-            Pair("Ongoing", "ongoing"),
-            Pair("Completed", "completed")
-        )
-    )
-
-    private class Genre(name: String, val id: String = name) : Filter.TriState(name)
-    private class GenreListFilter(genres: List<Genre>) : Filter.Group<Genre>("Genre", genres)
-
-    override fun getFilterList() = FilterList(
-        Filter.Header("NOTE: Ignored if using text search!"),
-        Filter.Separator(),
-        AuthorFilter(),
-        YearFilter(),
-        StatusFilter(),
-        TypeFilter(),
-        SortByFilter(),
-        GenreListFilter(getGenreList())
-    )
-
-    private fun getGenreList() = listOf(
-        Genre("4 Koma", "4-koma"),
-        Genre("Action", "action"),
-        Genre("Adult", "adult"),
-        Genre("Adventure", "adventure"),
-        Genre("Comedy", "comedy"),
-        Genre("Completed", "completed"),
-        Genre("Cooking", "cooking"),
-        Genre("Crime", "crime"),
-        Genre("Demon", "demon"),
-        Genre("Demons", "demons"),
-        Genre("Doujinshi", "doujinshi"),
-        Genre("Drama", "drama"),
-        Genre("Ecchi", "ecchi"),
-        Genre("Fantasy", "fantasy"),
-        Genre("Game", "game"),
-        Genre("Games", "games"),
-        Genre("Gender Bender", "gender-bender"),
-        Genre("Gore", "gore"),
-        Genre("Harem", "harem"),
-        Genre("Historical", "historical"),
-        Genre("Horror", "horror"),
-        Genre("Isekai", "isekai"),
-        Genre("Josei", "josei"),
-        Genre("Magic", "magic"),
-        Genre("Manga", "manga"),
-        Genre("Manhua", "manhua"),
-        Genre("Manhwa", "manhwa"),
-        Genre("Martial Art", "martial-art"),
-        Genre("Martial Arts", "martial-arts"),
-        Genre("Mature", "mature"),
-        Genre("Mecha", "mecha"),
-        Genre("Military", "military"),
-        Genre("Monster", "monster"),
-        Genre("Monster Girls", "monster-girls"),
-        Genre("Monsters", "monsters"),
-        Genre("Music", "music"),
-        Genre("Mystery", "mystery"),
-        Genre("One-shot", "one-shot"),
-        Genre("Oneshot", "oneshot"),
-        Genre("Police", "police"),
-        Genre("Pshycological", "pshycological"),
-        Genre("Psychological", "psychological"),
-        Genre("Reincarnation", "reincarnation"),
-        Genre("Reverse Harem", "reverse-harem"),
-        Genre("Romancce", "romancce"),
-        Genre("Romance", "romance"),
-        Genre("Samurai", "samurai"),
-        Genre("School", "school"),
-        Genre("School Life", "school-life"),
-        Genre("Sci-fi", "sci-fi"),
-        Genre("Seinen", "seinen"),
-        Genre("Shoujo", "shoujo"),
-        Genre("Shoujo Ai", "shoujo-ai"),
-        Genre("Shounen", "shounen"),
-        Genre("Shounen Ai", "shounen-ai"),
-        Genre("Slice of Life", "slice-of-life"),
-        Genre("Sports", "sports"),
-        Genre("Super Power", "super-power"),
-        Genre("Supernatural", "supernatural"),
-        Genre("Thriller", "thriller"),
-        Genre("Time Travel", "time-travel"),
-        Genre("Tragedy", "tragedy"),
-        Genre("Vampire", "vampire"),
-        Genre("Webtoon", "webtoon"),
-        Genre("Webtoons", "webtoons"),
-        Genre("Yaoi", "yaoi"),
-        Genre("Yuri", "yuri"),
-        Genre("Zombies", "zombies")
-    )
-
-    private open class UriPartFilter(displayName: String, val vals: Array<Pair<String, String>>) :
-        Filter.Select<String>(displayName, vals.map { it.first }.toTypedArray()) {
-        fun toUriPart() = vals[state].second
-    }
 }
