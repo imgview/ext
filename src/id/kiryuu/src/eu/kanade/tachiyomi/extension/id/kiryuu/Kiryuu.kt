@@ -81,7 +81,6 @@ class Kiryuu : MangaThemesia(
             summary = "Masukkan URL layanan resize gambar."
             setDefaultValue("https://resize.sardo.work/?width=300&quality=75&imageUrl=")
             dialogTitle = "Resize Service URL"
-            dialogMessage = "Masukkan URL layanan resize gambar. (default: https://resize.sardo.work/?width=300&quality=75&imageUrl=)"
         }
         screen.addPreference(resizeServicePref)
 
