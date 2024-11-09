@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.network.interceptor.rateLimit
 import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.Page
+import kotlinx.serialization.Serializable
 import android.app.Application
 import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceScreen
@@ -40,7 +41,7 @@ class KomikCast : MangaThemesia(
         return preferences.getString("resize_service_url", "https://resize.sardo.work/?width=300&quality=75&imageUrl=") ?: "https://resize.sardo.work/?width=300&quality=75&imageUrl="
     }
 
-    override var baseUrl = preferences.getString(BASE_URL_PREF, "https://komikcast.cz")!!
+    override var baseUrl = preferences.getString(BASE_URL_PREF, "https://komiku.com")!!
 
     override val client = super.client.newBuilder()
         .addInterceptor { chain ->
