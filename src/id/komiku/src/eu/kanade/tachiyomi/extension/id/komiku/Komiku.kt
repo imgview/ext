@@ -60,7 +60,7 @@ class Komiku : ParsedHttpSource() {
         return manga
     }
 
-    override fun popularMangaNextPageSelector() = "#hxloading + [hx-trigger=revealed]"
+    override fun popularMangaNextPageSelector() = "span[hx-trigger="revealed"]"
 
     // latest
     override fun latestUpdatesSelector() = popularMangaSelector()
@@ -247,18 +247,17 @@ class Komiku : ParsedHttpSource() {
     override fun mangaDetailsParse(document: Document) = SManga.create().apply {
         description = document.select("#Sinopsis > p").text().trim()
         author = document.select("table.inftable td:contains(Komikus)+td").text()
-        genre = document.select("li[itemprop=genre] > a").joinToString { it.text() }
+        genre = document.select("li.genre a").joinToString { it.text() }
         status = parseStatus(document.select("table.inftable tr > td:contains(Status) + td").text())
         thumbnail_url = document.select("div.ims > img").attr("abs:src")
 
         // add series type(manga/manhwa/manhua/other) thinggy to genre
-        val seriesTypeSelector = "table.inftable tr:contains(Jenis) a, table.inftable tr:has(a[href*=category\\/]) a, a[href*=category\\/]"
-        document.select(seriesTypeSelector).firstOrNull()?.text()?.let {
-            if (it.isEmpty().not() && genre!!.contains(it, true).not()) {
-                genre += if (genre!!.isEmpty()) it else ", $it"
-            }
-        }
+    val seriesTypeSelector = "table.inftable tr:contains(Jenis Komik) td:nth-child(2) b"
+document.select(seriesTypeSelector).firstOrNull()?.text()?.let {
+    if (it.isNotEmpty() && genre!!.contains(it, true).not()) {
+        genre += if (genre!!.isEmpty()) it else ", $it"
     }
+}
 
     private fun parseStatus(status: String) = when {
         status.contains("Ongoing") -> SManga.ONGOING
