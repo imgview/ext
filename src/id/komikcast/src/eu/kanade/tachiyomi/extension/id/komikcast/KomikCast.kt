@@ -40,7 +40,7 @@ class KomikCast : MangaThemesia(
         return preferences.getString("resize_service_url", "https://resize.sardo.work/?width=300&quality=75&imageUrl=") ?: "https://resize.sardo.work/?width=300&quality=75&imageUrl="
     }
 
-    override var baseUrl = preferences.getString(BASE_URL_PREF, "https://komiku.com")!!
+    override var baseUrl = preferences.getString(BASE_URL_PREF, "https://komikcast.cz")!!
 
     override val client = super.client.newBuilder()
         .addInterceptor { chain ->
