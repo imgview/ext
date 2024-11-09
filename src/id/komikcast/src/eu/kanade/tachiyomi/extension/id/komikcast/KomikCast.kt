@@ -6,6 +6,9 @@ import eu.kanade.tachiyomi.network.interceptor.rateLimit
 import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.Page
+import android.app.Application
+import androidx.preference.EditTextPreference
+import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import okhttp3.Headers
@@ -14,16 +17,39 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 import java.util.Calendar
 import java.util.Locale
 
-class KomikCast : MangaThemesia("Komik Cast", "https://komikcast.cz", "id", "/daftar-komik") {
+class KomikCast : MangaThemesia(
+    "Komik Cast",
+    "https://komikcast.cz",
+    "id",
+    "/daftar-komik",
+    dateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale("id"))
+), ConfigurableSource {
 
-    // Formerly "Komik Cast (WP Manga Stream)"
-    override val id = 972717448578983812
+    private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
 
-    override val client: OkHttpClient = super.client.newBuilder()
-        .rateLimit(3)
+    private fun getPrefCustomUA(): String {
+        return preferences.getString("custom_ua", "Default User-Agent") ?: "Default User-Agent"
+    }
+
+    private fun getResizeServiceUrl(): String {
+        return preferences.getString("resize_service_url", "https://resize.sardo.work/?width=300&quality=75&imageUrl=") ?: "https://resize.sardo.work/?width=300&quality=75&imageUrl="
+    }
+
+    override var baseUrl = preferences.getString(BASE_URL_PREF, "https://komiku.com")!!
+
+    override val client = super.client.newBuilder()
+        .addInterceptor { chain ->
+            val original = chain.request()
+            val requestBuilder = original.newBuilder()
+                .header("User-Agent", getPrefCustomUA())
+            chain.proceed(requestBuilder.build())
+        }
+        .rateLimit(1)
         .build()
 
     override fun headersBuilder(): Headers.Builder = super.headersBuilder()
@@ -234,4 +260,61 @@ class KomikCast : MangaThemesia("Komik Cast", "https://komikcast.cz", "id", "/da
         )
         return FilterList(filters)
     }
+}
+
+    override fun setupPreferenceScreen(screen: PreferenceScreen) {
+        val customUserAgentPref = EditTextPreference(screen.context).apply {
+            key = "custom_ua"
+            title = "Custom User-Agent"
+            summary = "Masukkan custom User-Agent Anda di sini."
+            setDefaultValue("Default User-Agent")
+        }
+        screen.addPreference(customUserAgentPref)
+
+        val resizeServicePref = EditTextPreference(screen.context).apply {
+            key = "resize_service_url"
+            title = "Resize Service URL"
+            summary = "Masukkan URL layanan resize gambar."
+            setDefaultValue("https://resize.sardo.work/?width=300&quality=75&imageUrl=")
+            dialogTitle = "Resize Service URL"
+            dialogMessage = "Masukkan URL layanan resize gambar. (default: https://resize.sardo.work/?width=300&quality=75&imageUrl=)"
+        }
+        screen.addPreference(resizeServicePref)
+
+        // Preference untuk mengubah base URL
+        val baseUrlPref = EditTextPreference(screen.context).apply {
+            key = BASE_URL_PREF
+            title = BASE_URL_PREF_TITLE
+            summary = BASE_URL_PREF_SUMMARY
+            setDefaultValue(baseUrl)
+            dialogTitle = BASE_URL_PREF_TITLE
+            dialogMessage = "Original: $baseUrl"
+
+            setOnPreferenceChangeListener { _, newValue ->
+                val newUrl = newValue as String
+                baseUrl = newUrl
+                preferences.edit().putString(BASE_URL_PREF, newUrl).apply()
+                summary = "Current domain: $newUrl" // Update summary untuk domain yang baru
+                true
+            }
+        }
+        screen.addPreference(baseUrlPref)
+    }
+
+    companion object {
+        private const val BASE_URL_PREF_TITLE = "Ubah Domain"
+        private const val BASE_URL_PREF = "overrideBaseUrl"
+        private const val BASE_URL_PREF_SUMMARY = "Update domain untuk ekstensi ini"
+    }
+    
+        @Serializable
+    data class TSReader(
+        val sources: List<ReaderImageSource>,
+    )
+
+    @Serializable
+    data class ReaderImageSource(
+        val source: String,
+        val images: List<String>,
+    )
 }
