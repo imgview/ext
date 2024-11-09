@@ -35,6 +35,8 @@ class NgomikID : MangaThemesia(
         return preferences.getString("resize_service_url", "https://resize.sardo.work/?width=300&quality=75&imageUrl=") ?: "https://resize.sardo.work/?width=300&quality=75&imageUrl="
     }
 
+    override var baseUrl = preferences.getString(BASE_URL_PREF, "https://ngomik.id")!!
+
     override val client = super.client.newBuilder()
         .addInterceptor { chain ->
             val original = chain.request()
@@ -69,7 +71,7 @@ class NgomikID : MangaThemesia(
             title = "Custom User-Agent"
             summary = "Masukkan custom User-Agent Anda di sini."
             setDefaultValue("")
-            dialogTitle = "Default User-Agent"
+            dialogTitle = "Resize Service URL"
         }
         screen.addPreference(customUserAgentPref)
 
@@ -87,9 +89,9 @@ class NgomikID : MangaThemesia(
             key = BASE_URL_PREF
             title = BASE_URL_PREF_TITLE
             summary = BASE_URL_PREF_SUMMARY
-            setDefaultValue(super.baseUrl)
+            setDefaultValue(baseUrl)
             dialogTitle = BASE_URL_PREF_TITLE
-            dialogMessage = "Default: ${super.baseUrl}"
+            dialogMessage = "Original: $baseUrl"
 
             setOnPreferenceChangeListener { _, newValue ->
                 val newUrl = newValue as String
