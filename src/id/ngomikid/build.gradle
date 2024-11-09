@@ -1,9 +1,9 @@
 ext {
     extName = 'Ngomik ID'
-    extClass = '.NgonikID'
+    extClass = '.NgomikID'
     themePkg = 'mangathemesia'
     baseUrl = 'https://ngomik.id'
-    overrideVersionCode = 1
+    overrideVersionCode = 0
 }
 
 apply from: "$rootDir/common.gradle"
