@@ -261,7 +261,6 @@ class KomikCast : MangaThemesia(
         )
         return FilterList(filters)
     }
-}
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
         val customUserAgentPref = EditTextPreference(screen.context).apply {
