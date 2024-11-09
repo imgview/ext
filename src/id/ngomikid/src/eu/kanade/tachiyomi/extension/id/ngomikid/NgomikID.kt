@@ -71,7 +71,7 @@ class NgomikID : MangaThemesia(
             title = "Custom User-Agent"
             summary = "Masukkan custom User-Agent Anda di sini."
             setDefaultValue("")
-            dialogTitle = "Resize Service URL"
+            dialogTitle = "Custom User-Agent"
         }
         screen.addPreference(customUserAgentPref)
 
