@@ -168,10 +168,15 @@ class KomikCast : MangaThemesia(
     }
 
     override fun pageListParse(document: Document): List<Page> {
-        return document.select("div#chapter_body .main-reading-area img.size-full")
-            .distinctBy { img -> img.imgAttr() }
-            .mapIndexed { i, img -> Page(i, document.location(), img.imgAttr()) }
-    }
+    val resizeServiceUrl = getResizeServiceUrl() // Mendapatkan URL layanan resize
+
+    return document.select("div#chapter_body .main-reading-area img.size-full")
+        .distinctBy { img -> img.imgAttr() } // Menghapus duplikat berdasarkan atribut gambar
+        .mapIndexed { i, img -> 
+            // Menggabungkan resizeServiceUrl dengan URL gambar
+            Page(i, document.location(), "$resizeServiceUrl${img.imgAttr()}")
+        }
+}
 
     override val hasProjectPage: Boolean = true
     override val projectPageString = "/project-list"
