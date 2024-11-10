@@ -1,9 +1,11 @@
-name: Unpack Folder to Specific Location with Folder Structure
+name: Unpack File with Manual Dispatch
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:  # Memungkinkan pemicuan manual
+  # Kamu bisa menambahkan event lain jika dibutuhkan, seperti push:
+  # push:
+  #   branches:
+  #     - main
 
 jobs:
   unpack:
@@ -17,4 +19,4 @@ jobs:
         run: sudo apt-get install unzip -y
 
       - name: Unpack to tachi/id/kiryuu/
-        run: unzip path/to/your-folder.zip -d tachi/id/kiryuu/
+        run: unzip ext/ngomikid.zip -d ext/id/ngomikid/
