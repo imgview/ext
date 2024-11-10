@@ -32,7 +32,7 @@ class NgomikID : MangaThemesia(
     }
 
     private fun getResizeServiceUrl(): String {
-        return preferences.getString("resize_service_url", "https://resize.sardo.work/?width=300&quality=75&imageUrl=") ?: "https://resize.sardo.work/?width=300&quality=75&imageUrl="
+        return preferences.getString("resize_service_url")
     }
 
     override var baseUrl = preferences.getString(BASE_URL_PREF, "https://ngomik.id")!!
