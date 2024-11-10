@@ -20,3 +20,12 @@ jobs:
 
       - name: Unpack to tachi/id/kiryuu/
         run: unzip ngomikid.zip -d src/id/ngomikid/
+
+      - name: Commit and Push Changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add src/id/ngomikid/
+          git commit -m "Add extracted files from ngomikid.zip"
+          git push
+
