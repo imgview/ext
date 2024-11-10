@@ -234,7 +234,16 @@ abstract class MangaThemesia(
         ),
     )
 
-    open val seriesThumbnailSelector = "div.thumb img"
+    override val seriesThumbnailSelector = "img"
+
+    fun getThumbnailUrl(document: Document): String {
+    // Ambil URL asli thumbnail dari elemen img
+    val originalThumbnailUrl = document.select(seriesThumbnailSelector).attr("abs:src")
+    
+    val apiUrl = "https://xxx.netlify.app/api/index?&url=$originalThumbnailUrl"
+
+    return apiUrl
+}
 
     open val altNamePrefix = "${intl["alt_names_heading"]} "
 
@@ -613,9 +622,9 @@ abstract class MangaThemesia(
     }
 
     protected open fun Element.imgAttr(): String = when {
-        hasAttr("data-lazy-src") -> attr("abs:data-lazy-src")
-        hasAttr("data-src") -> attr("abs:data-src")
-        hasAttr("data-cfsrc") -> attr("abs:data-cfsrc")
+        hasAttr("src") -> attr("abs:src")
+        hasAttr("src") -> attr("abs:src")
+        hasAttr("src") -> attr("abs:src")
         else -> attr("abs:src")
     }
 
