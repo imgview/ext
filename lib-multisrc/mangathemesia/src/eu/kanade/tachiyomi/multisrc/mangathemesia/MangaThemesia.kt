@@ -234,48 +234,38 @@ abstract class MangaThemesia(
         ),
     )
 
-    override val seriesThumbnailSelector = "img"
+    open val seriesThumbnailSelector = "img"
+open val altNamePrefix = "${intl["alt_names_heading"]} "
 
-    fun getThumbnailUrl(document: Document): String {
-    // Ambil URL asli thumbnail dari elemen img
-    val originalThumbnailUrl = document.select(seriesThumbnailSelector).attr("abs:src")
-    
-    val apiUrl = "https://xxx.netlify.app/api/index?&url=$originalThumbnailUrl"
-
-    return apiUrl
-}
-
-    open val altNamePrefix = "${intl["alt_names_heading"]} "
-
-    override fun mangaDetailsParse(document: Document) = SManga.create().apply {
-        document.selectFirst(seriesDetailsSelector)?.let { seriesDetails ->
-            title = seriesDetails.selectFirst(seriesTitleSelector)!!.text()
-            artist = seriesDetails.selectFirst(seriesArtistSelector)?.ownText().removeEmptyPlaceholder()
-            author = seriesDetails.selectFirst(seriesAuthorSelector)?.ownText().removeEmptyPlaceholder()
-            description = seriesDetails.select(seriesDescriptionSelector).joinToString("\n") { it.text() }.trim()
-            // Add alternative name to manga description
-            val altName = seriesDetails.selectFirst(seriesAltNameSelector)?.ownText().takeIf { it.isNullOrBlank().not() }
-            altName?.let {
-                description = "$description\n\n$altNamePrefix$altName".trim()
-            }
-            val genres = seriesDetails.select(seriesGenreSelector).map { it.text() }.toMutableList()
-            // Add series type (manga/manhwa/manhua/other) to genre
-            seriesDetails.selectFirst(seriesTypeSelector)?.ownText().takeIf { it.isNullOrBlank().not() }?.let { genres.add(it) }
-            genre = genres.map { genre ->
-                genre.lowercase(Locale.forLanguageTag(lang)).replaceFirstChar { char ->
-                    if (char.isLowerCase()) {
-                        char.titlecase(Locale.forLanguageTag(lang))
-                    } else {
-                        char.toString()
-                    }
-                }
-            }
-                .joinToString { it.trim() }
-
-            status = seriesDetails.selectFirst(seriesStatusSelector)?.text().parseStatus()
-            thumbnail_url = seriesDetails.select(seriesThumbnailSelector).imgAttr()
+override fun mangaDetailsParse(document: Document) = SManga.create().apply {
+    document.selectFirst(seriesDetailsSelector)?.let { seriesDetails ->
+        title = seriesDetails.selectFirst(seriesTitleSelector)!!.text()
+        artist = seriesDetails.selectFirst(seriesArtistSelector)?.ownText().removeEmptyPlaceholder()
+        author = seriesDetails.selectFirst(seriesAuthorSelector)?.ownText().removeEmptyPlaceholder()
+        description = seriesDetails.select(seriesDescriptionSelector).joinToString("\n") { it.text() }.trim()
+        
+        // Add alternative name to manga description
+        val altName = seriesDetails.selectFirst(seriesAltNameSelector)?.ownText().takeIf { it.isNullOrBlank().not() }
+        altName?.let {
+            description = "$description\n\n$altNamePrefix$altName".trim()
         }
+        
+        val genres = seriesDetails.select(seriesGenreSelector).map { it.text() }.toMutableList()
+        // Add series type (manga/manhwa/manhua/other) to genre
+        seriesDetails.selectFirst(seriesTypeSelector)?.ownText().takeIf { it.isNullOrBlank().not() }?.let { genres.add(it) }
+        genre = genres.map { genre ->
+            genre.lowercase(Locale.forLanguageTag(lang)).replaceFirstChar { char ->
+                if (char.isLowerCase()) char.titlecase(Locale.forLanguageTag(lang)) else char.toString()
+            }
+        }.joinToString { it.trim() }
+
+        status = seriesDetails.selectFirst(seriesStatusSelector)?.text().parseStatus()
+
+        // Gunakan layanan resize untuk URL thumbnail
+        val originalThumbnailUrl = seriesDetails.select(seriesThumbnailSelector).imgAttr()
+        thumbnail_url = "https://resize.sardo.work/?width=300&quality=75&imageUrl=$originalThumbnailUrl"
     }
+}
 
     protected fun String?.removeEmptyPlaceholder(): String? {
         return if (this.isNullOrBlank() || this == "-" || this == "N/A" || this == "n/a") null else this
