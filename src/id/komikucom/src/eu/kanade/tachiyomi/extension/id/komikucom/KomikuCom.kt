@@ -49,7 +49,7 @@ class KomikuCom : MangaThemesia(
 
     override val seriesThumbnailSelector = "img"
 
-fun getThumbnailUrl(document: Document): String {
+    fun getThumbnailUrl(document: Document): String {
     // Ambil URL asli thumbnail dari elemen img
     val originalThumbnailUrl = document.select(seriesThumbnailSelector).attr("abs:src")
 
