@@ -1,11 +1,16 @@
 name: Unpack File with Manual Dispatch
 
 on:
-  workflow_dispatch:  # Memungkinkan pemicuan manual
-  # Kamu bisa menambahkan event lain jika dibutuhkan, seperti push:
-  # push:
-  #   branches:
-  #     - main
+  workflow_dispatch:
+    inputs:
+      zip_file:
+        description: 'Nama file zip yang akan diekstrak'
+        required: true
+        default: 'nama_file.zip'
+      extract_to:
+        description: 'Tujuan direktori ekstrak'
+        required: true
+        default: 'src/id/tujuan_ekstrak/'
 
 jobs:
   unpack:
@@ -18,14 +23,13 @@ jobs:
       - name: Install unzip (if needed)
         run: sudo apt-get install unzip -y
 
-      - name: Unpack to tachi/id/kiryuu/
-        run: unzip ngomikid.zip -d src/id/ngomikid/
+      - name: Unpack specified zip file to target directory
+        run: unzip ${{ github.event.inputs.zip_file }} -d ${{ github.event.inputs.extract_to }}
 
       - name: Commit and Push Changes
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add src/id/ngomikid/
-          git commit -m "Add extracted files from ngomikid.zip"
+          git add ${{ github.event.inputs.extract_to }}
+          git commit -m "Add extracted files from ${{ github.event.inputs.zip_file }}"
           git push
-
