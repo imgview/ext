@@ -1,5 +1,5 @@
 ext {
-    extName = 'Komiku.com'
+    extName = 'Komik'
     extClass = '.KomikuCom'
     themePkg = 'mangathemesia'
     baseUrl = 'https://komiku.com'
