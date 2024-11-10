@@ -48,7 +48,7 @@ class KomikuCom : MangaThemesia(
         .build()
 
     override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
-        title = document.selectFirst(seriesThumbnailSelector)!!.attr("alt")
+        title = document.selectFirst(seriesThumbnailSelector)!!.attr("title")
     }
 
     override fun pageListParse(document: Document): List<Page> {
