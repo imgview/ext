@@ -47,6 +47,18 @@ class KomikuCom : MangaThemesia(
         .rateLimit(10)
         .build()
 
+    override val seriesThumbnailSelector = "img"
+
+fun getThumbnailUrl(document: Document): String {
+    // Ambil URL asli thumbnail dari elemen img
+    val originalThumbnailUrl = document.select(seriesThumbnailSelector).attr("abs:src")
+
+    // Langsung arahkan URL gambar melalui API Netlify
+    val apiUrl = "https://xxx.netlify.app/api/index?&url=$originalThumbnailUrl"
+
+    return apiUrl
+}
+
     override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
         title = document.selectFirst(seriesThumbnailSelector)!!.attr("alt")
     }
