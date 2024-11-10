@@ -143,10 +143,13 @@ abstract class MangaThemesia(
     override fun searchMangaSelector() = ".utao .uta .imgu, .listupd .bs .bsx, .listo .bs .bsx"
 
     override fun searchMangaFromElement(element: Element) = SManga.create().apply {
-        thumbnail_url = element.select("img").imgAttr()
-        title = element.select("a").attr("title")
-        setUrlWithoutDomain(element.select("a").attr("href"))
-    }
+    // Ambil URL asli thumbnail dan arahkan melalui layanan resize
+    val originalThumbnailUrl = element.select("img").imgAttr()
+    thumbnail_url = "https://resize.sardo.work/?width=300&quality=75&imageUrl=$originalThumbnailUrl"
+
+    title = element.select("a").attr("title")
+    setUrlWithoutDomain(element.select("a").attr("href"))
+}
 
     override fun searchMangaNextPageSelector() = "div.pagination .next, div.hpage .r"
 
