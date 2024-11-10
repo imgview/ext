@@ -28,7 +28,7 @@ class NgomikID : MangaThemesia(
     private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
 
     private fun getPrefCustomUA(): String {
-        return preferences.getString("custom_ua", "Default User-Agent") ?: "Default User-Agent"
+        return preferences.getString("custom_ua")
     }
 
     private fun getResizeServiceUrl(): String {
