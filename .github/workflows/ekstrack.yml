@@ -1,0 +1,20 @@
+name: Unpack Folder to Specific Location with Folder Structure
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  unpack:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install unzip (if needed)
+        run: sudo apt-get install unzip -y
+
+      - name: Unpack to tachi/id/kiryuu/
+        run: unzip path/to/your-folder.zip -d tachi/id/kiryuu/
