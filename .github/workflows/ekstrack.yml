@@ -19,4 +19,4 @@ jobs:
         run: sudo apt-get install unzip -y
 
       - name: Unpack to tachi/id/kiryuu/
-        run: unzip ext/ngomikid.zip -d ext/id/ngomikid/
+        run: unzip ngomikid.zip -d ext/id/ngomikid/
