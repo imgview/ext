@@ -3,7 +3,6 @@ package eu.kanade.tachiyomi.extension.id.kiryuu
 import android.app.Application
 import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceScreen
-import eu.kanade.tachiyomi.lib.domain.Domain
 import eu.kanade.tachiyomi.multisrc.mangathemesia.MangaThemesia
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.interceptor.rateLimit
@@ -28,28 +27,28 @@ class Kiryuu : MangaThemesia(
 
     private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
 
-    private fun getPrefCustomUA(): String {
-        return preferences.getString("custom_ua", "Default User-Agent") ?: "Default User-Agent"
+    private fun getPrefCustomUA(): String? {
+        return preferences.getString("custom_ua", null)
     }
 
-    private fun getResizeServiceUrl(): String {
-        return preferences.getString("resize_service_url", "https://resize.sardo.work/?width=300&quality=75&imageUrl=") ?: "https://resize.sardo.work/?width=300&quality=75&imageUrl="
+    private fun getResizeServiceUrl(): String? {
+        return preferences.getString("resize_service_url", null)
     }
 
-    override var baseUrl = preferences.getString(BASE_URL_PREF, "https://kiryuu.org")!!
+    override var baseUrl = preferences.getString(BASE_URL_PREF, super.baseUrl)!!
 
     override val client = super.client.newBuilder()
         .addInterceptor { chain ->
             val original = chain.request()
             val requestBuilder = original.newBuilder()
-                .header("User-Agent", getPrefCustomUA())
+                .header("User-Agent", getPrefCustomUA() ?: "Default User-Agent")
             chain.proceed(requestBuilder.build())
         }
-        .rateLimit(4)
+        .rateLimit(10)
         .build()
 
     override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
-        title = document.selectFirst(seriesThumbnailSelector)!!.attr("alt")
+        title = document.selectFirst(seriesThumbnailSelector)!!.attr("title")
     }
 
     override fun pageListParse(document: Document): List<Page> {
@@ -62,7 +61,7 @@ class Kiryuu : MangaThemesia(
         // Menggunakan URL resize
         val resizeServiceUrl = getResizeServiceUrl()
         return imageUrls.mapIndexed { index, imageUrl -> 
-            Page(index, document.location(), "$resizeServiceUrl$imageUrl")
+            Page(index, document.location(), "${resizeServiceUrl ?: ""}$imageUrl")
         }
     }
 
@@ -71,15 +70,17 @@ class Kiryuu : MangaThemesia(
             key = "custom_ua"
             title = "Custom User-Agent"
             summary = "Masukkan custom User-Agent Anda di sini."
-            setDefaultValue("Default User-Agent")
+            setDefaultValue(null)
+            dialogTitle = "Custom User-Agent"
         }
+
         screen.addPreference(customUserAgentPref)
 
         val resizeServicePref = EditTextPreference(screen.context).apply {
             key = "resize_service_url"
             title = "Resize Service URL"
             summary = "Masukkan URL layanan resize gambar."
-            setDefaultValue("https://resize.sardo.work/?width=300&quality=75&imageUrl=")
+            setDefaultValue(null)
             dialogTitle = "Resize Service URL"
         }
         screen.addPreference(resizeServicePref)
