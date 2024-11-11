@@ -41,15 +41,17 @@ class ManhwaIndo : MangaThemesia(
         
     override fun searchMangaFromElement(element: Element) = super.searchMangaFromElement(element).apply {
     val imgUrl = element.selectFirst("img")?.attr("data-lazy-src")
-    thumbnail_url = if (imgUrl != null) "https://resize.sardo.work/?width=50&quality=25&imageUrl=$imgUrl" else null
+    val modifiedImgUrl = imgUrl?.replace("https:///i1.wp.com", "https://") // Mengganti URL
+    thumbnail_url = if (modifiedImgUrl != null) "https://resize.sardo.work/?width=50&quality=25&imageUrl=$modifiedImgUrl" else null
     title = element.select("a").attr("title")
     setUrlWithoutDomain(element.select("a").attr("href"))
 }
 
-    override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
+override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
     title = document.selectFirst(super.seriesThumbnailSelector)!!.attr("title")
-         val imgUrl = document.selectFirst(super.seriesThumbnailSelector)?.selectFirst("div.thumb img")?.attr("data-lazy-src")
-    thumbnail_url = if (imgUrl != null) "https://resize.sardo.work/?width=100&quality=25&imageUrl=$imgUrl" else null
+    val imgUrl = document.selectFirst(super.seriesThumbnailSelector)?.selectFirst("div.thumb img")?.attr("data-lazy-src")
+    val modifiedImgUrl = imgUrl?.replace("https:///i1.wp.com", "https://") // Mengganti URL
+    thumbnail_url = if (modifiedImgUrl != null) "https://resize.sardo.work/?width=100&quality=25&imageUrl=$modifiedImgUrl" else null
 }
 
     override fun pageListParse(document: Document): List<Page> {
