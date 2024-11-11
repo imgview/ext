@@ -37,11 +37,15 @@ class ManhwaIndo : MangaThemesia(
         .rateLimit(10)
         .build()
         
-    override val seriesThumbnailSelector = ".infomanga > div[itemprop=image] img, .thumb img"
+    override fun searchMangaFromElement(element: Element) = super.searchMangaFromElement(element).apply {
+    thumbnail_url = element.select("img").attr("src")
+    title = element.select("a").attr("title")
+    setUrlWithoutDomain(element.select("a").attr("href"))
+}
 
     override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
     title = document.selectFirst(super.seriesThumbnailSelector)!!.attr("title")
-    thumbnail_url = document.selectFirst(super.seriesThumbnailSelector)?.selectFirst("img")?.attr("data-cfsrc")
+    thumbnail_url = document.selectFirst(super.seriesThumbnailSelector)?.selectFirst("img")?.attr("src")
 }
 
     override fun pageListParse(document: Document): List<Page> {
