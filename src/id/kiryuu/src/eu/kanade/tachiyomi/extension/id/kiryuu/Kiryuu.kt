@@ -27,10 +27,6 @@ class Kiryuu : MangaThemesia(
 
     private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
 
-    private fun getPrefCustomUA(): String? {
-        return preferences.getString("custom_ua", null)
-    }
-
     private fun getResizeServiceUrl(): String? {
         return preferences.getString("resize_service_url", null)
     }
@@ -38,14 +34,8 @@ class Kiryuu : MangaThemesia(
     override var baseUrl = preferences.getString(BASE_URL_PREF, super.baseUrl)!!
 
     override val client = super.client.newBuilder()
-    .addInterceptor { chain ->
-        val original = chain.request()
-        val requestBuilder = original.newBuilder()
-            .header("User-Agent", getPrefCustomUA() ?: "Mozilla/5.0 (X11; U; Linux i686; zh-CN; rv:1.2.3.4) Gecko/")
-        chain.proceed(requestBuilder.build())
-    }
-    .rateLimit(10)
-    .build()
+        .rateLimit(10)
+        .build()
 
     override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
         title = document.selectFirst(seriesThumbnailSelector)!!.attr("title")
@@ -66,16 +56,6 @@ class Kiryuu : MangaThemesia(
     }
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
-        val customUserAgentPref = EditTextPreference(screen.context).apply {
-            key = "custom_ua"
-            title = "Custom User-Agent"
-            summary = "Masukkan custom User-Agent Anda di sini."
-            setDefaultValue(null)
-            dialogTitle = "Custom User-Agent"
-        }
-
-        screen.addPreference(customUserAgentPref)
-
         val resizeServicePref = EditTextPreference(screen.context).apply {
             key = "resize_service_url"
             title = "Resize Service URL"
