@@ -41,7 +41,7 @@ class ManhwaIndo : MangaThemesia(
 
     override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
     title = document.selectFirst(super.seriesThumbnailSelector)!!.attr("title")
-    thumbnail_url = document.selectFirst(super.seriesThumbnailSelector)?.selectFirst("img")?.attr("src")
+    thumbnail_url = document.selectFirst(super.seriesThumbnailSelector)?.selectFirst("img")?.attr("data-cfsrc")
 }
 
     override fun pageListParse(document: Document): List<Page> {
