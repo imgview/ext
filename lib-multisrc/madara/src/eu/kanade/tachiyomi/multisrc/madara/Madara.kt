@@ -565,37 +565,34 @@ abstract class Madara(
     }
 
     override fun searchMangaParse(response: Response): MangasPage {
-    val document = response.asJsoup()
+        val document = response.asJsoup()
 
-    val entries = document.select(searchMangaSelector())
-        .map(::searchMangaFromElement)
-    val hasNextPage = searchMangaNextPageSelector()?.let { document.selectFirst(it) } != null
+        val entries = document.select(searchMangaSelector())
+            .map(::searchMangaFromElement)
+        val hasNextPage = searchMangaNextPageSelector()?.let { document.selectFirst(it) } != null
 
-    detectLoadMore(document)
+        detectLoadMore(document)
 
-    return MangasPage(entries, hasNextPage)
-}
-
-override fun searchMangaSelector() = "div.c-tabs-item__content"
-
-override fun searchMangaFromElement(element: Element): SManga {
-    val manga = SManga.create()
-
-    with(element) {
-        selectFirst("div.post-title a")!!.let {
-            manga.setUrlWithoutDomain(it.attr("abs:href"))
-            manga.title = it.ownText()
-        }
-        selectFirst("img")?.let {
-            val originalUrl = imageFromElement(it) // Mendapatkan URL asli
-            manga.thumbnail_url = originalUrl?.let { url ->
-                "https://resize.sardo.work/?width=30&quality=10&imageUrl=$url" // Menggunakan layanan resize Sardo
-            }
-        }
+        return MangasPage(entries, hasNextPage)
     }
 
-    return manga
-}
+    override fun searchMangaSelector() = "div.c-tabs-item__content"
+
+    override fun searchMangaFromElement(element: Element): SManga {
+        val manga = SManga.create()
+
+        with(element) {
+            selectFirst("div.post-title a")!!.let {
+                manga.setUrlWithoutDomain(it.attr("abs:href"))
+                manga.title = it.ownText()
+            }
+            selectFirst("img")?.let {
+                manga.thumbnail_url = imageFromElement(it)
+            }
+        }
+
+        return manga
+    }
 
     override fun searchMangaNextPageSelector() = popularMangaNextPageSelector()
 
