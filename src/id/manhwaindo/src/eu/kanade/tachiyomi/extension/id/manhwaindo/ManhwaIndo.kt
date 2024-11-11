@@ -12,6 +12,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import okhttp3.Request
 import org.jsoup.nodes.Document
+import org.jsoup.nodes.Element
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.text.SimpleDateFormat
