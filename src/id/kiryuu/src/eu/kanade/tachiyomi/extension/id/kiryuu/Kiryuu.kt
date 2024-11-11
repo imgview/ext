@@ -38,14 +38,14 @@ class Kiryuu : MangaThemesia(
     override var baseUrl = preferences.getString(BASE_URL_PREF, super.baseUrl)!!
 
     override val client = super.client.newBuilder()
-        .addInterceptor { chain ->
-            val original = chain.request()
-            val requestBuilder = original.newBuilder()
-                .header("User-Agent", getPrefCustomUA() ?: "Default User-Agent")
-            chain.proceed(requestBuilder.build())
-        }
-        .rateLimit(10)
-        .build()
+    .addInterceptor { chain ->
+        val original = chain.request()
+        val requestBuilder = original.newBuilder()
+            .header("User-Agent", getPrefCustomUA() ?: "Mozilla/5.0 (X11; U; Linux i686; zh-CN; rv:1.2.3.4) Gecko/")
+        chain.proceed(requestBuilder.build())
+    }
+    .rateLimit(10)
+    .build()
 
     override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
         title = document.selectFirst(seriesThumbnailSelector)!!.attr("title")
