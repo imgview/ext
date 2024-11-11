@@ -586,9 +586,9 @@ abstract class Madara(
             manga.setUrlWithoutDomain(it.attr("abs:href"))
             manga.title = it.ownText()
         }
-        selectFirst("img")?.let {
-            val thumbnailUrl = it.absUrl("src")
-            manga.thumbnail_url = "https://resize.sardo.work/?width=300&quality=75&imageUrl=$thumbnailUrl"
+        selectFirst("img")?.let { imgElement ->
+            val originalUrl = imgElement.attr("abs:src") 
+            manga.thumbnail_url = "https://resize.sardo.work/?width=300&quality=75&imageUrl=$originalUrl"
         }
     }
 
