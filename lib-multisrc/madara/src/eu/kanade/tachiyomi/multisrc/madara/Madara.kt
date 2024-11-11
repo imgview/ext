@@ -565,34 +565,37 @@ abstract class Madara(
     }
 
     override fun searchMangaParse(response: Response): MangasPage {
-        val document = response.asJsoup()
+    val document = response.asJsoup()
 
-        val entries = document.select(searchMangaSelector())
-            .map(::searchMangaFromElement)
-        val hasNextPage = searchMangaNextPageSelector()?.let { document.selectFirst(it) } != null
+    val entries = document.select(searchMangaSelector())
+        .map(::searchMangaFromElement)
+    val hasNextPage = searchMangaNextPageSelector()?.let { document.selectFirst(it) } != null
 
-        detectLoadMore(document)
+    detectLoadMore(document)
 
-        return MangasPage(entries, hasNextPage)
-    }
+    return MangasPage(entries, hasNextPage)
+}
 
-    override fun searchMangaSelector() = "div.c-tabs-item__content"
+override fun searchMangaSelector() = "div.c-tabs-item__content"
 
-    override fun searchMangaFromElement(element: Element): SManga {
-        val manga = SManga.create()
+override fun searchMangaFromElement(element: Element): SManga {
+    val manga = SManga.create()
 
-        with(element) {
-            selectFirst("div.post-title a")!!.let {
-                manga.setUrlWithoutDomain(it.attr("abs:href"))
-                manga.title = it.ownText()
-            }
-            selectFirst("img")?.let {
-                manga.thumbnail_url = imageFromElement(it)
+    with(element) {
+        selectFirst("div.post-title a")!!.let {
+            manga.setUrlWithoutDomain(it.attr("abs:href"))
+            manga.title = it.ownText()
+        }
+        selectFirst("img")?.let {
+            val originalUrl = imageFromElement(it) // Mendapatkan URL asli
+            manga.thumbnail_url = originalUrl?.let { url ->
+                "https://resize.sardo.work/?width=30&quality=10&imageUrl=$url" // Menggunakan layanan resize Sardo
             }
         }
-
-        return manga
     }
+
+    return manga
+}
 
     override fun searchMangaNextPageSelector() = popularMangaNextPageSelector()
 
@@ -764,18 +767,14 @@ abstract class Madara(
     }
 
     protected open fun imageFromElement(element: Element): String? {
-    val originalUrl = when {
-        element.hasAttr("data-src") -> element.attr("abs:data-src")
-        element.hasAttr("data-lazy-src") -> element.attr("abs:data-lazy-src")
-        element.hasAttr("srcset") -> element.attr("abs:srcset").getSrcSetImage()
-        element.hasAttr("data-cfsrc") -> element.attr("abs:data-cfsrc")
-        else -> element.attr("abs:src")
+        return when {
+            element.hasAttr("data-src") -> element.attr("abs:data-src")
+            element.hasAttr("data-lazy-src") -> element.attr("abs:data-lazy-src")
+            element.hasAttr("srcset") -> element.attr("abs:srcset").getSrcSetImage()
+            element.hasAttr("data-cfsrc") -> element.attr("abs:data-cfsrc")
+            else -> element.attr("abs:src")
+        }
     }
-    
-    return originalUrl?.let {
-        "https://resize.sardo.work/?width=300&quality=75&imageUrl=$it"
-    }
-}
 
     /**
      *  Get the best image quality available from srcset
