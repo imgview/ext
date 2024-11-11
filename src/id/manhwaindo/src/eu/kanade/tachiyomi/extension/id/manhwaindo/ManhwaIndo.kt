@@ -36,6 +36,8 @@ class ManhwaIndo : MangaThemesia(
     override val client = super.client.newBuilder()
         .rateLimit(10)
         .build()
+        
+    override val seriesThumbnailSelector = ".infomanga > div[itemprop=image] img, .thumb img"
 
     override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
     title = document.selectFirst(super.seriesThumbnailSelector)!!.attr("title")
