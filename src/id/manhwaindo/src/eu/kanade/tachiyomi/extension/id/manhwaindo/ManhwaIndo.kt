@@ -40,14 +40,16 @@ class ManhwaIndo : MangaThemesia(
         .build()
         
     override fun searchMangaFromElement(element: Element) = super.searchMangaFromElement(element).apply {
-    thumbnail_url = element.selectFirst("img")?.attr("src")
+    val imgUrl = element.selectFirst("img")?.attr("data-lazy-src")
+    thumbnail_url = if (imgUrl != null) "https://resize.sardo.work/?width=50&quality=25&imageUrl=$imgUrl" else null
     title = element.select("a").attr("title")
     setUrlWithoutDomain(element.select("a").attr("href"))
 }
 
     override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
     title = document.selectFirst(super.seriesThumbnailSelector)!!.attr("title")
-    thumbnail_url = document.selectFirst(super.seriesThumbnailSelector)?.selectFirst("img")?.attr("src")
+         val imgUrl = document.selectFirst(super.seriesThumbnailSelector)?.selectFirst("div.thumb img")?.attr("data-lazy-src")
+    thumbnail_url = if (imgUrl != null) "https://resize.sardo.work/?width=100&quality=25&imageUrl=$imgUrl" else null
 }
 
     override fun pageListParse(document: Document): List<Page> {
