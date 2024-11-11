@@ -143,13 +143,10 @@ abstract class MangaThemesia(
     override fun searchMangaSelector() = ".utao .uta .imgu, .listupd .bs .bsx, .listo .bs .bsx"
 
     override fun searchMangaFromElement(element: Element) = SManga.create().apply {
-    // Ambil URL asli thumbnail dan arahkan melalui layanan resize
-    val originalThumbnailUrl = element.select("img").imgAttr()
-    thumbnail_url = "https://resize.sardo.work/?width=300&quality=75&imageUrl=$originalThumbnailUrl"
-
-    title = element.select("a").attr("title")
-    setUrlWithoutDomain(element.select("a").attr("href"))
-}
+        thumbnail_url = element.select("img").imgAttr()
+        title = element.select("a").attr("title")
+        setUrlWithoutDomain(element.select("a").attr("href"))
+    }
 
     override fun searchMangaNextPageSelector() = "div.pagination .next, div.hpage .r"
 
@@ -237,38 +234,39 @@ abstract class MangaThemesia(
         ),
     )
 
-    open val seriesThumbnailSelector = "div.thumb img"
-open val altNamePrefix = "${intl["alt_names_heading"]} "
+    open val seriesThumbnailSelector = ".infomanga > div[itemprop=image] img, .thumb img"
 
-override fun mangaDetailsParse(document: Document) = SManga.create().apply {
-    document.selectFirst(seriesDetailsSelector)?.let { seriesDetails ->
-        title = seriesDetails.selectFirst(seriesTitleSelector)!!.text()
-        artist = seriesDetails.selectFirst(seriesArtistSelector)?.ownText().removeEmptyPlaceholder()
-        author = seriesDetails.selectFirst(seriesAuthorSelector)?.ownText().removeEmptyPlaceholder()
-        description = seriesDetails.select(seriesDescriptionSelector).joinToString("\n") { it.text() }.trim()
-        
-        // Add alternative name to manga description
-        val altName = seriesDetails.selectFirst(seriesAltNameSelector)?.ownText().takeIf { it.isNullOrBlank().not() }
-        altName?.let {
-            description = "$description\n\n$altNamePrefix$altName".trim()
-        }
-        
-        val genres = seriesDetails.select(seriesGenreSelector).map { it.text() }.toMutableList()
-        // Add series type (manga/manhwa/manhua/other) to genre
-        seriesDetails.selectFirst(seriesTypeSelector)?.ownText().takeIf { it.isNullOrBlank().not() }?.let { genres.add(it) }
-        genre = genres.map { genre ->
-            genre.lowercase(Locale.forLanguageTag(lang)).replaceFirstChar { char ->
-                if (char.isLowerCase()) char.titlecase(Locale.forLanguageTag(lang)) else char.toString()
+    open val altNamePrefix = "${intl["alt_names_heading"]} "
+
+    override fun mangaDetailsParse(document: Document) = SManga.create().apply {
+        document.selectFirst(seriesDetailsSelector)?.let { seriesDetails ->
+            title = seriesDetails.selectFirst(seriesTitleSelector)!!.text()
+            artist = seriesDetails.selectFirst(seriesArtistSelector)?.ownText().removeEmptyPlaceholder()
+            author = seriesDetails.selectFirst(seriesAuthorSelector)?.ownText().removeEmptyPlaceholder()
+            description = seriesDetails.select(seriesDescriptionSelector).joinToString("\n") { it.text() }.trim()
+            // Add alternative name to manga description
+            val altName = seriesDetails.selectFirst(seriesAltNameSelector)?.ownText().takeIf { it.isNullOrBlank().not() }
+            altName?.let {
+                description = "$description\n\n$altNamePrefix$altName".trim()
             }
-        }.joinToString { it.trim() }
+            val genres = seriesDetails.select(seriesGenreSelector).map { it.text() }.toMutableList()
+            // Add series type (manga/manhwa/manhua/other) to genre
+            seriesDetails.selectFirst(seriesTypeSelector)?.ownText().takeIf { it.isNullOrBlank().not() }?.let { genres.add(it) }
+            genre = genres.map { genre ->
+                genre.lowercase(Locale.forLanguageTag(lang)).replaceFirstChar { char ->
+                    if (char.isLowerCase()) {
+                        char.titlecase(Locale.forLanguageTag(lang))
+                    } else {
+                        char.toString()
+                    }
+                }
+            }
+                .joinToString { it.trim() }
 
-        status = seriesDetails.selectFirst(seriesStatusSelector)?.text().parseStatus()
-
-        // Gunakan layanan resize untuk URL thumbnail
-        val originalThumbnailUrl = seriesDetails.select(seriesThumbnailSelector).imgAttr()
-        thumbnail_url = "https://resize.sardo.work/?width=300&quality=75&imageUrl=$originalThumbnailUrl"
+            status = seriesDetails.selectFirst(seriesStatusSelector)?.text().parseStatus()
+            thumbnail_url = seriesDetails.select(seriesThumbnailSelector).imgAttr()
+        }
     }
-}
 
     protected fun String?.removeEmptyPlaceholder(): String? {
         return if (this.isNullOrBlank() || this == "-" || this == "N/A" || this == "n/a") null else this
@@ -615,9 +613,9 @@ override fun mangaDetailsParse(document: Document) = SManga.create().apply {
     }
 
     protected open fun Element.imgAttr(): String = when {
-        hasAttr("src") -> attr("abs:src")
-        hasAttr("src") -> attr("abs:src")
-        hasAttr("src") -> attr("abs:src")
+        hasAttr("data-lazy-src") -> attr("abs:data-lazy-src")
+        hasAttr("data-src") -> attr("abs:data-src")
+        hasAttr("data-cfsrc") -> attr("abs:data-cfsrc")
         else -> attr("abs:src")
     }
 
