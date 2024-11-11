@@ -13,6 +13,7 @@ import kotlinx.serialization.decodeFromString
 import okhttp3.Request
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
+import org.jsoup.select.Elements
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.text.SimpleDateFormat
@@ -39,14 +40,14 @@ class ManhwaIndo : MangaThemesia(
         .build()
         
     override fun searchMangaFromElement(element: Element) = super.searchMangaFromElement(element).apply {
-    thumbnail_url = element.select("img").attr("src")
+    thumbnail_url = element.selectFirst("img")?.attr("src")
     title = element.select("a").attr("title")
     setUrlWithoutDomain(element.select("a").attr("href"))
 }
 
     override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
     title = document.selectFirst(super.seriesThumbnailSelector)!!.attr("title")
-    thumbnail_url = document.selectFirst(super.seriesThumbnailSelector)?.selectFirst("img")?.attr("data-cfsrc")
+    thumbnail_url = document.selectFirst(super.seriesThumbnailSelector)?.selectFirst("img")?.attr("src")
 }
 
     override fun pageListParse(document: Document): List<Page> {
