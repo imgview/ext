@@ -579,21 +579,20 @@ abstract class Madara(
     override fun searchMangaSelector() = "div.c-tabs-item__content"
 
     override fun searchMangaFromElement(element: Element): SManga {
-    val manga = SManga.create()
+        val manga = SManga.create()
 
-    with(element) {
-        selectFirst("div.post-title a")!!.let {
-            manga.setUrlWithoutDomain(it.attr("abs:href"))
-            manga.title = it.ownText()
+        with(element) {
+            selectFirst("div.post-title a")!!.let {
+                manga.setUrlWithoutDomain(it.attr("abs:href"))
+                manga.title = it.ownText()
+            }
+            selectFirst("img")?.let {
+                manga.thumbnail_url = imageFromElement(it)
+            }
         }
-        selectFirst("img")?.let { imgElement ->
-            val originalUrl = imgElement.attr("abs:src") 
-            manga.thumbnail_url = "https://resize.sardo.work/?width=300&quality=75&imageUrl=$originalUrl"
-        }
+
+        return manga
     }
-
-    return manga
-}
 
     override fun searchMangaNextPageSelector() = popularMangaNextPageSelector()
 
@@ -765,14 +764,18 @@ abstract class Madara(
     }
 
     protected open fun imageFromElement(element: Element): String? {
-        return when {
-            element.hasAttr("data-src") -> element.attr("abs:data-src")
-            element.hasAttr("data-lazy-src") -> element.attr("abs:data-lazy-src")
-            element.hasAttr("srcset") -> element.attr("abs:srcset").getSrcSetImage()
-            element.hasAttr("data-cfsrc") -> element.attr("abs:data-cfsrc")
-            else -> element.attr("abs:src")
-        }
+    val originalUrl = when {
+        element.hasAttr("data-src") -> element.attr("abs:data-src")
+        element.hasAttr("data-lazy-src") -> element.attr("abs:data-lazy-src")
+        element.hasAttr("srcset") -> element.attr("abs:srcset").getSrcSetImage()
+        element.hasAttr("data-cfsrc") -> element.attr("abs:data-cfsrc")
+        else -> element.attr("abs:src")
     }
+    
+    return originalUrl?.let {
+        "https://resize.sardo.work/?width=300&quality=75&imageUrl=$it"
+    }
+}
 
     /**
      *  Get the best image quality available from srcset
