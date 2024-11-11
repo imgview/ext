@@ -21,7 +21,7 @@ class ManhwaIndo : MangaThemesia(
     "ManhwaIndo",
     "https://www.manhwaindo.st",
     "id",
-    "/manga",
+    "/series",
     dateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale("id"))
 ), ConfigurableSource {
 
@@ -39,7 +39,7 @@ class ManhwaIndo : MangaThemesia(
 
     override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
     title = document.selectFirst(super.seriesThumbnailSelector)!!.attr("title")
-    thumbnail_url = document.selectFirst(super.seriesThumbnailSelector)!!.attr("img")
+    thumbnail_url = seriesDetails.select(super.seriesThumbnailSelector).imgAttr()
 }
 
     override fun pageListParse(document: Document): List<Page> {
