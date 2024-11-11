@@ -144,7 +144,7 @@ abstract class MangaThemesia(
 
     override fun searchMangaFromElement(element: Element) = SManga.create().apply {
     // Ambil URL asli thumbnail dan arahkan melalui layanan resize
-    val originalThumbnailUrl = element.select("div.thumb img").imgAttr()
+    val originalThumbnailUrl = element.select("img").imgAttr()
     thumbnail_url = "https://resize.sardo.work/?width=300&quality=75&imageUrl=$originalThumbnailUrl"
 
     title = element.select("a").attr("title")
@@ -237,7 +237,7 @@ abstract class MangaThemesia(
         ),
     )
 
-    open val seriesThumbnailSelector = "img"
+    open val seriesThumbnailSelector = "div.thumb img"
 open val altNamePrefix = "${intl["alt_names_heading"]} "
 
 override fun mangaDetailsParse(document: Document) = SManga.create().apply {
