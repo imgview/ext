@@ -579,20 +579,21 @@ abstract class Madara(
     override fun searchMangaSelector() = "div.c-tabs-item__content"
 
     override fun searchMangaFromElement(element: Element): SManga {
-        val manga = SManga.create()
+    val manga = SManga.create()
 
-        with(element) {
-            selectFirst("div.post-title a")!!.let {
-                manga.setUrlWithoutDomain(it.attr("abs:href"))
-                manga.title = it.ownText()
-            }
-            selectFirst("img")?.let {
-                manga.thumbnail_url = imageFromElement(it)
-            }
+    with(element) {
+        selectFirst("div.post-title a")!!.let {
+            manga.setUrlWithoutDomain(it.attr("abs:href"))
+            manga.title = it.ownText()
         }
-
-        return manga
+        selectFirst("img")?.let {
+            val thumbnailUrl = it.absUrl("src")
+            manga.thumbnail_url = "https://resize.sardo.work/?width=300&quality=75&imageUrl=$thumbnailUrl"
+        }
     }
+
+    return manga
+}
 
     override fun searchMangaNextPageSelector() = popularMangaNextPageSelector()
 
