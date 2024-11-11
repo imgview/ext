@@ -79,13 +79,14 @@ class Shinigami : Madara("Shinigami", "https://shinigami06.com", "id"), Configur
     private fun getImageResizeService(): String = preferences.getString(IMAGE_RESIZE_SERVICE_PREF, DEFAULT_IMAGE_RESIZE_SERVICE)!!
 
     override fun headersBuilder() = super.headersBuilder().apply {
-        add("User-Agent", getPrefUserAgent())
-        add("Sec-Fetch-Dest", "document")
-        add("Sec-Fetch-Mode", "navigate")
-        add("Sec-Fetch-Site", "same-origin")
-        add("Upgrade-Insecure-Requests", "1")
-        add("X-Requested-With", randomString((1..20).random()))
-    }
+    add("Accept", "application/json")
+    add("User-Agent", "okhttp/3.14.9")
+    add("Sec-Fetch-Dest", "document")
+    add("Sec-Fetch-Mode", "navigate")
+    add("Sec-Fetch-Site", "same-origin")
+    add("Upgrade-Insecure-Requests", "1")
+    add("X-Requested-With", randomString((1..20).random()))
+}
     
     override val client = network.cloudflareClient.newBuilder()
         .addInterceptor { chain ->
