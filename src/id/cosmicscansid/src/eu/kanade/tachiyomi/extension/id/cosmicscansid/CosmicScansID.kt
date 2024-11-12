@@ -3,7 +3,7 @@ package eu.kanade.tachiyomi.extension.id.cosmicscansid
 import android.app.Application
 import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceScreen
-import eu.kanade.tachiyomi.multisrc.madara.Madara
+import eu.kanade.tachiyomi.multisrc.mangathemesia.MangaThemesia
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.interceptor.rateLimit
 import eu.kanade.tachiyomi.source.ConfigurableSource
@@ -20,8 +20,8 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 
 class CosmicScansID : MangaThemesia(
-    "Cosmic",
-    "https://Cosmic345.co",
+    "ManhwaIndo",
+    "https://cosmic345.co",
     "id",
     "/manga",
     dateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale("id"))
@@ -38,10 +38,10 @@ class CosmicScansID : MangaThemesia(
     override val client = super.client.newBuilder()
         .rateLimit(10)
         .build()
-        
+
     override fun searchMangaFromElement(element: Element) = super.searchMangaFromElement(element).apply {
     val imgUrl = element.selectFirst("img")?.attr("data-lazy-src")
-    val modifiedImgUrl = imgUrl?.replace("https:///i1.wp.com", "https://") // Mengganti URL
+    val modifiedImgUrl = imgUrl?.replace("https:///i1.wp.com/", "https://") // Mengganti URL
     thumbnail_url = if (modifiedImgUrl != null) "https://resize.sardo.work/?width=50&quality=25&imageUrl=$modifiedImgUrl" else null
     title = element.select("a").attr("title")
     setUrlWithoutDomain(element.select("a").attr("href"))
@@ -50,7 +50,7 @@ class CosmicScansID : MangaThemesia(
 override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
     title = document.selectFirst(super.seriesThumbnailSelector)!!.attr("title")
     val imgUrl = document.selectFirst(super.seriesThumbnailSelector)?.selectFirst("div.thumb img")?.attr("data-lazy-src")
-    val modifiedImgUrl = imgUrl?.replace("https:///i1.wp.com", "https://") // Mengganti URL
+    val modifiedImgUrl = imgUrl?.replace("https:///i1.wp.com/", "https://") // Mengganti URL
     thumbnail_url = if (modifiedImgUrl != null) "https://resize.sardo.work/?width=100&quality=25&imageUrl=$modifiedImgUrl" else null
 }
 
