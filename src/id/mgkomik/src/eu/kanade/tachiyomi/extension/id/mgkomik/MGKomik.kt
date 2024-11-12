@@ -13,7 +13,7 @@ import kotlinx.serialization.decodeFromString
 import org.jsoup.nodes.Document
 import uy.kohesive.injekt.Injekt
 import okhttp3.Request
-import okhttp3.Request.Builder.GET
+import eu.kanade.tachiyomi.network.GET
 import uy.kohesive.injekt.api.get
 import java.text.SimpleDateFormat
 import java.util.Locale
