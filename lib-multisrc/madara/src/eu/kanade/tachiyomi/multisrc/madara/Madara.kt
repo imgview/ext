@@ -763,7 +763,7 @@ abstract class Madara(
         return this.lowercase() in array.map { it.lowercase() }
     }
 
-        protected open fun imageFromElement(element: Element): String? {
+    protected open fun imageFromElement(element: Element): String? {
     return when {
         element.hasAttr("data-src") -> element.attr("abs:data-src")
         element.hasAttr("data-lazy-src") -> element.attr("abs:data-lazy-src")
