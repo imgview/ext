@@ -3,9 +3,7 @@ package eu.kanade.tachiyomi.extension.id.mgkomik
 import eu.kanade.tachiyomi.multisrc.madara.Madara
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.interceptor.rateLimit
-import eu.kanade.tachiyomi.source.model.Page
 import okhttp3.Request
-import org.jsoup.nodes.Document
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -52,16 +50,6 @@ class MGKomik : Madara(
         }
 
     override val chapterUrlSuffix = ""
-
-    override fun pageListParse(document: Document): List<Page> {
-        // Mengambil elemen <img> pertama dalam dokumen
-        val firstImage = document.selectFirst("img")
-            ?: throw Exception("Gambar tidak ditemukan")
-
-        // Membuat satu Page dari elemen <img> pertama
-        val imageUrl = firstImage.attr("src")
-        return listOf(Page(0, "", imageUrl))
-    }
 
     private fun randomString(length: Int): String {
         val charPool = ('a'..'z') + ('A'..'Z') + ('.')
