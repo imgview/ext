@@ -763,24 +763,25 @@ abstract class Madara(
         return this.lowercase() in array.map { it.lowercase() }
     }
 
-        protected open fun imageFromElement(element: Element): String? {
-        return when {
-            element.hasAttr("data-src") -> element.attr("abs:data-src")
-            element.hasAttr("data-lazy-src") -> element.attr("abs:data-lazy-src")
-            element.hasAttr("srcset") -> element.attr("abs:srcset").getSrcSetImage()
-            element.hasAttr("data-cfsrc") -> element.attr("abs:data-cfsrc")
-            else -> element.attr("abs:src")
-        }
+    protected open fun imageFromElement(element: Element): String? {
+    return when {
+        element.hasAttr("data-src") -> element.attr("abs:data-src")
+        element.hasAttr("data-lazy-src") -> element.attr("abs:data-lazy-src")
+        element.hasAttr("data-srcset") -> element.attr("abs:data-srcset").getSpecificSrcSetImage("110w") // Memanggil fungsi untuk target 110w
+        element.hasAttr("data-cfsrc") -> element.attr("abs:data-cfsrc")
+        else -> element.attr("abs:src")
     }
+}
 
-    /**
-     *  Get the best image quality available from srcset
-     */
-    private fun String.getSrcSetImage(): String? {
-        return this.split(" ")
-            .filter(URL_REGEX::matches)
-            .maxOfOrNull(String::toString)
-    }
+/**
+ * Get the image with a specific width from data-srcset
+ */
+private fun String.getSpecificSrcSetImage(targetWidth: String): String? {
+    // Memisahkan data-srcset menjadi daftar URL dan ukuran
+    return this.split(", ")
+        .find { it.contains(targetWidth) } // Mencari elemen yang mengandung targetWidth
+        ?.split(" ")?.firstOrNull() // Mengambil URL dari pasangan "URL ukuran"
+}
 
     /**
      * Set it to true if the source uses the new AJAX endpoint to
