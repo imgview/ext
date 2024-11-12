@@ -173,7 +173,7 @@ class Shinigami : Madara("Shinigami", "https://shinigami07.com", "id"), Configur
         // New constants for image proxy
         private const val IMAGE_PROXY_URL_PREF_TITLE = "Ubah Image Proxy"
         private const val IMAGE_PROXY_URL_PREF = "imageProxyUrl"
-        private const val IMAGE_PROXY_URL_PREF_SUMMARY = "URL proxy untuk gambar (harus mencakup parameter lengkap). Contoh: https://resize.sardo.work/?width=300&quality=75&imageUrl="
-        private const val DEFAULT_IMAGE_PROXY_URL = "https://resize.sardo.work/?width=300&quality=75&imageUrl="
+        private const val IMAGE_PROXY_URL_PREF_SUMMARY = "URL Resize"
+        private const val DEFAULT_IMAGE_PROXY_URL = ""
     }
 }
