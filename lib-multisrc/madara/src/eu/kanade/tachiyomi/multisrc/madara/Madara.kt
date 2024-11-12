@@ -1117,7 +1117,8 @@ private fun String.getSpecificSrcSetImage(targetWidth: String): String? {
     companion object {
     const val URL_SEARCH_PREFIX = "slug:"
     val URL_REGEX = """https?://[^\s]+""".toRegex() // Regex lebih fleksibel
-}
+        }
+    }
 
 class WordSet(private vararg val words: String) {
     fun anyWordIn(dateString: String): Boolean = words.any { dateString.contains(it, ignoreCase = true) }
