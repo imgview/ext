@@ -6,13 +6,14 @@ import android.util.Base64
 import android.widget.Toast
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.lib.cryptoaes.CryptoAES
-import eu.kanade.tachiyomi.lib.synchrony.Deobfuscator
 import eu.kanade.tachiyomi.multisrc.madara.Madara
 import eu.kanade.tachiyomi.network.interceptor.rateLimit
 import eu.kanade.tachiyomi.source.model.Page
 import kotlinx.serialization.decodeFromString
 import org.jsoup.nodes.Document
 import uy.kohesive.injekt.Injekt
+import okhttp3.Request
+import okhttp3.Request.Builder.GET
 import uy.kohesive.injekt.api.get
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -36,7 +37,7 @@ class MGKomik : Madara(
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
         // Base URL preference for main domain
-        val baseUrlPref = androidx.preference.EditTextPreference(screen.context).apply {
+        val baseUrlPref = EditTextPreference(screen.context).apply {
             key = BASE_URL_PREF
             title = BASE_URL_PREF_TITLE
             summary = BASE_URL_PREF_SUMMARY
@@ -52,7 +53,7 @@ class MGKomik : Madara(
         screen.addPreference(baseUrlPref)
 
         // Image proxy URL preference
-        val imageProxyUrlPref = androidx.preference.EditTextPreference(screen.context).apply {
+        val imageProxyUrlPref = EditTextPreference(screen.context).apply {
             key = IMAGE_PROXY_URL_PREF
             title = IMAGE_PROXY_URL_PREF_TITLE
             summary = IMAGE_PROXY_URL_PREF_SUMMARY
@@ -115,7 +116,7 @@ class MGKomik : Madara(
         val salt = chapterData.s.decodeHex()
 
         val unsaltedCiphertext = Base64.decode(chapterData.ct, Base64.DEFAULT)
-        val ciphertext = salted + salt + unsaltedCiphertext
+        val ciphertext = salted.plus(salt).plus(unsaltedCiphertext)
 
         // Mendekripsi ciphertext
         val decrypted = CryptoAES.decrypt(Base64.encodeToString(ciphertext, Base64.DEFAULT), key)
@@ -163,6 +164,12 @@ class MGKomik : Madara(
         }
 
     override val chapterUrlSuffix = ""
+    
+    @Serializable
+data class CDT(
+    val ct: String, // Ciphertext dari data chapter
+    val s: String   // Salt untuk dekripsi
+)
 
     companion object {
         private val KEY_REGEX by lazy { Regex("""_id\s+\+\s+'(.*?)'\s+\+\s+post_id\s+\+\s+'(.*?)'\s+\+\s+post_id""") }
