@@ -969,7 +969,7 @@ abstract class Madara(
 
         val chapterProtector = document.selectFirst(chapterProtectorSelector)
             ?: return document.select(pageListParseSelector).mapIndexed { index, element ->
-                val imageUrl = element.selectFirst("img")?.let { imageFromElement(it) }
+                val imageUrl = element.selectFirst("img")?.let { "https://resize.sardo.work/?width=300&quality=75&imageUrl=" + imageFromElement(it) }
                 Page(index, document.location(), imageUrl)
             }
         val chapterProtectorHtml = chapterProtector.attr("src")
