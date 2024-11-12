@@ -763,22 +763,23 @@ abstract class Madara(
         return this.lowercase() in array.map { it.lowercase() }
     }
 
-    protected open fun imageFromElement(element: Element): String? {
-    return when {
-        element.hasAttr("data-src") -> element.attr("abs:data-src")
-        element.hasAttr("data-lazy-src") -> element.attr("abs:data-lazy-src")
-        element.hasAttr("srcset") -> element.attr("abs:srcset").getSecondSrcSetImage()
-        element.hasAttr("data-cfsrc") -> element.attr("abs:data-cfsrc")
-        else -> element.attr("abs:src")
+        protected open fun imageFromElement(element: Element): String? {
+        return when {
+            element.hasAttr("data-src") -> element.attr("abs:data-src")
+            element.hasAttr("data-lazy-src") -> element.attr("abs:data-lazy-src")
+            element.hasAttr("srcset") -> element.attr("abs:srcset").getSrcSetImage()
+            element.hasAttr("data-cfsrc") -> element.attr("abs:data-cfsrc")
+            else -> element.attr("abs:src")
         }
     }
 
     /**
      *  Get the best image quality available from srcset
      */
-    private fun String.getSecondSrcSetImage(): String? {
-    val urls = this.split(",").map { it.trim() }  // Pisahkan URL berdasarkan koma
-    return if (urls.size > 1) urls[1].substringBefore(" ") else null // Ambil URL kedua saja
+    private fun String.getSrcSetImage(): String? {
+        return this.split(" ")
+            .filter(URL_REGEX::matches)
+            .maxOfOrNull(String::toString)
     }
 
     /**
