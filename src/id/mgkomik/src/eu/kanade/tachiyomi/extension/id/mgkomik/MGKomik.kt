@@ -11,14 +11,14 @@ import java.util.Locale
 
 class MGKomik : Madara(
     "MG Komik",
-    "https://mgkomik.id",
+    "https://aquamanga.net",
     "id",
     SimpleDateFormat("dd MMM yy", Locale.US),
 ) {
     override val useLoadMoreRequest = LoadMoreStrategy.Never
     override val useNewChapterEndpoint = false
 
-    override val mangaSubString = "komik"
+    override val mangaSubString = "manga"
 
     override fun headersBuilder() = super.headersBuilder().apply {
         add("Sec-Fetch-Dest", "document")
@@ -40,17 +40,18 @@ class MGKomik : Madara(
         .rateLimit(9, 2)
         .build()
         
-override fun searchMangaFromElement(element: Element): SManga {
-    // Buat objek SManga baru
-    val manga = SManga.create()
-    
-    val thumbnailUrl = element.select("img").attr("data-srcset")
-    manga.thumbnail_url = thumbnailUrl?.let { resizeImage(it) }
-
-    return manga
+    override fun searchMangaFromElement(element: Element): SManga {
+    return super.searchMangaFromElement(element).apply {
+        // Ambil URL gambar dari atribut data-srcset
+        val thumbnailUrl = element.select("img").attr("data-srcset")
+        
+        // Ubah thumbnail_url dengan layanan resize jika URL tersedia
+        thumbnail_url = thumbnailUrl?.let { resizeImage(it) }
+    }
 }
 
-    private fun resizeImage(imageUrl: String): String {
+// Fungsi resize untuk mengubah URL thumbnail
+private fun resizeImage(imageUrl: String): String {
     return "https://resize.sardo.work/?width=300&quality=75&imageUrl=$imageUrl"
 }
 
