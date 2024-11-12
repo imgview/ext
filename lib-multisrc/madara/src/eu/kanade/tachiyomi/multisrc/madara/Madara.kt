@@ -770,16 +770,16 @@ abstract class Madara(
         element.hasAttr("srcset") -> element.attr("abs:srcset").getSecondSrcSetImage()
         element.hasAttr("data-cfsrc") -> element.attr("abs:data-cfsrc")
         else -> element.attr("abs:src")
+        }
     }
-}
 
-/**
- *  Get the second image from srcset
- */
-private fun String.getSecondSrcSetImage(): String? {
+    /**
+     *  Get the best image quality available from srcset
+     */
+    private fun String.getSecondSrcSetImage(): String? {
     val urls = this.split(",").map { it.trim() }  // Pisahkan URL berdasarkan koma
     return if (urls.size > 1) urls[1].substringBefore(" ") else null // Ambil URL kedua saja
-}
+    }
 
     /**
      * Set it to true if the source uses the new AJAX endpoint to
