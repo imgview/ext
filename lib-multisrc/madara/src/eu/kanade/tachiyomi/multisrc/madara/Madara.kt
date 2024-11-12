@@ -764,23 +764,22 @@ abstract class Madara(
     }
 
     protected open fun imageFromElement(element: Element): String? {
-        return when {
-            element.hasAttr("data-src") -> element.attr("abs:data-src")
-            element.hasAttr("data-lazy-src") -> element.attr("abs:data-lazy-src")
-            element.hasAttr("srcset") -> element.attr("abs:srcset").getSrcSetImage()
-            element.hasAttr("data-cfsrc") -> element.attr("abs:data-cfsrc")
-            else -> element.attr("abs:src")
-        }
+    return when {
+        element.hasAttr("data-src") -> element.attr("abs:data-src")
+        element.hasAttr("data-lazy-src") -> element.attr("abs:data-lazy-src")
+        element.hasAttr("srcset") -> element.attr("abs:srcset").getSecondSrcSetImage()
+        element.hasAttr("data-cfsrc") -> element.attr("abs:data-cfsrc")
+        else -> element.attr("abs:src")
     }
+}
 
-    /**
-     *  Get the best image quality available from srcset
-     */
-    private fun String.getSrcSetImage(): String? {
-        return this.split(" ")
-            .filter(URL_REGEX::matches)
-            .maxOfOrNull(String::toString)
-    }
+/**
+ *  Get the second image from srcset
+ */
+private fun String.getSecondSrcSetImage(): String? {
+    val urls = this.split(",").map { it.trim() }  // Pisahkan URL berdasarkan koma
+    return if (urls.size > 1) urls[1].substringBefore(" ") else null // Ambil URL kedua saja
+}
 
     /**
      * Set it to true if the source uses the new AJAX endpoint to
@@ -964,7 +963,7 @@ abstract class Madara(
 
     open val chapterProtectorSelector = "#chapter-protector-data"
 
-    override fun pageListParse(document: Document): List<Page> {
+        override fun pageListParse(document: Document): List<Page> {
         launchIO { countViews(document) }
 
         val chapterProtector = document.selectFirst(chapterProtectorSelector)
