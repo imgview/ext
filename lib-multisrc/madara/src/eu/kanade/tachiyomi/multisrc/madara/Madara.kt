@@ -763,7 +763,7 @@ abstract class Madara(
         return this.lowercase() in array.map { it.lowercase() }
     }
 
-    protected open fun imageFromElement(element: Element): String? {
+        protected open fun imageFromElement(element: Element): String? {
     return when {
         element.hasAttr("data-src") -> element.attr("abs:data-src")
         element.hasAttr("data-lazy-src") -> element.attr("abs:data-lazy-src")
@@ -1115,9 +1115,8 @@ private fun String.getSpecificSrcSetImage(targetWidth: String): String? {
     protected fun launchIO(block: () -> Unit) = scope.launch { block() }
 
     companion object {
-        const val URL_SEARCH_PREFIX = "slug:"
-        val URL_REGEX = """^(https?://[^\s/$.?#].[^\s]*)${'$'}""".toRegex()
-    }
+    const val URL_SEARCH_PREFIX = "slug:"
+    val URL_REGEX = """https?://[^\s]+""".toRegex() // Regex lebih fleksibel
 }
 
 class WordSet(private vararg val words: String) {
