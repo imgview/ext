@@ -37,6 +37,21 @@ class MGKomik : Madara(
         }
         .rateLimit(9, 2)
         .build()
+        
+    override fun searchMangaFromElement(element: Element): SManga {
+    // Panggil metode induk untuk mendapatkan objek SManga awal
+    val manga = super.searchMangaFromElement(element)
+
+    // Ubah thumbnail_url dengan layanan resize
+    manga.thumbnail_url = manga.thumbnail_url?.let { resizeImage(it) }
+
+    return manga
+}
+
+// Fungsi resize untuk mengubah URL thumbnail
+private fun resizeImage(imageUrl: String): String {
+    return "https://resize.sardo.work/?width=300&quality=75&imageUrl=$imageUrl"
+}
 
     override fun popularMangaNextPageSelector() = ".wp-pagenavi span.current + a"
 
