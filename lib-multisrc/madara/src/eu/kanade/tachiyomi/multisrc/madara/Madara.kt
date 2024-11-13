@@ -765,22 +765,16 @@ abstract class Madara(
 
     protected open fun imageFromElement(element: Element): String? {
     return when {
-        element.hasAttr("data-src") -> wrapWithResizeService(element.attr("abs:data-src"))
+        element.hasAttr("data-src") -> element.attr("abs:data-src") // Tidak dibungkus dengan resize
         element.hasAttr("data-lazy-src") -> wrapWithResizeService(element.attr("abs:data-lazy-src"))
-        element.hasAttr("data-srcset") -> element.attr("abs:data-srcset").getSpecificSrcSetImage("110w")?.let { wrapWithResizeService(it) }
+        element.hasAttr("srcset") -> {
+            // Ambil URL pertama dari srcset dan wrap dengan resize service
+            val firstSrcsetUrl = element.attr("abs:srcset").split(", ").firstOrNull()?.split(" ")?.first()
+            wrapWithResizeService(firstSrcsetUrl ?: element.attr("abs:src"))
+        }
         element.hasAttr("data-cfsrc") -> wrapWithResizeService(element.attr("abs:data-cfsrc"))
         else -> wrapWithResizeService(element.attr("abs:src"))
     }
-}
-
-/**
- * Get the image with a specific width from data-srcset
- */
-private fun String.getSpecificSrcSetImage(targetWidth: String): String? {
-    // Memisahkan data-srcset menjadi daftar URL dan ukuran
-    return this.split(", ")
-        .find { it.contains(targetWidth) } // Mencari elemen yang mengandung targetWidth
-        ?.split(" ")?.firstOrNull() // Mengambil URL dari pasangan "URL ukuran"
 }
 
 /**
