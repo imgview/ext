@@ -63,7 +63,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ${{ github.event.inputs.lang }}-${{ github.event.inputs.extension }}
-          path: extracted_artifacts
+          path: apk
 
       - name: Commit and push APK to 'repo' branch
         run: |
