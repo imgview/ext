@@ -1,84 +1,60 @@
-name: Build single extension
+name: Build and Deploy APK
 
 on:
-  workflow_dispatch:
-    inputs:
-      lang:
-        description: Extension language (en, ar, es, pt...)
-        default: 'id'
-        required: false
-      extension:
-        description: Target extension name
-        required: true
-      git-repo:
-        description: Git repo (Optional, defaults to <your name>/aniyomi-extensions)
-        default: 'imgview/ext'
-        required: false
-      git-ref:
-        description: Git Ref (Optional, defaults to master)
-        default: 'main'
-        required: false
+  push:
+    branches:
+      - main
 
 env:
-  EXTPATH: ${{ github.event.inputs.lang }}/${{ github.event.inputs.extension }}
-  EXTSLUG: ${{ github.event.inputs.lang }}:${{ github.event.inputs.extension }}
-  REPO: ${{ github.event.inputs.git-repo }}
+  EXTPATH: id/komiku  # Path ekstensi
+  EXTSLUG: id-komiku  # Nama ekstensi, ini bisa dinamis
 
 jobs:
-  build-extension:
-    name: Build a single extension
+  build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Check inputs
-        run: |
-          set -e
-          if [[ -z "${{ env.REPO }}" ]]; then
-            echo "REPO=${{ github.repository_owner }}/aniyomi-extensions" >> $GITHUB_ENV
-          fi
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-      - name: Clone Repository (Latest)
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ env.REPO }}
-          fetch-depth: 0
-          ref: ${{ github.event.inputs.git-ref }}
+    - name: Build APK
+      run: ./gradlew -p src ${{ env.EXTSLUG }}:assembleDebug
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: 17
-          distribution: temurin
+    - name: Upload APK as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.EXTSLUG }}.zip  # Nama artefak sesuai EXTSLUG
+        path: src/${{ env.EXTPATH }}/build/outputs/apk/debug/*.apk
 
-      - name: Build APK
-        env:
-          CI: false
-        run: ./gradlew -p src ${{ env.EXTSLUG }}:assembleDebug
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
 
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: id-komiku
-          path: extracted_apk
+    steps:
+    - name: Checkout target branch
+      uses: actions/checkout@v4
+      with:
+        ref: target-branch  # Ganti dengan nama branch target Anda
 
-      - name: Verify extracted APK files
-        run: |
-          echo "List of extracted APK files:"
-          ls -la extracted_apk  # Verifikasi apakah file APK ada setelah ekstraksi
+    - name: Download artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: ${{ env.EXTSLUG }}.zip  # Nama artefak yang diunduh sesuai EXTSLUG
+        path: extracted_apk
 
-      - name: Checkout target branch (where the APK will be placed)
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ env.REPO }}
-          ref: ${{ github.event.inputs.git-ref }}  # Menggunakan git-ref yang sesuai dengan branch target
+    - name: List files in extracted_apk
+      run: ls -l extracted_apk  # Verifikasi apakah file zip ada
 
-      - name: Copy extracted APK to target branch
-        run: |
-          echo "Copying APK files to the target branch"
-          cp extracted_apk/*.apk .
-          ls -la  # Menampilkan isi direktori setelah copy APK
+    - name: Extract APK from ZIP
+      run: |
+        unzip extracted_apk/${{ env.EXTSLUG }}.zip -d extracted_apk
 
-      - name: Commit and push APK to target branch
-        run: |
-          git add *.apk
-          git commit -m "Add APK for ${{ github.event.inputs.lang }}-${{ github.event.inputs.extension }}"
-          git push origin ${{ github.event.inputs.git-ref }}  # Push ke branch yang sesuai dengan git-ref
+    - name: Copy APK to target branch
+      run: |
+        cp extracted_apk/*.apk .
+
+    - name: Commit and push APK to target branch
+      run: |
+        git add .
+        git commit -m "Add APK for ${{ github.event.inputs.lang }}-${{ github.event.inputs.extension }}"
+        git push origin repo
