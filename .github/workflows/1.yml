@@ -1,14 +1,24 @@
-name: Test Workflow
+name: Create Branch with README
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: # Memicu action secara manual
 
 jobs:
-  test-job:
+  create-branch:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
-        
-      - name: Echo "Hello, GitHub!"
-        run: echo "Hello, GitHub!"
+        uses: actions/checkout@v2
+
+      - name: Setup Git
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+      - name: Create new branch and add README
+        run: |
+          git checkout -b new-branch # Ganti 'new-branch' dengan nama branch yang diinginkan
+          echo "# Ini adalah README" > README.md
+          git add README.md
+          git commit -m "Add README.md to new branch"
+          git push origin new-branch
