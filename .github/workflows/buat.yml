@@ -54,40 +54,31 @@ jobs:
           CI: false
         run: ./gradlew -p src ${{ env.EXTSLUG }}:assembleDebug
 
-      - name: Zip the APK
-        run: |
-          cd src/${{ env.EXTPATH }}/build/outputs/apk/debug
-          zip -r ${{ github.event.inputs.lang }}-${{ github.event.inputs.extension }}.zip *.apk
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: "${{ github.event.inputs.lang }}-${{ github.event.inputs.extension }}"
-          path: "src/${{ env.EXTPATH }}/build/outputs/apk/debug/${{ github.event.inputs.lang }}-${{ github.event.inputs.extension }}.zip"
-          retention-days: 1
-
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: "${{ github.event.inputs.lang }}-${{ github.event.inputs.extension }}"
+          name: id-komiku
           path: extracted_apk
 
-      - name: Extract downloaded ZIP artifact
+      - name: Verify extracted APK files
         run: |
-          unzip extracted_apk/*.zip -d extracted_apk
+          echo "List of extracted APK files:"
+          ls -la extracted_apk  # Verifikasi apakah file APK ada setelah ekstraksi
 
-      - name: Checkout target branch (where the apk will be placed)
+      - name: Checkout target branch (where the APK will be placed)
         uses: actions/checkout@v4
         with:
           repository: ${{ env.REPO }}
-          ref: repo  # Ganti dengan nama branch tujuan tempat APK akan disalin
+          ref: ${{ github.event.inputs.git-ref }}  # Menggunakan git-ref yang sesuai dengan branch target
 
-      - name: Copy extracted APK to branch
+      - name: Copy extracted APK to target branch
         run: |
+          echo "Copying APK files to the target branch"
           cp extracted_apk/*.apk .
+          ls -la  # Menampilkan isi direktori setelah copy APK
 
-      - name: Commit and push extracted APK to target branch
+      - name: Commit and push APK to target branch
         run: |
           git add *.apk
           git commit -m "Add APK for ${{ github.event.inputs.lang }}-${{ github.event.inputs.extension }}"
-          git push origin target-branch  # Ganti dengan nama branch tujuan
+          git push origin ${{ github.event.inputs.git-ref }}  # Push ke branch yang sesuai dengan git-ref
