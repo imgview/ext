@@ -4,21 +4,19 @@ import eu.kanade.tachiyomi.multisrc.madara.Madara
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.interceptor.rateLimit
 import okhttp3.Request
-import org.jsoup.nodes.Element
-import eu.kanade.tachiyomi.source.model.SManga
 import java.text.SimpleDateFormat
 import java.util.Locale
 
 class MGKomik : Madara(
     "MG Komik",
-    "https://aquamanga.net",
+    "https://mgkomik.id",
     "id",
     SimpleDateFormat("dd MMM yy", Locale.US),
 ) {
     override val useLoadMoreRequest = LoadMoreStrategy.Never
     override val useNewChapterEndpoint = false
 
-    override val mangaSubString = "manga"
+    override val mangaSubString = "komik"
 
     override fun headersBuilder() = super.headersBuilder().apply {
         add("Sec-Fetch-Dest", "document")
@@ -39,14 +37,6 @@ class MGKomik : Madara(
         }
         .rateLimit(9, 2)
         .build()
-        
-    override fun searchMangaFromElement(element: Element) = super.searchMangaFromElement(element).apply {
-    val imgUrl = element.selectFirst("img")?.attr("data-srcset")
-    val modifiedImgUrl = imgUrl?.replace("https:///i1.wp.com", "https://") // Mengganti URL
-    thumbnail_url = if (modifiedImgUrl != null) "https://resize.sardo.work/?width=50&quality=25&imageUrl=$modifiedImgUrl" else null
-    title = element.select("a").attr("title")
-    setUrlWithoutDomain(element.select("a").attr("href"))
-}
 
     override fun popularMangaNextPageSelector() = ".wp-pagenavi span.current + a"
 
