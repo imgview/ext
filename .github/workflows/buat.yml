@@ -11,11 +11,11 @@ on:
         required: true
       git-repo:
         description: Git repo (Optional, defaults to <your name>/aniyomi-extensions)
-        default: 'imgview/ext'
+        default: ''
         required: false
       git-ref:
         description: Git Ref (Optional, defaults to master)
-        default: 'main'
+        default: 'master'
         required: false
 
 env:
@@ -63,16 +63,17 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ${{ github.event.inputs.lang }}-${{ github.event.inputs.extension }}
-          path: .
+          path: extracted_artifacts
 
-      - name: Unzip artifact to root
-        run: unzip '*.zip' -d .
+      - name: Unzip artifact
+        run: unzip 'extracted_artifacts/*.apk' -d unzipped_artifacts
 
       - name: Commit and push to 'repo' branch
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b repo
+          cp -r unzipped_artifacts/* .
           git add .
           git commit -m "Add unzipped artifacts to repo branch"
           git push -u origin repo
