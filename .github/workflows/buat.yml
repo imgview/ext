@@ -5,14 +5,13 @@ on:
     inputs:
       lang:
         description: Extension language (en, ar, es, pt...)
+        default: 'id'
         required: false
-        default: id
       extension:
         description: Target extension name
         required: true
-        default: komikindoid
       git-repo:
-        description: Git repo (Optional, defaults to <your name>/aniyomi-extensions
+        description: Git repo (Optional, defaults to <your name>/aniyomi-extensions)
         default: 'imgview/ext'
         required: false
       git-ref:
@@ -36,6 +35,7 @@ jobs:
           if [[ -z "${{ env.REPO }}" ]]; then
             echo "REPO=${{ github.repository_owner }}/aniyomi-extensions" >> $GITHUB_ENV
           fi
+
       - name: Clone Repository (Latest)
         uses: actions/checkout@v4
         with:
@@ -54,9 +54,28 @@ jobs:
           CI: false
         run: ./gradlew -p src ${{ env.EXTSLUG }}:assembleDebug
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+      - name: Zip the APK
+        run: |
+          cd src/${{ env.EXTPATH }}/build/outputs/apk/debug
+          zip -r ${{ github.event.inputs.lang }}-${{ github.event.inputs.extension }}.zip *.apk
+
+      - name: Checkout target branch (where the zip will be extracted)
+        uses: actions/checkout@v4
         with:
-          name: ${{github.event.inputs.lang}}-${{ github.event.inputs.extension }}
-          path: "src/${{ env.EXTPATH }}/build/outputs/apk/debug/*.apk"
-          retention-days: 1
+          repository: ${{ env.REPO }}
+          ref: 'repo'  # Ganti dengan nama branch tujuan tempat ekstraksi file zip
+
+      - name: Create directory for extracted APK files
+        run: mkdir -p extracted_apk
+
+      - name: Copy and Extract APK zip
+        run: |
+          cp src/${{ env.EXTPATH }}/build/outputs/apk/debug/${{ github.event.inputs.lang }}-${{ github.event.inputs.extension }}.zip extracted_apk/
+          cd extracted_apk
+          unzip ${{ github.event.inputs.lang }}-${{ github.event.inputs.extension }}.zip
+
+      - name: Commit and push extracted files to target branch
+        run: |
+          git add extracted_apk/
+          git commit -m "Add extracted APK files for ${{ github.event.inputs.lang }}-${{ github.event.inputs.extension }}"
+          git push origin target-branch  # Push ke branch yang dituju
