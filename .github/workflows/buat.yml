@@ -80,7 +80,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: ${{ env.REPO }}
-          ref: target-branch  # Ganti dengan nama branch tujuan tempat APK akan disalin
+          ref: repo  # Ganti dengan nama branch tujuan tempat APK akan disalin
 
       - name: Copy extracted APK to branch
         run: |
