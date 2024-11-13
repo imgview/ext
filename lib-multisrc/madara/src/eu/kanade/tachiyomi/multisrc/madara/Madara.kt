@@ -765,15 +765,14 @@ abstract class Madara(
 
     protected open fun imageFromElement(element: Element): String? {
     return when {
-        element.hasAttr("data-src") -> element.attr("abs:data-src") // Tidak dibungkus dengan resize
-        element.hasAttr("data-lazy-src") -> wrapWithResizeService(element.attr("abs:data-lazy-src"))
-        element.hasAttr("srcset") -> {
-            // Ambil URL pertama dari srcset dan wrap dengan resize service
-            val firstSrcsetUrl = element.attr("abs:srcset").split(", ").firstOrNull()?.split(" ")?.first()
+        element.hasAttr("data-src") -> element.attr("abs:data-src") 
+        element.hasAttr("data-lazy-src") -> element.attr("abs:data-lazy-src") 
+        element.hasAttr("data-srcset") -> {
+            val firstSrcsetUrl = element.attr("abs:data-srcset").split(", ").firstOrNull()?.split(" ")?.first()
             wrapWithResizeService(firstSrcsetUrl ?: element.attr("abs:src"))
         }
-        element.hasAttr("data-cfsrc") -> wrapWithResizeService(element.attr("abs:data-cfsrc"))
-        else -> wrapWithResizeService(element.attr("abs:src"))
+        element.hasAttr("data-cfsrc") -> element.attr("abs:data-cfsrc")
+            else -> element.attr("abs:src")
     }
 }
 
