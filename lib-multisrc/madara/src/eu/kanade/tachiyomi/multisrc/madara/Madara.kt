@@ -765,11 +765,11 @@ abstract class Madara(
 
     protected open fun imageFromElement(element: Element): String? {
     return when {
-        element.hasAttr("data-src") -> element.attr("abs:data-src")
-        element.hasAttr("data-lazy-src") -> element.attr("abs:data-lazy-src")
-        element.hasAttr("data-srcset") -> element.attr("abs:data-srcset").getSpecificSrcSetImage("110w") // Memanggil fungsi untuk target 110w
-        element.hasAttr("data-cfsrc") -> element.attr("abs:data-cfsrc")
-        else -> element.attr("abs:src")
+        element.hasAttr("data-src") -> wrapWithResizeService(element.attr("abs:data-src"))
+        element.hasAttr("data-lazy-src") -> wrapWithResizeService(element.attr("abs:data-lazy-src"))
+        element.hasAttr("data-srcset") -> element.attr("abs:data-srcset").getSpecificSrcSetImage("110w")?.let { wrapWithResizeService(it) }
+        element.hasAttr("data-cfsrc") -> wrapWithResizeService(element.attr("abs:data-cfsrc"))
+        else -> wrapWithResizeService(element.attr("abs:src"))
     }
 }
 
@@ -781,6 +781,13 @@ private fun String.getSpecificSrcSetImage(targetWidth: String): String? {
     return this.split(", ")
         .find { it.contains(targetWidth) } // Mencari elemen yang mengandung targetWidth
         ?.split(" ")?.firstOrNull() // Mengambil URL dari pasangan "URL ukuran"
+}
+
+/**
+ * Wrap image URL with resize service URL
+ */
+private fun wrapWithResizeService(imageUrl: String): String {
+    return "https://resize.sardo.work/?width=300&quality=75&imageUrl=$imageUrl"
 }
 
     /**
