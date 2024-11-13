@@ -765,21 +765,25 @@ abstract class Madara(
 
     protected open fun imageFromElement(element: Element): String? {
     return when {
-        element.hasAttr("data-src") -> element.attr("abs:data-src") 
-        element.hasAttr("data-lazy-src") -> element.attr("abs:data-lazy-src") 
+        element.hasAttr("data-src") -> element.attr("abs:data-src")
+        element.hasAttr("data-lazy-src") -> element.attr("abs:data-lazy-src")
         element.hasAttr("data-srcset") -> {
-            val firstSrcsetUrl = element.attr("abs:data-srcset").split(", ").firstOrNull()?.split(" ")?.first()
-            wrapWithResizeService(firstSrcsetUrl ?: element.attr("abs:src"))
+            val firstSrcsetUrl = element.attr("abs:data-srcset")
+                .split(", ")
+                .firstOrNull()
+                ?.split(" ")
+                ?.firstOrNull()
+            firstSrcsetUrl?.let { wrapWithResizeService(it) } ?: element.attr("abs:src")
         }
         element.hasAttr("data-cfsrc") -> element.attr("abs:data-cfsrc")
-            else -> element.attr("abs:src")
+        else -> element.attr("abs:src")
     }
 }
 
 /**
  * Wrap image URL with resize service URL
  */
-private fun wrapWithResizeService(imageUrl: String): String {
+    private fun wrapWithResizeService(imageUrl: String): String {
     return "https://resize.sardo.work/?width=300&quality=75&imageUrl=$imageUrl"
 }
 
