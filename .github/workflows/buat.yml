@@ -65,15 +65,12 @@ jobs:
           name: ${{ github.event.inputs.lang }}-${{ github.event.inputs.extension }}
           path: extracted_artifacts
 
-      - name: Unzip artifact
-        run: unzip 'extracted_artifacts/*.apk' -d unzipped_artifacts
-
-      - name: Commit and push to 'repo' branch
+      - name: Commit and push APK to 'repo' branch
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b repo
-          cp -r unzipped_artifacts/* .
-          git add .
-          git commit -m "Add unzipped artifacts to repo branch"
+          mv apk/*.apk .
+          git add *.apk
+          git commit -m "Add APK to repo branch"
           git push -u origin repo
