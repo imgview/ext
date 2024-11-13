@@ -765,26 +765,36 @@ abstract class Madara(
 
     protected open fun imageFromElement(element: Element): String? {
     return when {
-        element.hasAttr("data-src") -> element.attr("abs:data-src")
-        element.hasAttr("data-lazy-src") -> element.attr("abs:data-lazy-src")
-        element.hasAttr("data-srcset") -> {
-            val firstSrcsetUrl = element.attr("abs:data-srcset")
-                .split(", ")
-                .firstOrNull()
-                ?.split(" ")
-                ?.firstOrNull()
-            firstSrcsetUrl?.let { wrapWithResizeService(it) } ?: element.attr("abs:src")
-        }
+        // Thumbnail: Gunakan srcset jika tersedia, dengan resize
+        element.hasAttr("srcset") -> element.attr("abs:srcset").getSrcSetImage()
+        
+        // Thumbnail alternatif jika srcset tidak ada, gunakan src dengan resize
+        element.hasAttr("src") -> resizeImageUrl(element.attr("abs:src"))
+        
+        // Gambar chapter: Gunakan data-cfsrc jika tersedia, tanpa resize
         element.hasAttr("data-cfsrc") -> element.attr("abs:data-cfsrc")
+        
+        // Gambar chapter alternatif jika data-cfsrc tidak ada, gunakan src tanpa resize
         else -> element.attr("abs:src")
     }
 }
 
 /**
- * Wrap image URL with resize service URL
+ * Get the best image quality available from srcset and resize it
  */
-    private fun wrapWithResizeService(imageUrl: String): String {
-    return "https://resize.sardo.work/?width=300&quality=75&imageUrl=$imageUrl"
+    private fun String.getSrcSetImage(): String? {
+        return this.split(", ")
+        .map { it.split(" ")[0] }  // Mengambil URL dari setiap entry srcset
+        .filter(URL_REGEX::matches)
+        .maxByOrNull { it }  // Memilih URL dengan kualitas terbaik
+        ?.let { resizeImageUrl(it) } // Menggunakan fungsi resize
+}
+
+/**
+ * Add resize parameters to the image URL
+ */
+    private fun resizeImageUrl(url: String): String {
+        return "https://resize.sardo.work/?width=300&quality=75&imageUrl=$url"
 }
 
     /**
