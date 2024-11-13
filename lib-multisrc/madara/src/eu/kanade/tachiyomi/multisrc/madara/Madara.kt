@@ -765,36 +765,43 @@ abstract class Madara(
 
     protected open fun imageFromElement(element: Element): String? {
     return when {
-        // Thumbnail: Gunakan srcset jika tersedia, dengan resize
+        // Thumbnail: Gunakan srcset jika tersedia, dengan resize menggunakan resize.sardo.work
         element.hasAttr("srcset") -> element.attr("abs:srcset").getSrcSetImage()
         
         // Thumbnail alternatif jika srcset tidak ada, gunakan src dengan resize
         element.hasAttr("src") -> resizeImageUrl(element.attr("abs:src"))
         
-        // Gambar chapter: Gunakan data-cfsrc jika tersedia, tanpa resize
-        element.hasAttr("data-cfsrc") -> element.attr("abs:data-cfsrc")
+        // Gambar chapter: Gunakan data-cfsrc jika tersedia, dan resize menggunakan x.0ms.dev
+        element.hasAttr("data-cfsrc") -> resizeChapterImageUrl(element.attr("abs:data-cfsrc"))
         
-        // Gambar chapter alternatif jika data-cfsrc tidak ada, gunakan src tanpa resize
-        else -> element.attr("abs:src")
+        // Gambar chapter alternatif jika data-cfsrc tidak ada, gunakan src dan resize
+        else -> resizeChapterImageUrl(element.attr("abs:src"))
     }
 }
 
 /**
- * Get the best image quality available from srcset and resize it
+ * Get the best image quality available from srcset and resize it using sardo service
  */
-    private fun String.getSrcSetImage(): String? {
-        return this.split(", ")
+private fun String.getSrcSetImage(): String? {
+    return this.split(", ")
         .map { it.split(" ")[0] }  // Mengambil URL dari setiap entry srcset
         .filter(URL_REGEX::matches)
         .maxByOrNull { it }  // Memilih URL dengan kualitas terbaik
-        ?.let { resizeImageUrl(it) } // Menggunakan fungsi resize
+        ?.let { resizeImageUrl(it) } // Menggunakan resize.sardo.work
 }
 
 /**
- * Add resize parameters to the image URL
+ * Add resize parameters to the image URL for thumbnail (resize.sardo.work)
  */
-    private fun resizeImageUrl(url: String): String {
-        return "https://resize.sardo.work/?width=300&quality=75&imageUrl=$url"
+private fun resizeImageUrl(url: String): String {
+    return "https://resize.sardo.work/?width=300&quality=75&imageUrl=$url"
+}
+
+/**
+ * Resize image URL for chapter images using the new service (x.0ms.dev)
+ */
+private fun resizeChapterImageUrl(url: String): String {
+    return "https://x.0ms.dev/q70/$url"
 }
 
     /**
@@ -979,12 +986,12 @@ abstract class Madara(
 
     open val chapterProtectorSelector = "#chapter-protector-data"
 
-        override fun pageListParse(document: Document): List<Page> {
+            override fun pageListParse(document: Document): List<Page> {
         launchIO { countViews(document) }
 
         val chapterProtector = document.selectFirst(chapterProtectorSelector)
             ?: return document.select(pageListParseSelector).mapIndexed { index, element ->
-                val imageUrl = element.selectFirst("img")?.let { "https://resize.sardo.work/?width=300&quality=75&imageUrl=" + imageFromElement(it) }
+                val imageUrl = element.selectFirst("img")?.let { imageFromElement(it) }
                 Page(index, document.location(), imageUrl)
             }
         val chapterProtectorHtml = chapterProtector.attr("src")
