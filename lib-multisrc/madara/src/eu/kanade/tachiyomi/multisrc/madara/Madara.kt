@@ -578,21 +578,28 @@ abstract class Madara(
 
     override fun searchMangaSelector() = "div.c-tabs-item__content"
 
-    override fun searchMangaFromElement(element: Element): SManga {
-        val manga = SManga.create()
+override fun searchMangaFromElement(element: Element): SManga {
+    val manga = SManga.create()
 
-        with(element) {
-            selectFirst("div.post-title a")!!.let {
-                manga.setUrlWithoutDomain(it.attr("abs:href"))
-                manga.title = it.ownText()
-            }
-            selectFirst("img")?.let {
-                manga.thumbnail_url = imageFromElement(it)
-            }
+    with(element) {
+        selectFirst("div.post-title a")!!.let {
+            manga.setUrlWithoutDomain(it.attr("abs:href"))
+            manga.title = it.ownText()
         }
+        selectFirst("img")?.let {
+            // Mengambil URL gambar
+            val imageUrl = imageFromElement(it)
 
-        return manga
+            // Menambahkan layanan Sardo untuk mengubah ukuran gambar (lebar dan tinggi 150)
+            val sardoUrl = "https://resize.sardo.work/?width=150&height=150&imageUrl=$imageUrl"
+
+            // Menetapkan URL gambar yang telah dimodifikasi
+            manga.thumbnail_url = sardoUrl
+        }
     }
+
+    return manga
+}
 
     override fun searchMangaNextPageSelector() = popularMangaNextPageSelector()
 
@@ -763,46 +770,24 @@ abstract class Madara(
         return this.lowercase() in array.map { it.lowercase() }
     }
 
-    protected open fun imageFromElement(element: Element): String? {
-    return when {
-        // Thumbnail: Gunakan srcset jika tersedia, dengan resize menggunakan resize.sardo.work
-        element.hasAttr("srcset") -> element.attr("abs:srcset").getSrcSetImage()
-
-        // Thumbnail alternatif jika srcset tidak ada, gunakan src dengan resize
-        element.hasAttr("src") -> resizeThumbnailImageUrl(element.attr("abs:src"))
-
-        // Gambar chapter: Gunakan data-cfsrc jika tersedia, dan resize menggunakan x.0ms.dev
-        element.hasAttr("data-cfsrc") -> resizeChapterImageUrl(element.attr("abs:data-cfsrc"))
-
-        // Gambar chapter alternatif jika data-cfsrc tidak ada, gunakan src dan resize
-        else -> resizeChapterImageUrl(element.attr("abs:src"))
+        protected open fun imageFromElement(element: Element): String? {
+        return when {
+            element.hasAttr("data-src") -> element.attr("abs:data-src")
+            element.hasAttr("data-lazy-src") -> element.attr("abs:data-lazy-src")
+            element.hasAttr("srcset") -> element.attr("abs:srcset").getSrcSetImage()
+            element.hasAttr("data-cfsrc") -> element.attr("abs:data-cfsrc")
+            else -> element.attr("abs:src")
+        }
     }
-}
 
-/**
- * Get the best image quality available from srcset and resize it using sardo service
- */
-private fun String.getSrcSetImage(): String? {
-    return this.split(", ")
-        .map { it.split(" ")[0] }  // Mengambil URL dari setiap entry srcset
-        .filter(URL_REGEX::matches)
-        .maxByOrNull { it }  // Memilih URL dengan kualitas terbaik
-        ?.let { resizeThumbnailImageUrl(it) } // Menggunakan resize.sardo.work untuk thumbnail
-}
-
-/**
- * Add resize parameters to the image URL for thumbnail (resize.sardo.work)
- */
-private fun resizeThumbnailImageUrl(url: String): String {
-    return "https://resize.sardo.work/?width=300&quality=75&imageUrl=$url"
-}
-
-/**
- * Resize image URL for chapter images using the new service (x.0ms.dev)
- */
-private fun resizeChapterImageUrl(url: String): String {
-    return "https://x.0ms.dev/q70/$url"
-}
+    /**
+     *  Get the best image quality available from srcset
+     */
+    private fun String.getSrcSetImage(): String? {
+        return this.split(" ")
+            .filter(URL_REGEX::matches)
+            .maxOfOrNull(String::toString)
+    }
 
     /**
      * Set it to true if the source uses the new AJAX endpoint to
@@ -987,46 +972,57 @@ private fun resizeChapterImageUrl(url: String): String {
     open val chapterProtectorSelector = "#chapter-protector-data"
 
             override fun pageListParse(document: Document): List<Page> {
-        launchIO { countViews(document) }
+    launchIO { countViews(document) }
 
-        val chapterProtector = document.selectFirst(chapterProtectorSelector)
-            ?: return document.select(pageListParseSelector).mapIndexed { index, element ->
-                val imageUrl = element.selectFirst("img")?.let { imageFromElement(it) }
-                Page(index, document.location(), imageUrl)
+    val chapterProtector = document.selectFirst(chapterProtectorSelector)
+        ?: return document.select(pageListParseSelector).mapIndexed { index, element ->
+            val imageUrl = element.selectFirst("img")?.let { 
+                imageFromElement(it)
+            }?.let {
+                // Menambahkan layanan Sardo untuk mengubah ukuran gambar (lebar dan tinggi 150)
+                "https://resize.sardo.work/?width=150&height=150&imageUrl=$it"
             }
-        val chapterProtectorHtml = chapterProtector.attr("src")
-            .takeIf { it.startsWith("data:text/javascript;base64,") }
-            ?.substringAfter("data:text/javascript;base64,")
-            ?.let { Base64.decode(it, Base64.DEFAULT).toString(Charsets.UTF_8) }
-            ?: chapterProtector.html()
-        val password = chapterProtectorHtml
-            .substringAfter("wpmangaprotectornonce='")
-            .substringBefore("';")
-        val chapterData = json.parseToJsonElement(
-            chapterProtectorHtml
-                .substringAfter("chapter_data='")
-                .substringBefore("';")
-                .replace("\\/", "/"),
-        ).jsonObject
-
-        val unsaltedCiphertext = Base64.decode(chapterData["ct"]!!.jsonPrimitive.content, Base64.DEFAULT)
-        val salt = chapterData["s"]!!.jsonPrimitive.content.decodeHex()
-        val ciphertext = salted + salt + unsaltedCiphertext
-
-        val rawImgArray = CryptoAES.decrypt(Base64.encodeToString(ciphertext, Base64.DEFAULT), password)
-        val imgArrayString = json.parseToJsonElement(rawImgArray).jsonPrimitive.content
-        val imgArray = json.parseToJsonElement(imgArrayString).jsonArray
-
-        return imgArray.mapIndexed { idx, it ->
-            Page(idx, document.location(), it.jsonPrimitive.content)
+            Page(index, document.location(), imageUrl)
         }
-    }
+    
+    val chapterProtectorHtml = chapterProtector.attr("src")
+        .takeIf { it.startsWith("data:text/javascript;base64,") }
+        ?.substringAfter("data:text/javascript;base64,")
+        ?.let { Base64.decode(it, Base64.DEFAULT).toString(Charsets.UTF_8) }
+        ?: chapterProtector.html()
+    
+    val password = chapterProtectorHtml
+        .substringAfter("wpmangaprotectornonce='")
+        .substringBefore("';")
+    val chapterData = json.parseToJsonElement(
+        chapterProtectorHtml
+            .substringAfter("chapter_data='")
+            .substringBefore("';")
+            .replace("\\/", "/"),
+    ).jsonObject
 
-    override fun imageRequest(page: Page): Request {
-        return GET(page.imageUrl!!, headers.newBuilder().set("Referer", page.url).build())
-    }
+    val unsaltedCiphertext = Base64.decode(chapterData["ct"]!!.jsonPrimitive.content, Base64.DEFAULT)
+    val salt = chapterData["s"]!!.jsonPrimitive.content.decodeHex()
+    val ciphertext = salted + salt + unsaltedCiphertext
 
-    override fun imageUrlParse(document: Document) = ""
+    val rawImgArray = CryptoAES.decrypt(Base64.encodeToString(ciphertext, Base64.DEFAULT), password)
+    val imgArrayString = json.parseToJsonElement(rawImgArray).jsonPrimitive.content
+    val imgArray = json.parseToJsonElement(imgArrayString).jsonArray
+
+    return imgArray.mapIndexed { idx, it ->
+        val imageUrl = it.jsonPrimitive.content.let {
+            // Menambahkan layanan Sardo untuk mengubah ukuran gambar (lebar dan tinggi 150)
+            "https://resize.sardo.work/?width=150&height=150&imageUrl=$it"
+        }
+        Page(idx, document.location(), imageUrl)
+    }
+}
+
+override fun imageRequest(page: Page): Request {
+    return GET(page.imageUrl!!, headers.newBuilder().set("Referer", page.url).build())
+}
+
+override fun imageUrlParse(document: Document) = ""
 
     /**
      * Set it to false if you want to disable the extension reporting the view count
