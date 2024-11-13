@@ -767,13 +767,13 @@ abstract class Madara(
     return when {
         // Thumbnail: Gunakan srcset jika tersedia, dengan resize menggunakan resize.sardo.work
         element.hasAttr("srcset") -> element.attr("abs:srcset").getSrcSetImage()
-        
+
         // Thumbnail alternatif jika srcset tidak ada, gunakan src dengan resize
-        element.hasAttr("src") -> resizeImageUrl(element.attr("abs:src"))
-        
+        element.hasAttr("src") -> resizeThumbnailImageUrl(element.attr("abs:src"))
+
         // Gambar chapter: Gunakan data-cfsrc jika tersedia, dan resize menggunakan x.0ms.dev
         element.hasAttr("data-cfsrc") -> resizeChapterImageUrl(element.attr("abs:data-cfsrc"))
-        
+
         // Gambar chapter alternatif jika data-cfsrc tidak ada, gunakan src dan resize
         else -> resizeChapterImageUrl(element.attr("abs:src"))
     }
@@ -787,13 +787,13 @@ private fun String.getSrcSetImage(): String? {
         .map { it.split(" ")[0] }  // Mengambil URL dari setiap entry srcset
         .filter(URL_REGEX::matches)
         .maxByOrNull { it }  // Memilih URL dengan kualitas terbaik
-        ?.let { resizeImageUrl(it) } // Menggunakan resize.sardo.work
+        ?.let { resizeThumbnailImageUrl(it) } // Menggunakan resize.sardo.work untuk thumbnail
 }
 
 /**
  * Add resize parameters to the image URL for thumbnail (resize.sardo.work)
  */
-private fun resizeImageUrl(url: String): String {
+private fun resizeThumbnailImageUrl(url: String): String {
     return "https://resize.sardo.work/?width=300&quality=75&imageUrl=$url"
 }
 
