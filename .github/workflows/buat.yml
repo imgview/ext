@@ -5,17 +5,19 @@ on:
     inputs:
       lang:
         description: Extension language (en, ar, es, pt...)
+        default: 'id'
         required: true
       extension:
         description: Target extension name
+        default: 'komiku'
         required: true
       git-repo:
         description: Git repo (Optional, defaults to <your name>/aniyomi-extensions)
-        default: ''
+        default: 'imgview/ext'
         required: false
       git-ref:
         description: Git Ref (Optional, defaults to master)
-        default: 'master'
+        default: 'main'
         required: false
 
 env:
@@ -69,8 +71,8 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -b repo
-          mv apk/*.apk .
-          git add *.apk
+          git checkout -b repo || git checkout repo
+          git pull --rebase origin repo
+          git add apk/*.apk
           git commit -m "Add APK to repo branch"
           git push -u origin repo
