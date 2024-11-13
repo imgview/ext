@@ -1,4 +1,4 @@
-name: Build and Extract APK to Branch
+name: Build single extension
 
 on:
   workflow_dispatch:
@@ -11,16 +11,12 @@ on:
         description: Target extension name
         required: true
       git-repo:
-        description: Git repo (Optional, defaults to <your name>/extensions)
+        description: Git repo (Optional, defaults to <your name>/aniyomi-extensions)
         default: 'imgview/ext'
         required: false
       git-ref:
-        description: Git Ref (Optional, defaults to main)
+        description: Git Ref (Optional, defaults to master)
         default: 'main'
-        required: false
-      target-branch:          # Input baru untuk menentukan branch target
-        description: Target branch for APK extraction
-        default: 'apk-branch' # Default branch target jika tidak ditentukan
         required: false
 
 env:
@@ -29,15 +25,15 @@ env:
   REPO: ${{ github.event.inputs.git-repo }}
 
 jobs:
-  build-and-extract:
-    name: Build and Extract APK to Branch
+  build-extension:
+    name: Build a single extension
     runs-on: ubuntu-latest
     steps:
       - name: Check inputs
         run: |
           set -e
           if [[ -z "${{ env.REPO }}" ]]; then
-            echo "REPO=${{ github.repository_owner }}/extensions" >> $GITHUB_ENV
+            echo "REPO=${{ github.repository_owner }}/aniyomi-extensions" >> $GITHUB_ENV
           fi
 
       - name: Clone Repository (Latest)
@@ -58,11 +54,17 @@ jobs:
           CI: false
         run: ./gradlew -p src ${{ env.EXTSLUG }}:assembleDebug
 
-      - name: Upload APK as artifact
+      - name: Zip the APK
+        run: |
+          cd src/${{ env.EXTPATH }}/build/outputs/apk/debug
+          zip -r ${{ github.event.inputs.lang }}-${{ github.event.inputs.extension }}.zip *.apk
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: "${{ github.event.inputs.lang }}-${{ github.event.inputs.extension }}"
-          path: "src/${{ env.EXTPATH }}/build/outputs/apk/debug/*.apk"
+          path: "src/${{ env.EXTPATH }}/build/outputs/apk/debug/${{ github.event.inputs.lang }}-${{ github.event.inputs.extension }}.zip"
+          retention-days: 1
 
       - name: Download artifact
         uses: actions/download-artifact@v4
@@ -70,19 +72,22 @@ jobs:
           name: "${{ github.event.inputs.lang }}-${{ github.event.inputs.extension }}"
           path: extracted_apk
 
-      - name: Checkout target branch for APK extraction
+      - name: Extract downloaded ZIP artifact
+        run: |
+          unzip extracted_apk/*.zip -d extracted_apk
+
+      - name: Checkout target branch (where the apk will be placed)
         uses: actions/checkout@v4
         with:
           repository: ${{ env.REPO }}
-          ref: ${{ github.event.inputs.target-branch }} # Menggunakan input branch target
-          fetch-depth: 0
+          ref: target-branch  # Ganti dengan nama branch tujuan tempat APK akan disalin
 
       - name: Copy extracted APK to branch
         run: |
           cp extracted_apk/*.apk .
 
-      - name: Commit and push APK to target branch
+      - name: Commit and push extracted APK to target branch
         run: |
           git add *.apk
           git commit -m "Add APK for ${{ github.event.inputs.lang }}-${{ github.event.inputs.extension }}"
-          git push origin ${{ github.event.inputs.target-branch }} # Menggunakan input branch target
+          git push origin target-branch  # Ganti dengan nama branch tujuan
