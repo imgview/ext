@@ -15,7 +15,7 @@ on:
         default: 'imgview/ext'
         required: false
       git-ref:
-        description: Git Ref (Optional, defaults to master)
+        description: Git Ref (Optional, defaults to main)
         default: 'main'
         required: false
 
@@ -59,18 +59,31 @@ jobs:
           cd src/${{ env.EXTPATH }}/build/outputs/apk/debug
           zip -r ${{ github.event.inputs.lang }}-${{ github.event.inputs.extension }}.zip *.apk
 
+      - name: Upload APK zip as an artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event.inputs.lang }}-${{ github.event.inputs.extension }}.zip
+          path: src/${{ env.EXTPATH }}/build/outputs/apk/debug/${{ github.event.inputs.lang }}-${{ github.event.inputs.extension }}.zip
+
+  extract-and-commit:
+    name: Download and Extract APK on Target Branch
+    runs-on: ubuntu-latest
+    needs: build-extension  # memastikan job ini berjalan setelah build-extension selesai
+    steps:
       - name: Checkout target branch (where the zip will be extracted)
         uses: actions/checkout@v4
         with:
           repository: ${{ env.REPO }}
-          ref: 'repo'  # Ganti dengan nama branch tujuan tempat ekstraksi file zip
+          ref: 'target-branch'  # Ganti dengan nama branch tujuan tempat ekstraksi file zip
 
-      - name: Create directory for extracted APK files
-        run: mkdir -p extracted_apk
+      - name: Download APK zip artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ github.event.inputs.lang }}-${{ github.event.inputs.extension }}.zip
+          path: extracted_apk
 
-      - name: Copy and Extract APK zip
+      - name: Extract APK zip
         run: |
-          cp src/${{ env.EXTPATH }}/build/outputs/apk/debug/${{ github.event.inputs.lang }}-${{ github.event.inputs.extension }}.zip extracted_apk/
           cd extracted_apk
           unzip ${{ github.event.inputs.lang }}-${{ github.event.inputs.extension }}.zip
 
