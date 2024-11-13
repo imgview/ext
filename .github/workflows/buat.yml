@@ -16,7 +16,7 @@ on:
         default: 'imgview/ext'
         required: false
       git-ref:
-        description: Git Ref (Optional, defaults to master)
+        description: Git Ref (Optional, defaults to main)
         default: 'main'
         required: false
 
@@ -72,7 +72,9 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b repo || git checkout repo
+          git stash
           git pull --rebase origin repo
+          git stash pop
           git add apk/*.apk
           git commit -m "Add APK to repo branch"
           git push -u origin repo
