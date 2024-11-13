@@ -578,7 +578,7 @@ abstract class Madara(
 
     override fun searchMangaSelector() = "div.c-tabs-item__content"
 
-override fun searchMangaFromElement(element: Element): SManga {
+    override fun searchMangaFromElement(element: Element): SManga {
     val manga = SManga.create()
 
     with(element) {
@@ -586,15 +586,13 @@ override fun searchMangaFromElement(element: Element): SManga {
             manga.setUrlWithoutDomain(it.attr("abs:href"))
             manga.title = it.ownText()
         }
-        selectFirst("img")?.let {
-            // Mengambil URL gambar
-            val imageUrl = imageFromElement(it)
-
-            // Menambahkan layanan Sardo untuk mengubah ukuran gambar (lebar dan tinggi 150)
-            val sardoUrl = "https://resize.sardo.work/?width=150&height=150&imageUrl=$imageUrl"
-
-            // Menetapkan URL gambar yang telah dimodifikasi
-            manga.thumbnail_url = sardoUrl
+        
+        // Ambil URL gambar langsung dari atribut 'src'
+        val imageUrl = selectFirst("img")?.attr("abs:src")
+        
+        // Jika URL gambar berhasil didapatkan, terapkan layanan Sardo
+        manga.thumbnail_url = imageUrl?.let { 
+            "https://resize.sardo.work/?width=150&height=150&imageUrl=$it" 
         }
     }
 
