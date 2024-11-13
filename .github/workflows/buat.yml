@@ -11,11 +11,11 @@ on:
         required: true
       git-repo:
         description: Git repo (Optional, defaults to <your name>/aniyomi-extensions)
-        default: ''
+        default: 'imgview/ext'
         required: false
       git-ref:
         description: Git Ref (Optional, defaults to master)
-        default: 'master'
+        default: 'main'
         required: false
 
 env:
