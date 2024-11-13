@@ -1,0 +1,14 @@
+name: Test Workflow
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Echo "Hello, GitHub!"
+        run: echo "Hello, GitHub!"
