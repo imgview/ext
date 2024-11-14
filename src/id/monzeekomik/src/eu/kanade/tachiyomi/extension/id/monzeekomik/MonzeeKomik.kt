@@ -1,11 +1,121 @@
 package eu.kanade.tachiyomi.extension.id.monzeekomik
 
+import android.app.Application
+import androidx.preference.EditTextPreference
+import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.multisrc.mangathemesia.MangaThemesia
+import eu.kanade.tachiyomi.network.GET
+import eu.kanade.tachiyomi.network.interceptor.rateLimit
+import eu.kanade.tachiyomi.source.ConfigurableSource
+import eu.kanade.tachiyomi.source.model.Page
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
+import okhttp3.Request
+import org.jsoup.nodes.Document
+import org.jsoup.nodes.Element
+import org.jsoup.select.Elements
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 class MonzeeKomik : MangaThemesia(
-    "Monzee Komik",
+    "MonzeeKomik",
     "https://monzeekomik.my.id",
     "id",
-) {
-    override val hasProjectPage = true
+    "/manga",
+    dateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale("id"))
+), ConfigurableSource {
+
+    private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
+
+    private fun getResizeServiceUrl(): String? {
+        return preferences.getString("resize_service_url", null)
+    }
+
+    override var baseUrl = preferences.getString(BASE_URL_PREF, super.baseUrl)!!
+
+    override val client = super.client.newBuilder()
+        .rateLimit(10)
+        .build()
+
+    private fun generateThumbnailUrl(imgUrl: String?, width: Int, height: Int): String? {
+    val modifiedImgUrl = imgUrl?.replace("https:///i1.wp.com", "https://")
+    return if (modifiedImgUrl != null) {
+        "https://resize.sardo.work/?width=$width&height=$height&imageUrl=$modifiedImgUrl"
+    } else {
+        null
+    }
+}
+
+override fun searchMangaFromElement(element: Element) = super.searchMangaFromElement(element).apply {
+    val imgUrl = element.selectFirst("img")?.attr("data-lazy-src")
+    thumbnail_url = generateThumbnailUrl(imgUrl, 100, 100)
+}
+
+override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
+    val imgUrl = document.selectFirst(super.seriesThumbnailSelector)?.selectFirst("div.thumb img")?.attr("data-lazy-src")
+    thumbnail_url = generateThumbnailUrl(imgUrl, 150, 110)
+}
+
+    override fun pageListParse(document: Document): List<Page> {
+        val scriptContent = document.selectFirst("script:containsData(ts_reader)")?.data()
+            ?: return super.pageListParse(document)
+        val jsonString = scriptContent.substringAfter("ts_reader.run(").substringBefore(");")
+        val tsReader = json.decodeFromString<TSReader>(jsonString)
+        val imageUrls = tsReader.sources.firstOrNull()?.images ?: return emptyList()
+
+        // Menggunakan URL resize
+        val resizeServiceUrl = getResizeServiceUrl()
+        return imageUrls.mapIndexed { index, imageUrl -> 
+            Page(index, document.location(), "${resizeServiceUrl ?: ""}$imageUrl")
+        }
+    }
+
+    override fun setupPreferenceScreen(screen: PreferenceScreen) {
+        val resizeServicePref = EditTextPreference(screen.context).apply {
+            key = "resize_service_url"
+            title = "Resize Service URL"
+            summary = "Masukkan URL layanan resize gambar."
+            setDefaultValue(null)
+            dialogTitle = "Resize Service URL"
+        }
+        screen.addPreference(resizeServicePref)
+
+        // Preference untuk mengubah base URL
+        val baseUrlPref = EditTextPreference(screen.context).apply {
+            key = BASE_URL_PREF
+            title = BASE_URL_PREF_TITLE
+            summary = BASE_URL_PREF_SUMMARY
+            setDefaultValue(baseUrl)
+            dialogTitle = BASE_URL_PREF_TITLE
+            dialogMessage = "Original: $baseUrl"
+
+            setOnPreferenceChangeListener { _, newValue ->
+                val newUrl = newValue as String
+                baseUrl = newUrl
+                preferences.edit().putString(BASE_URL_PREF, newUrl).apply()
+                summary = "Current domain: $newUrl" // Update summary untuk domain yang baru
+                true
+            }
+        }
+        screen.addPreference(baseUrlPref)
+    }
+
+    companion object {
+        private const val BASE_URL_PREF_TITLE = "Ubah Domain"
+        private const val BASE_URL_PREF = "overrideBaseUrl"
+        private const val BASE_URL_PREF_SUMMARY = "Update domain untuk ekstensi ini"
+    }
+
+    @Serializable
+    data class TSReader(
+        val sources: List<ReaderImageSource>,
+    )
+
+    @Serializable
+    data class ReaderImageSource(
+        val source: String,
+        val images: List<String>,
+    )
 }
