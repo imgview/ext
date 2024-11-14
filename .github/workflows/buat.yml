@@ -42,7 +42,6 @@ jobs:
           repository: ${{ env.REPO }}
           fetch-depth: 0
           ref: ${{ github.event.inputs.git-ref }}
-
       - name: Set sparse-checkout
   run: |
     git sparse-checkout init --cone
