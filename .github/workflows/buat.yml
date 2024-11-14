@@ -36,18 +36,12 @@ jobs:
           if [[ -z "${{ env.REPO }}" ]]; then
             echo "REPO=${{ github.repository_owner }}/aniyomi-extensions" >> $GITHUB_ENV
           fi
-
-      - name: Clone Repository (Sparse Checkout)
+      - name: Clone Repository (Latest)
         uses: actions/checkout@v4
         with:
           repository: ${{ env.REPO }}
           fetch-depth: 0
           ref: ${{ github.event.inputs.git-ref }}
-
-      - name: Set sparse-checkout
-        run: |
-          git sparse-checkout init --cone
-          git sparse-checkout set src/${{ env.EXTPATH }}
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -58,7 +52,7 @@ jobs:
       - name: Build APK
         env:
           CI: false
-        run: ./gradlew -p src/${{ env.EXTPATH }} assembleDebug
+        run: ./gradlew -p src ${{ env.EXTSLUG }}:assembleDebug
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
