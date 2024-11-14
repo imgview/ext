@@ -43,6 +43,11 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.inputs.git-ref }}
 
+      - name: Set sparse-checkout
+  run: |
+    git sparse-checkout init --cone
+    git sparse-checkout set src/${{ env.EXTPATH }}
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
