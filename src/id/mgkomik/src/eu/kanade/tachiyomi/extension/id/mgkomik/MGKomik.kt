@@ -19,23 +19,18 @@ class MGKomik : Madara(
     override val mangaSubString = "komik"
 
     override fun headersBuilder() = super.headersBuilder().apply {
-    add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36")
-    add("Sec-Fetch-Dest", "document")
-    add("Sec-Fetch-Mode", "navigate")
-    add("Sec-Fetch-Site", "same-origin")
-    add("Upgrade-Insecure-Requests", "1")
-    add("X-Requested-With", randomString((1..20).random())) // added for webview, and removed in interceptor for normal use
-
-    // Header tambahan untuk bypass
+    add("User-Agent", "Mozilla/5.0 (Linux; Android 10; Pixel 3 XL Build/QD1A.190805.004) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36")
     add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8")
     add("Accept-Encoding", "gzip, deflate, br")
     add("Accept-Language", "en-US,en;q=0.9")
-    add("Referer", "https://mgkomik.id/") // Sesuaikan referer
+    add("Referer", "https://mgkomik.id/")
     add("Connection", "keep-alive")
+    add("Upgrade-Insecure-Requests", "1")
+    add("Sec-Fetch-Dest", "document")
+    add("Sec-Fetch-Mode", "navigate")
+    add("Sec-Fetch-Site", "same-origin")
     add("Sec-Fetch-User", "?1")
-    add("Sec-CH-UA", "\"Chromium\";v=\"116\", \"Google Chrome\";v=\"116\", \"Not:A-Brand\";v=\"99\"")
-    add("Sec-CH-UA-Mobile", "?0")
-    add("Sec-CH-UA-Platform", "\"Windows\"")
+    add("Cache-Control", "max-age=0")
 }
 
 override val client = network.cloudflareClient.newBuilder()
@@ -49,7 +44,7 @@ override val client = network.cloudflareClient.newBuilder()
 
         chain.proceed(request.newBuilder().headers(headers).build())
     }
-    .rateLimit(9, 2)
+    .rateLimit(5, 10)
     .build()
 
     override fun popularMangaNextPageSelector() = ".wp-pagenavi span.current + a"
