@@ -6,11 +6,15 @@ on:
       zip_file:
         description: 'Nama file zip yang akan diekstrak'
         required: true
-        default: 'nama_file.zip'
+        default: '.zip'
       extract_to:
         description: 'Tujuan direktori ekstrak'
         required: true
-        default: 'src/id/tujuan_ekstrak/'
+        default: 'src/id/'
+      commit_message:
+        description: 'Pesan komit khusus (opsional)'
+        required: false
+        default: 'Add extracted files'
 
 jobs:
   unpack:
@@ -24,12 +28,27 @@ jobs:
         run: sudo apt-get install unzip -y
 
       - name: Unpack specified zip file to target directory
-        run: unzip ${{ github.event.inputs.zip_file }} -d ${{ github.event.inputs.extract_to }}
+        run: unzip -o ${{ github.event.inputs.zip_file }} -d ${{ github.event.inputs.extract_to }}
+
+      - name: List extracted files for verification
+        run: ls -R ${{ github.event.inputs.extract_to }}
+
+      - name: Remove zip file after extraction
+        run: rm -f ${{ github.event.inputs.zip_file }}
+
+      - name: Confirm zip file removal
+        run: |
+          if [ -f "${{ github.event.inputs.zip_file }}" ]; then
+            echo "Error: ZIP file was not deleted"
+            exit 1
+          else
+            echo "ZIP file successfully deleted"
+          fi
 
       - name: Commit and Push Changes
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add ${{ github.event.inputs.extract_to }}
-          git commit -m "Add extracted files from ${{ github.event.inputs.zip_file }}"
+          git add -A
+          git commit -m "${{ github.event.inputs.commit_message }}"
           git push
