@@ -38,7 +38,7 @@ class MonzeeKomik : MangaThemesia(
     override var baseUrl = preferences.getString(BASE_URL_PREF, super.baseUrl)!!
 
     override val client = super.client.newBuilder()
-        .rateLimit(10)
+        .rateLimit(59, 1)
         .build()
 
     private fun generateThumbnailUrl(imgUrl: String?, width: Int, height: Int): String? {
