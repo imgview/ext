@@ -10,6 +10,8 @@ import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.model.Page
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.Request
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
@@ -40,44 +42,61 @@ class MonzeeKomik : MangaThemesia(
         .build()
 
     private fun generateThumbnailUrl(imgUrl: String?, width: Int, height: Int): String? {
-    val modifiedImgUrl = imgUrl?.replace("https:///i1.wp.com", "https://")
-    return if (modifiedImgUrl != null) {
-        "https://resize.sardo.work/?width=$width&height=$height&imageUrl=$modifiedImgUrl"
-    } else {
-        null
+        val modifiedImgUrl = imgUrl?.replace("https:///i1.wp.com", "https://")
+        return if (modifiedImgUrl != null) {
+            "https://resize.sardo.work/?width=$width&height=$height&imageUrl=$modifiedImgUrl"
+        } else {
+            null
+        }
     }
-}
 
-override fun searchMangaFromElement(element: Element) = super.searchMangaFromElement(element).apply {
-    val imgUrl = element.selectFirst("img")?.attr("data-lazy-src")
-    thumbnail_url = generateThumbnailUrl(imgUrl, 100, 100)
-}
+    override fun searchMangaFromElement(element: Element) = super.searchMangaFromElement(element).apply {
+        val imgUrl = element.selectFirst("img")?.attr("data-lazy-src")
+        thumbnail_url = generateThumbnailUrl(imgUrl, 100, 100)
+    }
 
-override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
-    val imgUrl = document.selectFirst(super.seriesThumbnailSelector)?.selectFirst("div.thumb img")?.attr("data-lazy-src")
-    thumbnail_url = generateThumbnailUrl(imgUrl, 150, 110)
-}
+    override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
+        val imgUrl = document.selectFirst(super.seriesThumbnailSelector)?.selectFirst("div.thumb img")?.attr("data-lazy-src")
+        thumbnail_url = generateThumbnailUrl(imgUrl, 150, 110)
+    }
 
     override fun pageListParse(document: Document): List<Page> {
-        val scriptContent = document.selectFirst("script:containsData(ts_reader)")?.data()
-            ?: return super.pageListParse(document)
-        val jsonString = scriptContent.substringAfter("ts_reader.run(").substringBefore(");")
-        val tsReader = json.decodeFromString<TSReader>(jsonString)
-        val imageUrls = tsReader.sources.firstOrNull()?.images ?: return emptyList()
+        val script = document.select("script[src^=data:text/javascript;base64,]").map {
+            Base64.decode(
+                it.attr("src").substringAfter("base64,"),
+                Base64.DEFAULT,
+            ).toString(Charsets.UTF_8)
+        }.firstOrNull { it.startsWith("ts_reader.run") }
+            ?: throw Exception("Couldn't find page script")
 
-        // Menggunakan URL resize
-        val resizeServiceUrl = getResizeServiceUrl()
-        return imageUrls.mapIndexed { index, imageUrl -> 
-            Page(index, document.location(), "${resizeServiceUrl ?: ""}$imageUrl")
+        countViews(document)
+
+        val imageListJson = JSON_IMAGE_LIST_REGEX.find(script)?.destructured?.toList()?.get(0).orEmpty()
+        val imageList = try {
+            json.parseToJsonElement(imageListJson).jsonArray
+        } catch (_: IllegalArgumentException) {
+            emptyList()
         }
+
+        // Ambil URL layanan resize dari pengaturan pengguna, kosong secara default
+        val resizeServiceUrl = getResizeServiceUrl()
+
+        val scriptPages = imageList.mapIndexed { i, jsonEl ->
+            val originalUrl = jsonEl.jsonPrimitive.content
+            // Jika URL layanan resize tersedia, gunakan; jika tidak, gunakan URL asli
+            val resizedUrl = resizeServiceUrl?.let { "$it?width=800&height=1200&imageUrl=$originalUrl" } ?: originalUrl
+            Page(i, document.location(), resizedUrl)
+        }
+
+        return scriptPages
     }
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
         val resizeServicePref = EditTextPreference(screen.context).apply {
             key = "resize_service_url"
             title = "Resize Service URL"
-            summary = "Masukkan URL layanan resize gambar."
-            setDefaultValue(null)
+            summary = "Masukkan URL layanan resize gambar, contoh: https://resize.sardo.work."
+            setDefaultValue("") // Nilai default kosong
             dialogTitle = "Resize Service URL"
         }
         screen.addPreference(resizeServicePref)
