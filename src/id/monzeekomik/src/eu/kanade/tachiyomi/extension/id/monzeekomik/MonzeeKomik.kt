@@ -84,7 +84,7 @@ class MonzeeKomik : MangaThemesia(
         val scriptPages = imageList.mapIndexed { i, jsonEl ->
             val originalUrl = jsonEl.jsonPrimitive.content
             // Jika URL layanan resize tersedia, gunakan; jika tidak, gunakan URL asli
-            val resizedUrl = resizeServiceUrl?.let { "$it?$originalUrl" } ?: originalUrl
+            val resizedUrl = resizeServiceUrl?.let { "$it$originalUrl" } ?: originalUrl
             Page(i, document.location(), resizedUrl)
         }
 
