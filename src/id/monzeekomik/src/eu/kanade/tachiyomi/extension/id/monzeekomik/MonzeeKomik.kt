@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.extension.id.monzeekomik
 
 import android.app.Application
+import android.util.Base64
 import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.multisrc.mangathemesia.MangaThemesia
@@ -15,7 +16,6 @@ import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.Request
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
-import org.jsoup.select.Elements
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.text.SimpleDateFormat
@@ -38,7 +38,7 @@ class MonzeeKomik : MangaThemesia(
     override var baseUrl = preferences.getString(BASE_URL_PREF, super.baseUrl)!!
 
     override val client = super.client.newBuilder()
-        .rateLimit(50, 1)
+        .rateLimit(10)
         .build()
 
     private fun generateThumbnailUrl(imgUrl: String?, width: Int, height: Int): String? {
@@ -51,7 +51,7 @@ class MonzeeKomik : MangaThemesia(
     }
 
     override fun searchMangaFromElement(element: Element) = super.searchMangaFromElement(element).apply {
-        val imgUrl = element.selectFirst(" noscript img")?.attr("src")
+        val imgUrl = element.selectFirst("noscript img")?.attr("src")
         thumbnail_url = generateThumbnailUrl(imgUrl, 100, 100)
     }
 
@@ -61,9 +61,9 @@ class MonzeeKomik : MangaThemesia(
     }
 
     override fun pageListParse(document: Document): List<Page> {
-        val script = document.select("script[src^=data:text/javascript;base64,]").map {
+        val script = document.select("script[src^=data:text/javascript;base64,]").mapNotNull { element ->
             Base64.decode(
-                it.attr("src").substringAfter("base64,"),
+                element.attr("src").substringAfter("base64,"),
                 Base64.DEFAULT,
             ).toString(Charsets.UTF_8)
         }.firstOrNull { it.startsWith("ts_reader.run") }
@@ -78,10 +78,12 @@ class MonzeeKomik : MangaThemesia(
             emptyList()
         }
 
+        // Ambil URL layanan resize dari pengaturan pengguna, kosong secara default
         val resizeServiceUrl = getResizeServiceUrl()
 
         val scriptPages = imageList.mapIndexed { i, jsonEl ->
             val originalUrl = jsonEl.jsonPrimitive.content
+            // Jika URL layanan resize tersedia, gunakan; jika tidak, gunakan URL asli
             val resizedUrl = resizeServiceUrl?.let { "$it?$originalUrl" } ?: originalUrl
             Page(i, document.location(), resizedUrl)
         }
