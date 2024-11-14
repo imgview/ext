@@ -26,7 +26,7 @@ class MonzeeKomik : MangaThemesia(
     "https://monzeekomik.my.id",
     "id",
     "/manga",
-    dateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale("id"))
+    dateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale.US)
 ), ConfigurableSource {
 
     private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
@@ -51,12 +51,12 @@ class MonzeeKomik : MangaThemesia(
     }
 
     override fun searchMangaFromElement(element: Element) = super.searchMangaFromElement(element).apply {
-        val imgUrl = element.selectFirst("img")?.attr("data-lazy-src")
+        val imgUrl = element.selectFirst(" noscript img")?.attr("src")
         thumbnail_url = generateThumbnailUrl(imgUrl, 100, 100)
     }
 
     override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
-        val imgUrl = document.selectFirst(super.seriesThumbnailSelector)?.selectFirst("div.thumb img")?.attr("data-lazy-src")
+        val imgUrl = document.selectFirst(super.seriesThumbnailSelector)?.selectFirst("div.thumb img")?.attr("src")
         thumbnail_url = generateThumbnailUrl(imgUrl, 150, 110)
     }
 
