@@ -5,17 +5,18 @@ on:
     inputs:
       lang:
         description: Extension language (en, ar, es, pt...)
+        default: id
         required: true
       extension:
         description: Target extension name
         required: true
       git-repo:
         description: Git repo (Optional, defaults to <your name>/aniyomi-extensions
-        default: ''
+        default: 'imgview/ext'
         required: false
       git-ref:
         description: Git Ref (Optional, defaults to master)
-        default: 'master'
+        default: 'main'
         required: false
 
 env:
