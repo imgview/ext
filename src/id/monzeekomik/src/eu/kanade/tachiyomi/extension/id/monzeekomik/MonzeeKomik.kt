@@ -38,7 +38,7 @@ class MonzeeKomik : MangaThemesia(
     override var baseUrl = preferences.getString(BASE_URL_PREF, super.baseUrl)!!
 
     override val client = super.client.newBuilder()
-        .rateLimit(10)
+        .rateLimit(50, 1)
         .build()
 
     private fun generateThumbnailUrl(imgUrl: String?, width: Int, height: Int): String? {
@@ -78,13 +78,11 @@ class MonzeeKomik : MangaThemesia(
             emptyList()
         }
 
-        // Ambil URL layanan resize dari pengaturan pengguna, kosong secara default
         val resizeServiceUrl = getResizeServiceUrl()
 
         val scriptPages = imageList.mapIndexed { i, jsonEl ->
             val originalUrl = jsonEl.jsonPrimitive.content
-            // Jika URL layanan resize tersedia, gunakan; jika tidak, gunakan URL asli
-            val resizedUrl = resizeServiceUrl?.let { "$it?width=800&height=1200&imageUrl=$originalUrl" } ?: originalUrl
+            val resizedUrl = resizeServiceUrl?.let { "$it?$originalUrl" } ?: originalUrl
             Page(i, document.location(), resizedUrl)
         }
 
