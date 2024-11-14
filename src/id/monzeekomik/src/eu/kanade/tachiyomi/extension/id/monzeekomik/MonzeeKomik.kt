@@ -26,7 +26,7 @@ class MonzeeKomik : MangaThemesia(
     "https://monzeekomik.my.id",
     "id",
     "/manga",
-    dateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale.US)
+    dateFormat = SimpleDateFormat("MMMM d, yyyy", Locale.US)
 ), ConfigurableSource {
 
     private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
