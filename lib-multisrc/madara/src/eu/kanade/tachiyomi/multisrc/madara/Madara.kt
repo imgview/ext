@@ -160,21 +160,22 @@ abstract class Madara(
     open val popularMangaUrlSelector = "div.post-title a"
 
     override fun popularMangaFromElement(element: Element): SManga {
-        val manga = SManga.create()
+    val manga = SManga.create()
 
-        with(element) {
-            selectFirst(popularMangaUrlSelector)!!.let {
-                manga.setUrlWithoutDomain(it.attr("abs:href"))
-                manga.title = it.ownText()
-            }
-
-            selectFirst("img")?.let {
-                manga.thumbnail_url = imageFromElement(it)
-            }
+    with(element) {
+        selectFirst(popularMangaUrlSelector)!!.let {
+            manga.setUrlWithoutDomain(it.attr("abs:href"))
+            manga.title = it.ownText()
         }
 
-        return manga
+        selectFirst("img")?.let {
+            val originalImageUrl = imageFromElement(it)
+            manga.thumbnail_url = "https://resize.sardo.work/?width=110&height=150&imageUrl=$originalImageUrl"
+        }
     }
+
+    return manga
+}
 
     override fun popularMangaRequest(page: Int): Request =
         if (useLoadMoreRequest()) {
