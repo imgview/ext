@@ -74,6 +74,10 @@ jobs:
           git checkout -b repo || git checkout repo
           git stash
           git pull --rebase origin repo
+          
+          # Melewati commit yang menyebabkan konflik
+          git rebase --skip
+
           git stash pop
           git add apk/*.apk
           git commit -m "Add APK to repo branch"
