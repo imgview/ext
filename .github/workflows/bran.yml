@@ -24,7 +24,7 @@ jobs:
           git rm -rf .
 
           # Tambahkan file README.md
-          echo "# Ini adalah README" > README.md
+          echo "# Untuk pemakaian pribadi" > README.md
           git add README.md
           git commit -m "Add README.md only"
           
