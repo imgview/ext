@@ -22,7 +22,7 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 
 class MonzeeKomik : MangaThemesia(
-    "MonzeeKomik",
+    "Monzee Komik",
     "https://monzeekomik.my.id",
     "id",
     "/manga",
