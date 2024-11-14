@@ -18,7 +18,7 @@ jobs:
       - name: Create a new orphan branch with README only
         run: |
           # Membuat branch baru tanpa riwayat dari branch lain
-          git checkout --orphan new-branch # Ganti 'new-branch' dengan nama branch yang diinginkan
+          git checkout --orphan repo # Ganti 'new-branch' dengan nama branch yang diinginkan
           
           # Hapus semua file dari index
           git rm -rf .
