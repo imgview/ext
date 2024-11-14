@@ -98,7 +98,7 @@ class Shinigami : Madara("Shinigami", "https://shinigami07.com", "id"), Configur
 
             chain.proceed(request.newBuilder().headers(headers).build())
         }
-        .rateLimit(3)
+        .rateLimit(59, 1)
         .build()
 
     override val mangaDetailsSelectorTag = ""
