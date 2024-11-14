@@ -23,9 +23,9 @@ class MGKomik : Madara(
         add("Sec-Fetch-Mode", "navigate")
         add("Sec-Fetch-Site", "same-origin")
         add("Upgrade-Insecure-Requests", "1")
-        add("X-Requested-With", randomString((1..20).random())) // added for webview, and removed in interceptor for normal use
-        add("Referer", "$baseUrl/") // Add the Referer header
-        add("Accept-Language", "id-ID,id;q=0.9,en-US;q=0.9,en;q=0.7") // Add the Accept-Language header with en-US;q=0.9
+        add("X-Requested-With", randomString((1..20).random()))
+        add("Referer", "$baseUrl/")
+        add("Accept-Language", "id-ID,id;q=0.9,en-US;q=0.9,en;q=0.7")
     }
 
     override val client = network.cloudflareClient.newBuilder()
