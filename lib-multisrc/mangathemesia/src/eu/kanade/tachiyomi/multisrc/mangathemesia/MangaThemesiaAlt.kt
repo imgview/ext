@@ -48,32 +48,34 @@ abstract class MangaThemesiaAlt(
     }
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
-        // Preferensi untuk random URL switch
-        SwitchPreferenceCompat(screen.context).apply {
-            key = randomUrlPrefKey
-            title = intl["pref_dynamic_url_title"]
-            summary = intl["pref_dynamic_url_summary"]
-            setDefaultValue(true)
-        }.also(screen::addPreference)
-
-        // Preferensi untuk mengganti base URL
-        val baseUrlPref = EditTextPreference(screen.context).apply {
-            key = BASE_URL_PREF
-            title = BASE_URL_PREF_TITLE
-            summary = BASE_URL_PREF_SUMMARY
-            setDefaultValue(baseUrl)
-            dialogTitle = BASE_URL_PREF_TITLE
-            dialogMessage = "Original: $baseUrl"
-
-            setOnPreferenceChangeListener { _, newValue ->
-                val newUrl = newValue as String
-                preferences.edit().putString(BASE_URL_PREF, newUrl).apply()
-                summary = "Current domain: $newUrl" // Update summary untuk domain yang baru
-                true
-            }
-        }
-        screen.addPreference(baseUrlPref)
+    // Tambahkan SwitchPreferenceCompat untuk opsi dinamis (misalnya untuk mengatur URL acak)
+    val switchPref = SwitchPreferenceCompat(screen.context).apply {
+        key = randomUrlPrefKey
+        title = intl["pref_dynamic_url_title"]
+        summary = intl["pref_dynamic_url_summary"]
+        setDefaultValue(true)
     }
+    screen.addPreference(switchPref)
+
+    // Tambahkan EditTextPreference untuk mengganti baseUrl
+    val baseUrlPref = EditTextPreference(screen.context).apply {
+        key = BASE_URL_PREF
+        title = BASE_URL_PREF_TITLE
+        summary = BASE_URL_PREF_SUMMARY
+        setDefaultValue(baseUrl)
+        dialogTitle = BASE_URL_PREF_TITLE
+        dialogMessage = "Original: $baseUrl"
+
+        setOnPreferenceChangeListener { _, newValue ->
+            val newUrl = newValue as String
+            baseUrl = newUrl
+            preferences.edit().putString(BASE_URL_PREF, newUrl).apply()
+            summary = "Current domain: $newUrl" // Update summary dengan domain baru
+            true
+        }
+    }
+    screen.addPreference(baseUrlPref)  // Tambahkan ke screen
+}
 
     private fun getRandomUrlPref() = preferences.getBoolean(randomUrlPrefKey, true)
 
