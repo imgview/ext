@@ -25,7 +25,7 @@ import java.util.Locale
 
 abstract class MangaThemesiaAlt(
     name: String,
-    var baseUrl: String,
+    override baseUrl: String,
     lang: String,
     mangaUrlDirectory: String = "/manga",
     dateFormat: SimpleDateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale.US),
