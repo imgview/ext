@@ -140,7 +140,7 @@ abstract class MangaThemesia(
         return super.searchMangaParse(response)
     }
     
-    fun getResizedThumbnailUrl(thumbnailUrl: String): String {
+    fun Resize(thumbnailUrl: String): String {
     return "https://resize.sardo.work/?width=110&height=150&url=$thumbnailUrl"
 }
 
@@ -148,7 +148,7 @@ abstract class MangaThemesia(
 
     override fun searchMangaFromElement(element: Element) = SManga.create().apply {
     val originalThumbnailUrl = element.select("img").imgAttr()
-    thumbnail_url = getResizedThumbnailUrl(originalThumbnailUrl)
+    thumbnail_url = Resize(originalThumbnailUrl)
     title = element.select("a").attr("title")
     setUrlWithoutDomain(element.select("a").attr("href"))
 }
@@ -273,7 +273,7 @@ abstract class MangaThemesia(
         status = seriesDetails.selectFirst(seriesStatusSelector)?.text().parseStatus()
 
      val originalThumbnailUrl = seriesDetails.select(seriesThumbnailSelector).imgAttr()
-        thumbnail_url = getResizedThumbnailUrl(originalThumbnailUrl)
+        thumbnail_url = Resize(originalThumbnailUrl)
     }
 }
 
