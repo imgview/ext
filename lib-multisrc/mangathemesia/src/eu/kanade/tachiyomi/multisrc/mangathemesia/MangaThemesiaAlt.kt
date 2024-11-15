@@ -53,6 +53,36 @@ abstract class MangaThemesiaAlt(
             setDefaultValue(true)
         }.also(screen::addPreference)
     }
+    
+    val resizeServicePref = EditTextPreference(screen.context).apply {
+            key = "resize_service_url"
+            title = "Resize Service URL"
+            summary = "Masukkan URL layanan resize gambar."
+            setDefaultValue(null)
+            dialogTitle = "Resize Service URL"
+            dialogMessage = "Masukkan URL layanan resize gambar"
+        }
+        screen.addPreference(resizeServicePref)
+
+        // Preference untuk mengubah base URL
+        val baseUrlPref = EditTextPreference(screen.context).apply {
+            key = BASE_URL_PREF
+            title = BASE_URL_PREF_TITLE
+            summary = BASE_URL_PREF_SUMMARY
+            setDefaultValue(baseUrl)
+            dialogTitle = BASE_URL_PREF_TITLE
+            dialogMessage = "Original: $baseUrl"
+
+            setOnPreferenceChangeListener { _, newValue ->
+                val newUrl = newValue as String
+                baseUrl = newUrl
+                preferences.edit().putString(BASE_URL_PREF, newUrl).apply()
+                summary = "Current domain: $newUrl" // Update summary untuk domain yang baru
+                true
+            }
+        }
+        screen.addPreference(baseUrlPref)
+    }
 
     private fun getRandomUrlPref() = preferences.getBoolean(randomUrlPrefKey, true)
 
@@ -175,4 +205,11 @@ abstract class MangaThemesiaAlt(
     }
 
     override fun chapterListRequest(manga: SManga) = mangaDetailsRequest(manga)
+
+
+    ompanion object {
+        private const val BASE_URL_PREF_TITLE = "Ubah Domain"
+        private const val BASE_URL_PREF = "overrideBaseUrl"
+        private const val BASE_URL_PREF_SUMMARY = "Update domain untuk ekstensi ini"
+    }
 }
