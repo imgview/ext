@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.multisrc.mangathemesia
 import android.app.Application
 import android.content.SharedPreferences
 import androidx.preference.PreferenceScreen
+import androidx.preference.EditTextPreference
 import androidx.preference.SwitchPreferenceCompat
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.source.ConfigurableSource
