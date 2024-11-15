@@ -25,7 +25,7 @@ class Domain(
     }
 
     // Fungsi untuk membuat baseUrl preference
-    private fun createBaseUrlPreference(screen: PreferenceScreen) {
+    fun createBaseUrlPreference(screen: PreferenceScreen) {
         val baseUrlPref = EditTextPreference(screen.context).apply {
             key = BASE_URL_PREF
             title = BASE_URL_PREF_TITLE
