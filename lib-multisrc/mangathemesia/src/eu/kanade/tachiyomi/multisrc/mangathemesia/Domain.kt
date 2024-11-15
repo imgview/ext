@@ -6,6 +6,7 @@ import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.source.ConfigurableSource
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import uy.kohesive.injekt.injectLazy
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -15,7 +16,9 @@ abstract class Domain(
     val dateFormat: SimpleDateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale("id"))
 ) : ConfigurableSource {
 
-    private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
+    private val preferences: SharedPreferences by lazy {
+        Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
+    }
 
     // Implementasi setupPreferenceScreen
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
