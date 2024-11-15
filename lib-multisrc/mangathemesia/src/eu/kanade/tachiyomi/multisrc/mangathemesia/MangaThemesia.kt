@@ -139,14 +139,19 @@ abstract class MangaThemesia(
 
         return super.searchMangaParse(response)
     }
+    
+    fun getResizedThumbnailUrl(thumbnailUrl: String): String {
+    return "https://resize.sardo.work/?width=110&height=150&url=$thumbnailUrl"
+}
 
     override fun searchMangaSelector() = ".utao .uta .imgu, .listupd .bs .bsx, .listo .bs .bsx"
 
     override fun searchMangaFromElement(element: Element) = SManga.create().apply {
-        thumbnail_url = element.select("img").imgAttr()
-        title = element.select("a").attr("title")
-        setUrlWithoutDomain(element.select("a").attr("href"))
-    }
+    val originalThumbnailUrl = element.select("img").imgAttr()
+    thumbnail_url = getResizedThumbnailUrl(originalThumbnailUrl)
+    title = element.select("a").attr("title")
+    setUrlWithoutDomain(element.select("a").attr("href"))
+}
 
     override fun searchMangaNextPageSelector() = "div.pagination .next, div.hpage .r"
 
@@ -239,34 +244,38 @@ abstract class MangaThemesia(
     open val altNamePrefix = "${intl["alt_names_heading"]} "
 
     override fun mangaDetailsParse(document: Document) = SManga.create().apply {
-        document.selectFirst(seriesDetailsSelector)?.let { seriesDetails ->
-            title = seriesDetails.selectFirst(seriesTitleSelector)!!.text()
-            artist = seriesDetails.selectFirst(seriesArtistSelector)?.ownText().removeEmptyPlaceholder()
-            author = seriesDetails.selectFirst(seriesAuthorSelector)?.ownText().removeEmptyPlaceholder()
-            description = seriesDetails.select(seriesDescriptionSelector).joinToString("\n") { it.text() }.trim()
-            // Add alternative name to manga description
-            val altName = seriesDetails.selectFirst(seriesAltNameSelector)?.ownText().takeIf { it.isNullOrBlank().not() }
-            altName?.let {
-                description = "$description\n\n$altNamePrefix$altName".trim()
-            }
-            val genres = seriesDetails.select(seriesGenreSelector).map { it.text() }.toMutableList()
-            // Add series type (manga/manhwa/manhua/other) to genre
-            seriesDetails.selectFirst(seriesTypeSelector)?.ownText().takeIf { it.isNullOrBlank().not() }?.let { genres.add(it) }
-            genre = genres.map { genre ->
-                genre.lowercase(Locale.forLanguageTag(lang)).replaceFirstChar { char ->
-                    if (char.isLowerCase()) {
-                        char.titlecase(Locale.forLanguageTag(lang))
-                    } else {
-                        char.toString()
-                    }
+    document.selectFirst(seriesDetailsSelector)?.let { seriesDetails ->
+        title = seriesDetails.selectFirst(seriesTitleSelector)!!.text()
+        artist = seriesDetails.selectFirst(seriesArtistSelector)?.ownText().removeEmptyPlaceholder()
+        author = seriesDetails.selectFirst(seriesAuthorSelector)?.ownText().removeEmptyPlaceholder()
+        description = seriesDetails.select(seriesDescriptionSelector).joinToString("\n") { it.text() }.trim()
+
+        // Add alternative name to manga description
+        val altName = seriesDetails.selectFirst(seriesAltNameSelector)?.ownText().takeIf { it.isNullOrBlank().not() }
+        altName?.let {
+            description = "$description\n\n$altNamePrefix$altName".trim()
+        }
+
+        // Process genres
+        val genres = seriesDetails.select(seriesGenreSelector).map { it.text() }.toMutableList()
+        seriesDetails.selectFirst(seriesTypeSelector)?.ownText().takeIf { it.isNullOrBlank().not() }?.let { genres.add(it) }
+        genre = genres.map { genre ->
+            genre.lowercase(Locale.forLanguageTag(lang)).replaceFirstChar { char ->
+                if (char.isLowerCase()) {
+                    char.titlecase(Locale.forLanguageTag(lang))
+                } else {
+                    char.toString()
                 }
             }
-                .joinToString { it.trim() }
+        }.joinToString { it.trim() }
 
-            status = seriesDetails.selectFirst(seriesStatusSelector)?.text().parseStatus()
-            thumbnail_url = seriesDetails.select(seriesThumbnailSelector).imgAttr()
-        }
+        // Parse status
+        status = seriesDetails.selectFirst(seriesStatusSelector)?.text().parseStatus()
+
+        // Get and resize thumbnail URL
+        thumbnail_url = getSeriesThumbnail(seriesDetails)
     }
+}
 
     protected fun String?.removeEmptyPlaceholder(): String? {
         return if (this.isNullOrBlank() || this == "-" || this == "N/A" || this == "n/a") null else this
