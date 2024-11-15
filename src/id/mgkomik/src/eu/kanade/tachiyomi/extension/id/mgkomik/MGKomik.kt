@@ -40,7 +40,7 @@ class MGKomik : Madara(
 
             chain.proceed(request.newBuilder().headers(headers).build())
         }
-        .rateLimit(1, 5)
+        .rateLimit(60, 1)
         .build()
 
     override fun pageListParse(document: Document): List<Page> {
@@ -50,7 +50,7 @@ class MGKomik : Madara(
         Page(
             index,
             document.location(),
-            element.absUrl("src")
+            element.absUrl("ssrc")
         )
     }
 }
