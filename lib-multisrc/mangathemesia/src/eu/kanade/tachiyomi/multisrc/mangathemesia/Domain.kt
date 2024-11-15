@@ -9,14 +9,13 @@ import uy.kohesive.injekt.api.get
 import java.text.SimpleDateFormat
 import java.util.Locale
 
-// Kelas abstrak Domain yang menangani pengaturan seperti baseUrl dan preferensi
 abstract class Domain(
     val name: String,
     val baseUrl: String,
     val dateFormat: SimpleDateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale("id"))
 ) : ConfigurableSource {
 
-    private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0)
+    private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
 
     // Implementasi setupPreferenceScreen
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
