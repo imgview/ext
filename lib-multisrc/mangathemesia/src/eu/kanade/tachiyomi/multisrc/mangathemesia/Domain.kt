@@ -9,15 +9,22 @@ import uy.kohesive.injekt.api.get
 import java.text.SimpleDateFormat
 import java.util.Locale
 
-class Domain(
-    val dateFormat: SimpleDateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale("id")),
-    private var baseUrl: String // Pastikan baseUrl didefinisikan
+// Kelas abstrak Domain yang menangani pengaturan seperti baseUrl dan preferensi
+abstract class Domain(
+    val name: String,
+    val baseUrl: String,
+    val dateFormat: SimpleDateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale("id"))
 ) : ConfigurableSource {
 
     private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0)
 
-    // Fungsi untuk menambahkan base URL preference ke PreferenceScreen
-    fun addBaseUrlPreference(screen: PreferenceScreen) {
+    // Implementasi setupPreferenceScreen
+    override fun setupPreferenceScreen(screen: PreferenceScreen) {
+        createBaseUrlPreference(screen)
+    }
+
+    // Fungsi untuk membuat baseUrl preference
+    private fun createBaseUrlPreference(screen: PreferenceScreen) {
         val baseUrlPref = EditTextPreference(screen.context).apply {
             key = BASE_URL_PREF
             title = BASE_URL_PREF_TITLE
@@ -28,7 +35,6 @@ class Domain(
 
             setOnPreferenceChangeListener { _, newValue ->
                 val newUrl = newValue as String
-                baseUrl = newUrl
                 preferences.edit().putString(BASE_URL_PREF, newUrl).apply()
                 summary = "Current domain: $newUrl" // Update summary untuk domain yang baru
                 true
