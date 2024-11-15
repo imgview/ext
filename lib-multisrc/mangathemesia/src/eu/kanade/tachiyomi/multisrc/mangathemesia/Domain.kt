@@ -13,10 +13,10 @@ import java.util.Locale
 
 abstract class Domain(
     name: String,
-    override var baseUrl: String,
+    baseUrl: String,
     lang: String,
-    dateFormat: SimpleDateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale("id"))
-) : ConfigurableSource {
+    dateFormat: SimpleDateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale("id")),
+) : MangaThemesia(name, baseUrl, lang, dateFormat), ConfigurableSource {
 
     private val preferences: SharedPreferences by lazy {
         Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
