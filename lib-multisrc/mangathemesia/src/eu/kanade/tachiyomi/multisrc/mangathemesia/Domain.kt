@@ -15,8 +15,9 @@ abstract class Domain(
     name: String,
     baseUrl: String,
     lang: String,
-    val dateFormat: SimpleDateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale("id")),
-) : MangaThemesia(name, baseUrl, lang, dateFormat), ConfigurableSource {
+    // Menambahkan 'override' karena 'dateFormat' sudah ada di superclass
+    override val dateFormat: SimpleDateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale("id"))
+) : ConfigurableSource {
 
     private val preferences: SharedPreferences by lazy {
         Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
@@ -45,6 +46,11 @@ abstract class Domain(
             }
         }
         screen.addPreference(baseUrlPref)
+    }
+
+    // Fungsi tambahan untuk memformat tanggal menjadi String
+    fun formatDate(date: Date): String {
+        return dateFormat.format(date) // Menggunakan SimpleDateFormat untuk mengubah Date ke String
     }
 
     companion object {
