@@ -37,7 +37,7 @@ class MGKomik : Madara(
 
             chain.proceed(request.newBuilder().headers(headers).build())
         }
-        .rateLimit(9, 2)
+        .rateLimit(1, 5)
         .build()
 
     override fun popularMangaNextPageSelector() = ".wp-pagenavi span.current + a"
