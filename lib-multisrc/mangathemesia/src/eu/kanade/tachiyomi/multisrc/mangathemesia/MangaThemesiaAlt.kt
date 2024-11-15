@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.multisrc.mangathemesia
 import android.app.Application
 import android.content.SharedPreferences
 import androidx.preference.PreferenceScreen
+import androidx.preference.EditTextPreference
 import androidx.preference.SwitchPreferenceCompat
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.source.ConfigurableSource
@@ -33,7 +34,8 @@ abstract class MangaThemesiaAlt(
 
     protected open val listUrl = "$mangaUrlDirectory/list-mode/"
     protected open val listSelector = "div#content div.soralist ul li a.series"
-
+    
+    // Mengambil SharedPreferences dengan lazy initialization
     protected val preferences: SharedPreferences by lazy {
         Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000).also {
             if (it.contains("__random_part_cache")) {
@@ -45,14 +47,44 @@ abstract class MangaThemesiaAlt(
         }
     }
 
+    // Override baseUrl untuk mengambil dari SharedPreferences atau default
+    override var baseUrl: String = preferences.getString(BASE_URL_PREF, baseUrl) ?: baseUrl
+
+    // Fungsi untuk mengupdate baseUrl
+    private fun updateBaseUrl(newUrl: String) {
+        baseUrl = newUrl
+        preferences.edit().putString(BASE_URL_PREF, newUrl).apply()
+    }
+
+    // Mengonfigurasi tampilan pengaturan (preferences)
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
-        SwitchPreferenceCompat(screen.context).apply {
+        // Tambahkan SwitchPreferenceCompat untuk opsi dinamis (misalnya untuk mengatur URL acak)
+        val switchPref = SwitchPreferenceCompat(screen.context).apply {
             key = randomUrlPrefKey
             title = intl["pref_dynamic_url_title"]
             summary = intl["pref_dynamic_url_summary"]
             setDefaultValue(true)
-        }.also(screen::addPreference)
-    }
+        }
+        screen.addPreference(switchPref)
+
+        // Tambahkan EditTextPreference untuk mengganti baseUrl
+        val baseUrlPref = EditTextPreference(screen.context).apply {
+            key = BASE_URL_PREF
+            title = BASE_URL_PREF_TITLE
+            summary = BASE_URL_PREF_SUMMARY
+            setDefaultValue(baseUrl)  // Menggunakan baseUrl yang sudah diinisialisasi
+            dialogTitle = BASE_URL_PREF_TITLE
+            dialogMessage = "Original: $baseUrl"
+
+            setOnPreferenceChangeListener { _, newValue ->
+                val newUrl = newValue as String
+                updateBaseUrl(newUrl)  // Update baseUrl ketika ada perubahan
+                summary = "Current domain: $newUrl"  // Update summary dengan domain baru
+                true
+            }
+        }
+        screen.addPreference(baseUrlPref)  // Tambahkan ke screen
+}
 
     private fun getRandomUrlPref() = preferences.getBoolean(randomUrlPrefKey, true)
 
@@ -62,11 +94,10 @@ abstract class MangaThemesiaAlt(
 
     private suspend fun getUrlMapInternal(): Map<String, String> {
         if (fetchTime + 3600000 < System.currentTimeMillis()) {
-            // reset cache
+            // Reset cache jika sudah kadaluarsa
             cachedValue = null
         }
 
-        // fast way
         cachedValue?.get()?.let {
             return it
         }
@@ -109,7 +140,7 @@ abstract class MangaThemesiaAlt(
         }
     }
 
-    // cache in preference for webview urls
+    // Cache dalam preference untuk URL WebView
     private var SharedPreferences.urlMapCache: Map<String, String>
         get(): Map<String, String> {
             val value = getString("url_map_cache", "{}")!!
@@ -157,7 +188,7 @@ abstract class MangaThemesiaAlt(
 
         val randomSlug = getUrlMap()[slug] ?: slug
 
-        return GET("$baseUrl$mangaUrlDirectory/$randomSlug/", headers)
+        return GET("${getCurrentBaseUrl()}$mangaUrlDirectory/$randomSlug/", headers)
     }
 
     override fun getMangaUrl(manga: SManga): String {
@@ -171,8 +202,19 @@ abstract class MangaThemesiaAlt(
 
         val randomSlug = getUrlMap(true)[slug] ?: slug
 
-        return "$baseUrl$mangaUrlDirectory/$randomSlug/"
+        return "${getCurrentBaseUrl()}$mangaUrlDirectory/$randomSlug/"
     }
 
     override fun chapterListRequest(manga: SManga) = mangaDetailsRequest(manga)
+
+    // Fungsi untuk mendapatkan base URL dari preferensi atau default
+    private fun getCurrentBaseUrl(): String {
+        return preferences.getString(BASE_URL_PREF, baseUrl) ?: baseUrl
+    }
+
+    companion object {
+        private const val BASE_URL_PREF_TITLE = "Ubah Domain"
+        private const val BASE_URL_PREF = "overrideBaseUrl"
+        private const val BASE_URL_PREF_SUMMARY = "Update domain untuk ekstensi ini"
+    }
 }
