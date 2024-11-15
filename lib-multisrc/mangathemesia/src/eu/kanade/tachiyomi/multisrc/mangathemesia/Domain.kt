@@ -2,8 +2,8 @@ package eu.kanade.tachiyomi.multisrc.mangathemesia
 
 import android.app.Application
 import androidx.preference.EditTextPreference
-import androidx.preference.PreferenceScreen
 import android.content.SharedPreferences
+import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.source.ConfigurableSource
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -12,9 +12,10 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 
 abstract class Domain(
-    val name: String,
-    val baseUrl: String,
-    val dateFormat: SimpleDateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale("id"))
+    name: String,
+    override var baseUrl: String,
+    lang: String,
+    dateFormat: SimpleDateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale("id"))
 ) : ConfigurableSource {
 
     private val preferences: SharedPreferences by lazy {
