@@ -15,7 +15,7 @@ abstract class Domain(
     name: String,
     baseUrl: String,
     lang: String,
-    dateFormat: SimpleDateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale("id")),
+    val dateFormat: SimpleDateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale("id")),
 ) : MangaThemesia(name, baseUrl, lang, dateFormat), ConfigurableSource {
 
     private val preferences: SharedPreferences by lazy {
