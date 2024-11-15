@@ -272,8 +272,8 @@ abstract class MangaThemesia(
         // Parse status
         status = seriesDetails.selectFirst(seriesStatusSelector)?.text().parseStatus()
 
-        // Get and resize thumbnail URL
-        thumbnail_url = getSeriesThumbnail(seriesDetails)
+     val originalThumbnailUrl = seriesDetails.select(seriesThumbnailSelector).imgAttr()
+        thumbnail_url = getResizedThumbnailUrl(originalThumbnailUrl)
     }
 }
 
