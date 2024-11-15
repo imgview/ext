@@ -25,7 +25,7 @@ import java.util.Locale
 
 abstract class MangaThemesiaAlt(
     name: String,
-    override var baseUrl: String,
+    baseUrl: String,
     lang: String,
     mangaUrlDirectory: String = "/manga",
     dateFormat: SimpleDateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale.US),
@@ -34,7 +34,7 @@ abstract class MangaThemesiaAlt(
 
     protected open val listUrl = "$mangaUrlDirectory/list-mode/"
     protected open val listSelector = "div#content div.soralist ul li a.series"
-
+    
     // Mengambil SharedPreferences dengan lazy initialization
     protected val preferences: SharedPreferences by lazy {
         Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000).also {
@@ -47,34 +47,43 @@ abstract class MangaThemesiaAlt(
         }
     }
 
+    // Override baseUrl untuk mengambil dari SharedPreferences atau default
+    override var baseUrl: String = preferences.getString(BASE_URL_PREF, baseUrl) ?: baseUrl
+
+    // Fungsi untuk mengupdate baseUrl
+    private fun updateBaseUrl(newUrl: String) {
+        baseUrl = newUrl
+        preferences.edit().putString(BASE_URL_PREF, newUrl).apply()
+    }
+
+    // Mengonfigurasi tampilan pengaturan (preferences)
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
-    // Tambahkan SwitchPreferenceCompat untuk opsi dinamis (misalnya untuk mengatur URL acak)
-    val switchPref = SwitchPreferenceCompat(screen.context).apply {
-        key = randomUrlPrefKey
-        title = intl["pref_dynamic_url_title"]
-        summary = intl["pref_dynamic_url_summary"]
-        setDefaultValue(true)
-    }
-    screen.addPreference(switchPref)
-
-    // Tambahkan EditTextPreference untuk mengganti baseUrl
-    val baseUrlPref = EditTextPreference(screen.context).apply {
-        key = BASE_URL_PREF
-        title = BASE_URL_PREF_TITLE
-        summary = BASE_URL_PREF_SUMMARY
-        setDefaultValue(baseUrl)
-        dialogTitle = BASE_URL_PREF_TITLE
-        dialogMessage = "Original: $baseUrl"
-
-        setOnPreferenceChangeListener { _, newValue ->
-            val newUrl = newValue as String
-            baseUrl = newUrl
-            preferences.edit().putString(BASE_URL_PREF, newUrl).apply()
-            summary = "Current domain: $newUrl" // Update summary dengan domain baru
-            true
+        // Tambahkan SwitchPreferenceCompat untuk opsi dinamis (misalnya untuk mengatur URL acak)
+        val switchPref = SwitchPreferenceCompat(screen.context).apply {
+            key = randomUrlPrefKey
+            title = intl["pref_dynamic_url_title"]
+            summary = intl["pref_dynamic_url_summary"]
+            setDefaultValue(true)
         }
-    }
-    screen.addPreference(baseUrlPref)  // Tambahkan ke screen
+        screen.addPreference(switchPref)
+
+        // Tambahkan EditTextPreference untuk mengganti baseUrl
+        val baseUrlPref = EditTextPreference(screen.context).apply {
+            key = BASE_URL_PREF
+            title = BASE_URL_PREF_TITLE
+            summary = BASE_URL_PREF_SUMMARY
+            setDefaultValue(baseUrl)  // Menggunakan baseUrl yang sudah diinisialisasi
+            dialogTitle = BASE_URL_PREF_TITLE
+            dialogMessage = "Original: $baseUrl"
+
+            setOnPreferenceChangeListener { _, newValue ->
+                val newUrl = newValue as String
+                updateBaseUrl(newUrl)  // Update baseUrl ketika ada perubahan
+                summary = "Current domain: $newUrl"  // Update summary dengan domain baru
+                true
+            }
+        }
+        screen.addPreference(baseUrlPref)  // Tambahkan ke screen
 }
 
     private fun getRandomUrlPref() = preferences.getBoolean(randomUrlPrefKey, true)
