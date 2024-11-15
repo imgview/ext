@@ -4,6 +4,9 @@ import eu.kanade.tachiyomi.multisrc.madara.Madara
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.interceptor.rateLimit
 import okhttp3.Request
+import org.jsoup.nodes.Document
+import org.jsoup.nodes.Element
+import eu.kanade.tachiyomi.source.model.Page
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -39,6 +42,19 @@ class MGKomik : Madara(
         }
         .rateLimit(1, 5)
         .build()
+
+    override fun pageListParse(document: Document): List<Page> {
+    val imageElements = document.select("div.page-break.no-gaps img.wp-manga-chapter-img")
+
+    return imageElements.mapIndexed { index, element ->
+        Page(
+            index,
+            document.location(),
+            element.absUrl("src")
+        )
+    }
+}
+
 
     override fun popularMangaNextPageSelector() = ".wp-pagenavi span.current + a"
 
