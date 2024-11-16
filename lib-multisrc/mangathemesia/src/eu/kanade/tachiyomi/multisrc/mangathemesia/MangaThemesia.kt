@@ -67,26 +67,29 @@ abstract class MangaThemesia(
     override fun latestUpdatesParse(response: Response) = searchMangaParse(response)
 
     // Search
-    override fun fetchSearchManga(page: Int, query: String, filters: FilterList): Observable<MangasPage> {
-        if (query.startsWith(URL_SEARCH_PREFIX).not()) return super.fetchSearchManga(page, query, filters)
+override fun fetchSearchManga(page: Int, query: String, filters: FilterList): Observable<MangasPage> {
+    if (query.startsWith(URL_SEARCH_PREFIX).not()) return super.fetchSearchManga(page, query, filters)
 
-        val mangaPath = try {
-            mangaPathFromUrl(query.substringAfter(URL_SEARCH_PREFIX))
-                ?: return Observable.just(MangasPage(emptyList(), false))
-        } catch (e: Exception) {
-            return Observable.error(e)
-        }
-
-        return fetchMangaDetails(
-            SManga.create()
-                .apply { this.url = "$mangaUrlDirectory/$mangaPath/" },
-        )
-            .map {
-                // Isn't set in returned manga
-                it.url = "$mangaUrlDirectory/$mangaPath/"
-                MangasPage(listOf(it), false)
-            }
+    val mangaPath = try {
+        mangaPathFromUrl(query.substringAfter(URL_SEARCH_PREFIX))
+            ?: return Observable.just(MangasPage(emptyList(), false))
+    } catch (e: Exception) {
+        return Observable.error(e)
     }
+
+    // Menghapus angka di awal jika ada (contoh: "1578-nama-komik" menjadi "nama-komik")
+    val cleanedMangaPath = mangaPath.replace(Regex("^\\d+-"), "")
+
+    return fetchMangaDetails(
+        SManga.create()
+            .apply { this.url = "$mangaUrlDirectory/$cleanedMangaPath/" },
+    )
+        .map {
+            // Isn't set in returned manga
+            it.url = "$mangaUrlDirectory/$cleanedMangaPath/"
+            MangasPage(listOf(it), false)
+        }
+}
 
     override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
         val url = baseUrl.toHttpUrl().newBuilder()
