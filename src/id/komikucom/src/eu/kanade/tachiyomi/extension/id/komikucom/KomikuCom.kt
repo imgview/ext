@@ -37,8 +37,14 @@ class KomikuCom : MangaThemesia(
         .build()
 
     override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
-        title = document.selectFirst(seriesThumbnailSelector)!!.attr("title")
-    }
+    title = document.selectFirst(seriesThumbnailSelector)!!.attr("title")
+    
+    // Menambahkan kode untuk deskripsi
+    description = document.select(seriesDescriptionSelector)
+        .joinToString("\n") { it.text() }
+        .trim()
+        .substringAfter("berkisah tentang :", "")  // Mengambil teks setelah "berkisah tentang :"
+}
 
     override fun pageListParse(document: Document): List<Page> {
         val scriptContent = document.selectFirst("script:containsData(ts_reader)")?.data()
