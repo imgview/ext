@@ -38,8 +38,7 @@ class KomikuCom : MangaThemesia(
 
     override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
     title = document.selectFirst(seriesThumbnailSelector)!!.attr("title")
-    
-    // Menambahkan kode untuk deskripsi
+
     description = document.select(seriesDescriptionSelector)
         .joinToString("\n") { it.text() }
         .trim()
