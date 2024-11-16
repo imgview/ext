@@ -36,6 +36,12 @@ class KomikuCom : MangaThemesia(
         .rateLimit(60, 1)
         .build()
 
+    override fun searchMangaFromElement(element: Element) = SManga.create().apply {
+    title = element.select("a").attr("title")
+        .replace(" ID", "")
+        .trim()
+}
+
     override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
     title = document.selectFirst(seriesThumbnailSelector)!!.attr("title")
 
