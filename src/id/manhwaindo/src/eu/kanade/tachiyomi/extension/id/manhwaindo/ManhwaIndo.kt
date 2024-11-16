@@ -10,10 +10,7 @@ import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.model.Page
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
-import okhttp3.Request
 import org.jsoup.nodes.Document
-import org.jsoup.nodes.Element
-import org.jsoup.select.Elements
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.text.SimpleDateFormat
@@ -36,37 +33,31 @@ class ManhwaIndo : MangaThemesia(
     override var baseUrl = preferences.getString(BASE_URL_PREF, super.baseUrl)!!
 
     override val client = super.client.newBuilder()
-        .rateLimit(10)
+        .rateLimit(60, 1)
         .build()
-        
-    private fun generateThumbnailUrl(imgUrl: String?, width: Int, height: Int): String? {
-    val modifiedImgUrl = imgUrl?.replace("https:///i1.wp.com", "https://")
-    return if (modifiedImgUrl != null) {
-        "https://resize.sardo.work/?width=$width&height=$height&imageUrl=$modifiedImgUrl"
-    } else {
-        null
-    }
+
+    override fun searchMangaFromElement(element: Element) = SManga.create().apply {
+    title = element.select("a").attr("title")
+        .replace(" ID", "")
+        .trim()
 }
 
-override fun searchMangaFromElement(element: Element) = super.searchMangaFromElement(element).apply {
-    val imgUrl = element.selectFirst("img")?.attr("data-lazy-src")
-    thumbnail_url = generateThumbnailUrl(imgUrl, 100, 100) // Menggunakan parameter 100x100
-    setUrlWithoutDomain(element.select("a").attr("href"))
-}
+    override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
+    title = document.selectFirst(seriesThumbnailSelector)!!.attr("title")
 
-override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
-    val imgUrl = document.selectFirst(super.seriesThumbnailSelector)?.selectFirst("div.thumb img")?.attr("data-lazy-src")
-    thumbnail_url = generateThumbnailUrl(imgUrl, 150, 110) // Menggunakan parameter 150x110
+    description = document.select(seriesDescriptionSelector)
+        .joinToString("\n") { it.text() }
+        .trim()
+        .substringAfter("berkisah tentang :", "")
 }
 
     override fun pageListParse(document: Document): List<Page> {
         val scriptContent = document.selectFirst("script:containsData(ts_reader)")?.data()
-            ?: return super.pageListParse(document)
+            ?: throw Exception("Script containing 'ts_reader' not found")
         val jsonString = scriptContent.substringAfter("ts_reader.run(").substringBefore(");")
         val tsReader = json.decodeFromString<TSReader>(jsonString)
-        val imageUrls = tsReader.sources.firstOrNull()?.images ?: return emptyList()
-
-        // Menggunakan URL resize
+        val imageUrls = tsReader.sources.firstOrNull()?.images
+            ?: throw Exception("No images found in ts_reader data")
         val resizeServiceUrl = getResizeServiceUrl()
         return imageUrls.mapIndexed { index, imageUrl -> 
             Page(index, document.location(), "${resizeServiceUrl ?: ""}$imageUrl")
@@ -83,7 +74,6 @@ override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(doc
         }
         screen.addPreference(resizeServicePref)
 
-        // Preference untuk mengubah base URL
         val baseUrlPref = EditTextPreference(screen.context).apply {
             key = BASE_URL_PREF
             title = BASE_URL_PREF_TITLE
@@ -96,7 +86,7 @@ override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(doc
                 val newUrl = newValue as String
                 baseUrl = newUrl
                 preferences.edit().putString(BASE_URL_PREF, newUrl).apply()
-                summary = "Current domain: $newUrl" // Update summary untuk domain yang baru
+                summary = "Current domain: $newUrl"
                 true
             }
         }
