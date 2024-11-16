@@ -51,24 +51,17 @@ class KomikuCom : MangaThemesia(
         title = document.selectFirst(seriesThumbnailSelector)!!.attr("title")
     }
 
-    override fun pageListParse(document: Document): List<Page> {
-    val images = document.select(pageSelector)
-    println("Images found: ${images.size}") // Debugging
-    if (images.isEmpty()) throw Exception("No images found in document")
-
+override fun pageListParse(document: Document): List<Page> {
+    val scriptContent = document.selectFirst("script:containsData(ts_reader)")?.data()
+        ?: throw Exception("Script containing 'ts_reader' not found")
+    val jsonString = scriptContent.substringAfter("ts_reader.run(").substringBefore(");")
+    val tsReader = json.decodeFromString<TSReader>(jsonString)
+    val imageUrls = tsReader.sources.firstOrNull()?.images
+        ?: throw Exception("No images found in ts_reader data")
     val resizeServiceUrl = getResizeServiceUrl()
-        ?: throw Exception("Resize Service URL is not set. Please configure it in the preferences.")
-
-    val pages = images.mapIndexed { index, imgElement ->
-        val imgUrl = imgElement.imgAttr()
-        println("Original Image URL: $imgUrl") // Debugging
-        val resizedUrl = "$resizeServiceUrl$imgUrl"
-        println("Resized Image URL: $resizedUrl") // Debugging
-        Page(index, document.location(), resizedUrl)
+    return imageUrls.mapIndexed { index, imageUrl -> 
+        Page(index, document.location(), "${resizeServiceUrl ?: ""}$imageUrl")
     }
-
-    if (pages.isEmpty()) throw Exception("Page list is empty")
-    return pages
 }
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
