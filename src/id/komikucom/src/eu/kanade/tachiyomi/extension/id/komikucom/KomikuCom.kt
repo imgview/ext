@@ -43,7 +43,7 @@ class KomikuCom : MangaThemesia(
     description = document.select(seriesDescriptionSelector)
         .joinToString("\n") { it.text() }
         .trim()
-        .substringAfter("berkisah tentang :", "")  // Mengambil teks setelah "berkisah tentang :"
+        .substringAfter("berkisah tentang :", "")
 }
 
     override fun pageListParse(document: Document): List<Page> {
