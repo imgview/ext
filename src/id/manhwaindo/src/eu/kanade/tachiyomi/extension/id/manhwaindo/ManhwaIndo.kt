@@ -36,7 +36,7 @@ class ManhwaIndo : MangaThemesia(
     override var baseUrl = preferences.getString(BASE_URL_PREF, super.baseUrl)!!
 
     override val client = super.client.newBuilder()
-        .rateLimit(3, 1)
+        .rateLimit(12)
         .build()
 
     override fun searchMangaFromElement(element: Element) = SManga.create().apply {
