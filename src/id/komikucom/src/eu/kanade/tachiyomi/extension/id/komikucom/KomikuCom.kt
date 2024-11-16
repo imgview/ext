@@ -27,10 +27,6 @@ class KomikuCom : MangaThemesia(
 
     private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
 
-    private fun getPrefCustomUA(): String? {
-        return preferences.getString("custom_ua", null)
-    }
-
     private fun getResizeServiceUrl(): String? {
         return preferences.getString("resize_service_url", null)
     }
@@ -65,16 +61,6 @@ override fun pageListParse(document: Document): List<Page> {
 }
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
-        val customUserAgentPref = EditTextPreference(screen.context).apply {
-            key = "custom_ua"
-            title = "Custom User-Agent"
-            summary = "Masukkan custom User-Agent Anda di sini."
-            setDefaultValue(null)
-            dialogTitle = "Custom User-Agent"
-        }
-
-        screen.addPreference(customUserAgentPref)
-
         val resizeServicePref = EditTextPreference(screen.context).apply {
             key = "resize_service_url"
             title = "Resize Service URL"
