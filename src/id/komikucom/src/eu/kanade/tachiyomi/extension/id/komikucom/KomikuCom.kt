@@ -44,7 +44,7 @@ class KomikuCom : MangaThemesia(
                 .header("User-Agent", getPrefCustomUA() ?: "Default User-Agent")
             chain.proceed(requestBuilder.build())
         }
-        .rateLimit(10)
+        .rateLimit(60, 1)
         .build()
 
     override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
