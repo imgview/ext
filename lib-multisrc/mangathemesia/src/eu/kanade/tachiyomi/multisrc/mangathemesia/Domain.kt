@@ -12,8 +12,8 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 
 class Domain(
-    dateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale("id"))
-), ConfigurableSource {
+    dateFormat: SimpleDateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale("id"))
+) : ConfigurableSource {
 
     private val preferences: SharedPreferences by lazy {
         Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
