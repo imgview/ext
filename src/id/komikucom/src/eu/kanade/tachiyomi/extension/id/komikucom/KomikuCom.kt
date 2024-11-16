@@ -52,18 +52,17 @@ class KomikuCom : MangaThemesia(
     }
 
     override fun pageListParse(document: Document): List<Page> {
-        val scriptContent = document.selectFirst("script:containsData(ts_reader)")?.data()
-            ?: return super.pageListParse(document)
-        val jsonString = scriptContent.substringAfter("ts_reader.run(").substringBefore(");")
-        val tsReader = json.decodeFromString<TSReader>(jsonString)
-        val imageUrls = tsReader.sources.firstOrNull()?.images ?: return emptyList()
+    val images = document.select(pageSelector)
+    val resizeServiceUrl = "https://resize.sardo.work/?width=300&quality=75&imageUrl="
 
-        // Menggunakan URL resize
-        val resizeServiceUrl = getResizeServiceUrl()
-        return imageUrls.mapIndexed { index, imageUrl -> 
-            Page(index, document.location(), "${resizeServiceUrl ?: ""}$imageUrl")
-        }
+    val pages = images.mapIndexed { index, imgElement ->
+        val imgUrl = imgElement.imgAttr()
+        val resizedUrl = "$resizeServiceUrl$imgUrl"
+        Page(index, document.location(), resizedUrl)
     }
+
+    return pages
+}
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
         val customUserAgentPref = EditTextPreference(screen.context).apply {
