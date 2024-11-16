@@ -5,9 +5,15 @@ import android.util.Base64
 import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.multisrc.mangathemesia.MangaThemesia
+import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.interceptor.rateLimit
 import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.model.Page
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonPrimitive
+import okhttp3.Request
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import uy.kohesive.injekt.Injekt
@@ -120,4 +126,15 @@ class MonzeeKomik : MangaThemesia(
         private const val BASE_URL_PREF = "overrideBaseUrl"
         private const val BASE_URL_PREF_SUMMARY = "Update domain untuk ekstensi ini"
     }
+
+    @Serializable
+    data class TSReader(
+        val sources: List<ReaderImageSource>,
+    )
+
+    @Serializable
+    data class ReaderImageSource(
+        val source: String,
+        val images: List<String>,
+    )
 }
