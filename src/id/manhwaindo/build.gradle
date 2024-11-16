@@ -2,7 +2,7 @@ ext {
     extName = 'ManhwaIndo'
     extClass = '.ManhwaIndo'
     themePkg = 'mangathemesia'
-    baseUrl = 'https://manhwaindo.net'
+    baseUrl = 'https://www.manhwaindo.st'
     overrideVersionCode = 5
     isNsfw = true
 }
