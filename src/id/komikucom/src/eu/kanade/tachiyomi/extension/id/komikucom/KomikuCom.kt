@@ -53,14 +53,21 @@ class KomikuCom : MangaThemesia(
 
     override fun pageListParse(document: Document): List<Page> {
     val images = document.select(pageSelector)
-    val resizeServiceUrl = "https://resize.sardo.work/?width=300&quality=75&imageUrl="
+    println("Images found: ${images.size}") // Debugging
+    if (images.isEmpty()) throw Exception("No images found in document")
+
+    val resizeServiceUrl = getResizeServiceUrl()
+        ?: throw Exception("Resize Service URL is not set. Please configure it in the preferences.")
 
     val pages = images.mapIndexed { index, imgElement ->
         val imgUrl = imgElement.imgAttr()
+        println("Original Image URL: $imgUrl") // Debugging
         val resizedUrl = "$resizeServiceUrl$imgUrl"
+        println("Resized Image URL: $resizedUrl") // Debugging
         Page(index, document.location(), resizedUrl)
     }
 
+    if (pages.isEmpty()) throw Exception("Page list is empty")
     return pages
 }
 
