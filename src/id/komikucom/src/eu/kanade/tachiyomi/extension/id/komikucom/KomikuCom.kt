@@ -10,7 +10,6 @@ import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.model.Page
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
-import okhttp3.Request
 import org.jsoup.nodes.Document
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -34,12 +33,6 @@ class KomikuCom : MangaThemesia(
     override var baseUrl = preferences.getString(BASE_URL_PREF, super.baseUrl)!!
 
     override val client = super.client.newBuilder()
-        .addInterceptor { chain ->
-            val original = chain.request()
-            val requestBuilder = original.newBuilder()
-                .header("User-Agent", getPrefCustomUA() ?: "Default User-Agent")
-            chain.proceed(requestBuilder.build())
-        }
         .rateLimit(60, 1)
         .build()
 
@@ -47,18 +40,18 @@ class KomikuCom : MangaThemesia(
         title = document.selectFirst(seriesThumbnailSelector)!!.attr("title")
     }
 
-override fun pageListParse(document: Document): List<Page> {
-    val scriptContent = document.selectFirst("script:containsData(ts_reader)")?.data()
-        ?: throw Exception("Script containing 'ts_reader' not found")
-    val jsonString = scriptContent.substringAfter("ts_reader.run(").substringBefore(");")
-    val tsReader = json.decodeFromString<TSReader>(jsonString)
-    val imageUrls = tsReader.sources.firstOrNull()?.images
-        ?: throw Exception("No images found in ts_reader data")
-    val resizeServiceUrl = getResizeServiceUrl()
-    return imageUrls.mapIndexed { index, imageUrl -> 
-        Page(index, document.location(), "${resizeServiceUrl ?: ""}$imageUrl")
+    override fun pageListParse(document: Document): List<Page> {
+        val scriptContent = document.selectFirst("script:containsData(ts_reader)")?.data()
+            ?: throw Exception("Script containing 'ts_reader' not found")
+        val jsonString = scriptContent.substringAfter("ts_reader.run(").substringBefore(");")
+        val tsReader = json.decodeFromString<TSReader>(jsonString)
+        val imageUrls = tsReader.sources.firstOrNull()?.images
+            ?: throw Exception("No images found in ts_reader data")
+        val resizeServiceUrl = getResizeServiceUrl()
+        return imageUrls.mapIndexed { index, imageUrl -> 
+            Page(index, document.location(), "${resizeServiceUrl ?: ""}$imageUrl")
+        }
     }
-}
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
         val resizeServicePref = EditTextPreference(screen.context).apply {
@@ -70,7 +63,6 @@ override fun pageListParse(document: Document): List<Page> {
         }
         screen.addPreference(resizeServicePref)
 
-        // Preference untuk mengubah base URL
         val baseUrlPref = EditTextPreference(screen.context).apply {
             key = BASE_URL_PREF
             title = BASE_URL_PREF_TITLE
@@ -83,7 +75,7 @@ override fun pageListParse(document: Document): List<Page> {
                 val newUrl = newValue as String
                 baseUrl = newUrl
                 preferences.edit().putString(BASE_URL_PREF, newUrl).apply()
-                summary = "Current domain: $newUrl" // Update summary untuk domain yang baru
+                summary = "Current domain: $newUrl"
                 true
             }
         }
