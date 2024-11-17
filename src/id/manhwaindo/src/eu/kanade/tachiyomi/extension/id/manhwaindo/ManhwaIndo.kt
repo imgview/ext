@@ -52,7 +52,7 @@ class ManhwaIndo : MangaThemesia(
         return imageElements.mapIndexed { i, element ->
             val imageUrl = element.imgAttr()
             val finalImageUrl = if (resizeServiceUrl != null) {
-                "$resizeServiceUrl?url=${encodeURIComponent(imageUrl)}"
+                "$resizeServiceUrl$imageUrl"
             } else {
                 imageUrl
             }
