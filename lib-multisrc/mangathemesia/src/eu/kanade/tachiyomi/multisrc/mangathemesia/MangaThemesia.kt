@@ -144,7 +144,7 @@ override fun fetchSearchManga(page: Int, query: String, filters: FilterList): Ob
     }
     
     fun Resize(thumbnailUrl: String): String {
-    return "https://resize.sardo.work/?width=110&height=150&url=$thumbnailUrl"
+    return "https://resize.sardo.work/?width=110&height=150&imageUrl=$thumbnailUrl"
 }
 
     override fun searchMangaFromElement(element: Element) = SManga.create().apply {
