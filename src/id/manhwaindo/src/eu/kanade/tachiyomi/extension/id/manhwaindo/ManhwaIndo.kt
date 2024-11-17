@@ -10,6 +10,7 @@ import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SManga
 import kotlinx.serialization.Serializable
+import okhttp3.Request
 import kotlinx.serialization.decodeFromString
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
