@@ -94,9 +94,6 @@ class ManhwaIndo : MangaThemesia(
     override fun searchMangaFromElement(element: Element) = super.searchMangaFromElement(element).apply {
         val titleElement = element.selectFirst("div.tt")
         title = titleElement?.text()?.removeSuffix(" ID") ?: title
-
-        val imageUrl = element.imgAttr()
-            .replace("///", "//")
     }
 
     companion object {
