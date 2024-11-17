@@ -41,50 +41,6 @@ class ManhwaIndo : MangaThemesia(
         .rateLimit(59, 1)
         .build()
 
-    override fun pageListParse(document: Document): List<Page> {
-    val scriptElement = document.selectFirst("script[src^=data:text/javascript;base64], script:containsData(ts_reader.run)")
-    val pageList = mutableListOf<Page>()
-
-    if (scriptElement != null) {
-        val scriptContent = if (scriptElement.hasAttr("src") && scriptElement.attr("src").startsWith("data:text/javascript;base64,")) {
-            val base64Content = scriptElement.attr("src").substringAfter("base64,")
-            val decodedContent = String(Base64.decode(base64Content, Base64.DEFAULT))
-
-            if (!decodedContent.contains("ts_reader.run")) {
-                return fallbackToImageElements(document)
-            }
-            decodedContent
-        } else {
-            scriptElement.data()
-        }
-
-        val jsonContent = JSON_TS_READER_REGEX.find(scriptContent)?.groupValues?.get(1)
-
-        if (jsonContent != null) {
-            val jsonElement = json.parseToJsonElement(jsonContent)
-            val imageUrls = jsonElement.jsonObject["sources"]?.jsonArray
-                ?.flatMap { it.jsonObject["images"]!!.jsonArray }
-                ?.map { it.jsonPrimitive.content } ?: return fallbackToImageElements(document)
-
-            pageList.addAll(imageUrls.mapIndexed { i, imageUrl -> Page(i, document.location(), imageUrl) })
-        } else {
-            return fallbackToImageElements(document)
-        }
-    } else {
-        return fallbackToImageElements(document)
-    }
-
-    return pageList
-}
-
-    fun fallbackToImageElements(document: Document): List<Page> {
-    val imageElements = document.select("img[src]")
-    return imageElements.mapIndexed { i, element ->
-        val imageUrl = element.attr("abs:src")
-        Page(i, document.location(), imageUrl)
-    }
-}
-
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
         val resizeServicePref = EditTextPreference(screen.context).apply {
             key = "resize_service_url"
@@ -144,8 +100,6 @@ class ManhwaIndo : MangaThemesia(
     private const val BASE_URL_PREF_TITLE = "Ubah Domain"
     private const val BASE_URL_PREF = "overrideBaseUrl"
     private const val BASE_URL_PREF_SUMMARY = "Update domain untuk ekstensi ini"
-
-    val JSON_TS_READER_REGEX = Regex("""ts_reader\.run\((\{.*\})\);""")
 }
 
     @Serializable
