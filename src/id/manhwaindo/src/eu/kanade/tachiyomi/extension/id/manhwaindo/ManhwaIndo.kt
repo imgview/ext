@@ -67,6 +67,37 @@ class ManhwaIndo : MangaThemesia(
         screen.addPreference(baseUrlPref)
     }
 
+    override fun pageListParse(document: Document): List<Page> {
+    val chapterUrl = document.location()
+
+    val imageElements = document.select(pageSelector)
+        .filterNot { it.imgAttr().isEmpty() }
+
+    if (imageElements.isEmpty()) {
+        println("Failed to parse images from chapter: $chapterUrl")
+    }
+
+    val resizeServiceUrl = getResizeServiceUrl()
+
+    return imageElements.mapIndexed { i, element ->
+        val imageUrl = element.imgAttr()
+        val finalImageUrl = if (resizeServiceUrl != null) {
+            "$resizeServiceUrl?url=${encodeURIComponent(imageUrl)}"
+        } else {
+            imageUrl
+        }
+
+        if (imageUrl.isEmpty()) {
+            println("Failed to get image URL for page: $chapterUrl, page index: $i")
+        } else {
+            println("Image URL: $imageUrl")
+            println("Final Image URL: $finalImageUrl")
+        }
+        
+        Page(i, chapterUrl, finalImageUrl)
+    }
+}
+
     override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
     title = document.selectFirst(seriesThumbnailSelector)!!.attr("alt").removeSuffix(" ID")
 }
