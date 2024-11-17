@@ -5,19 +5,15 @@ import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.multisrc.mangathemesia.MangaThemesia
 import eu.kanade.tachiyomi.network.GET
+import eu.kanade.tachiyomi.network.interceptor.rateLimit
 import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.model.Page
-import eu.kanade.tachiyomi.source.model.SManga
-import eu.kanade.tachiyomi.source.model.SChapter
-import io.reactivex.rxjava3.core.Observable
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import okhttp3.Request
 import org.jsoup.nodes.Document
-import org.jsoup.nodes.Element
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -26,69 +22,59 @@ class ManhwaIndo : MangaThemesia(
     "https://www.manhwaindo.st",
     "id",
     "/series",
-    dateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale("id"))
+    dateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale.US)
 ), ConfigurableSource {
 
     private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
+
+    private fun getPrefCustomUA(): String? {
+        return preferences.getString("custom_ua", null)
+    }
 
     private fun getResizeServiceUrl(): String? {
         return preferences.getString("resize_service_url", null)
     }
 
-    override var baseUrl = preferences.getString(BASE_URL_PREF, super.baseUrl) ?: super.baseUrl
+    override var baseUrl = preferences.getString(BASE_URL_PREF, super.baseUrl)!!
 
-    override val client = super.client.newBuilder().build()
-
-    override fun searchMangaFromElement(element: Element) = SManga.create().apply {
-        title = element.select("a").attr("title")
-            .replace(" ID", "")
-            .trim()
-    }
+    override val client = super.client.newBuilder()
+        .addInterceptor { chain ->
+            val original = chain.request()
+            val requestBuilder = original.newBuilder()
+                .header("User-Agent", getPrefCustomUA() ?: "Default User-Agent")
+            chain.proceed(requestBuilder.build())
+        }
+        .rateLimit(4)
+        .build()
 
     override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
-        title = document.selectFirst(seriesThumbnailSelector)?.attr("title") ?: "Unknown Title"
-
-        description = document.select(seriesDescriptionSelector)
-            .joinToString("\n") { it.text() }
-            .trim()
-            .substringAfter("berkisah tentang :", "")
+        title = document.selectFirst(seriesThumbnailSelector)!!.attr("alt")
     }
 
     override fun pageListParse(document: Document): List<Page> {
         val scriptContent = document.selectFirst("script:containsData(ts_reader)")?.data()
-            ?: throw Exception("Script containing 'ts_reader' not found")
+            ?: return super.pageListParse(document)
         val jsonString = scriptContent.substringAfter("ts_reader.run(").substringBefore(");")
         val tsReader = json.decodeFromString<TSReader>(jsonString)
-        val imageUrls = tsReader.sources.firstOrNull()?.images
-            ?: throw Exception("No images found in ts_reader data")
+        val imageUrls = tsReader.sources.firstOrNull()?.images ?: return emptyList()
+
+        // Menggunakan URL resize
         val resizeServiceUrl = getResizeServiceUrl()
-        return imageUrls.mapIndexed { index, imageUrl ->
+        return imageUrls.mapIndexed { index, imageUrl -> 
             Page(index, document.location(), "${resizeServiceUrl ?: ""}$imageUrl")
         }
     }
 
-    override fun fetchMangaDetails(manga: SManga): Observable<SManga> {
-        return Observable.fromCallable {
-            try {
-                super.fetchMangaDetails(manga).blockingFirst()
-            } catch (e: IOException) {
-                throw Exception("Network error: Unable to fetch manga details. Please check your connection.")
-            }
-        }
-    }
-
-    override fun fetchChapterList(manga: SManga): Observable<List<SChapter>> {
-        return Observable.fromCallable {
-            try {
-                super.fetchChapterList(manga).blockingFirst()
-            } catch (e: IOException) {
-                throw Exception("Network error: Unable to fetch chapter list. Please check your connection.")
-            }
-        }
-    }
-
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
-        super.setupPreferenceScreen(screen)
+        val customUserAgentPref = EditTextPreference(screen.context).apply {
+            key = "custom_ua"
+            title = "Custom User-Agent"
+            summary = "Masukkan custom User-Agent Anda di sini."
+            setDefaultValue(null)
+            dialogTitle = "Custom User-Agent"
+        }
+
+        screen.addPreference(customUserAgentPref)
 
         val resizeServicePref = EditTextPreference(screen.context).apply {
             key = "resize_service_url"
@@ -99,6 +85,7 @@ class ManhwaIndo : MangaThemesia(
         }
         screen.addPreference(resizeServicePref)
 
+        // Preference untuk mengubah base URL
         val baseUrlPref = EditTextPreference(screen.context).apply {
             key = BASE_URL_PREF
             title = BASE_URL_PREF_TITLE
@@ -108,10 +95,10 @@ class ManhwaIndo : MangaThemesia(
             dialogMessage = "Original: $baseUrl"
 
             setOnPreferenceChangeListener { _, newValue ->
-                val newUrl = newValue as? String ?: return@setOnPreferenceChangeListener false
+                val newUrl = newValue as String
                 baseUrl = newUrl
                 preferences.edit().putString(BASE_URL_PREF, newUrl).apply()
-                summary = "Current domain: $newUrl"
+                summary = "Current domain: $newUrl" // Update summary untuk domain yang baru
                 true
             }
         }
