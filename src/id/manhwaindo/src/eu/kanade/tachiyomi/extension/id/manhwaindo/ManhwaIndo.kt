@@ -20,7 +20,7 @@ class ManhwaIndo : MangaThemesia(
     "https://www.manhwaindo.st",
     "id",
     "/series",
-    dateFormat = SimpleDateFormat("MMMM d, yyyy", Locale.US)
+    dateFormat = SimpleDateFormat("MMMM d, yyyy", Locale("id"))
 ), ConfigurableSource {
 
     private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
