@@ -151,7 +151,7 @@ override fun fetchSearchManga(page: Int, query: String, filters: FilterList): Ob
 
     override fun searchMangaFromElement(element: Element) = SManga.create().apply {
     val originalThumbnailUrl = element.select("img").imgAttr()
-    thumbnail_url = Resize(originalThumbnailUrl)
+    thumbnail_url = Resize(originalThumbnailUrl.replace("///", "//"))
     title = element.select("a").attr("title")
     setUrlWithoutDomain(element.select("a").attr("href"))
 }
