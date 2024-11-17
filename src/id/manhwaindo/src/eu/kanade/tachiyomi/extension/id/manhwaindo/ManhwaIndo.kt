@@ -26,7 +26,7 @@ class ManhwaIndo : MangaThemesia(
     "https://www.manhwaindo.st",
     "id",
     "/series",
-    dateFormat = SimpleDateFormat("MMMM d, yyyy", Locale("id"))
+    dateFormat = SimpleDateFormat("MMMM d, yyyy", Locale.US)
 ), ConfigurableSource {
 
     private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
@@ -41,8 +41,8 @@ class ManhwaIndo : MangaThemesia(
         .rateLimit(59, 1)
         .build()
         
-        override fun mangaDetailsParse(document: Document) = SManga.create().apply {
-        document.selectFirst(seriesDetailsSelector)?.let { seriesDetails ->
+    override fun mangaDetailsParse(document: Document): SManga {
+        return super.mangaDetailsParse(document).apply {
             title = seriesDetails.selectFirst(seriesTitleSelector)?.text()
                 ?.replace("ID", "", ignoreCase = true)?.trim().orEmpty()
                 }
