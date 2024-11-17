@@ -8,13 +8,13 @@ import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SManga
+import eu.kanade.tachiyomi.source.model.SChapter
+import io.reactivex.rxjava3.core.Observable
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import okhttp3.Request
-import okhttp3.Response
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
-import org.jsoup.HttpStatusException
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.io.IOException
@@ -67,33 +67,23 @@ class ManhwaIndo : MangaThemesia(
         }
     }
 
-    override fun fetchPageList(document: Document): List<Page> {
-        return try {
-            pageListParse(document)
-        } catch (e: HttpStatusException) {
-            throw Exception("Error fetching pages, HTTP status code: ${e.statusCode}")
-        } catch (e: IOException) {
-            throw Exception("Network error: Unable to fetch page list. Please check your connection.")
+    override fun fetchMangaDetails(manga: SManga): Observable<SManga> {
+        return Observable.fromCallable {
+            try {
+                super.fetchMangaDetails(manga).blockingFirst()
+            } catch (e: IOException) {
+                throw Exception("Network error: Unable to fetch manga details. Please check your connection.")
+            }
         }
     }
 
-    override fun fetchMangaDetails(manga: SManga): SManga {
-        return try {
-            super.fetchMangaDetails(manga)
-        } catch (e: HttpStatusException) {
-            throw Exception("Error fetching manga details, HTTP status code: ${e.statusCode}")
-        } catch (e: IOException) {
-            throw Exception("Network error: Unable to fetch manga details. Please check your connection.")
-        }
-    }
-
-    override fun fetchChapterList(manga: SManga): List<SChapter> {
-        return try {
-            super.fetchChapterList(manga)
-        } catch (e: HttpStatusException) {
-            throw Exception("Error fetching chapter list, HTTP status code: ${e.statusCode}")
-        } catch (e: IOException) {
-            throw Exception("Network error: Unable to fetch chapter list. Please check your connection.")
+    override fun fetchChapterList(manga: SManga): Observable<List<SChapter>> {
+        return Observable.fromCallable {
+            try {
+                super.fetchChapterList(manga).blockingFirst()
+            } catch (e: IOException) {
+                throw Exception("Network error: Unable to fetch chapter list. Please check your connection.")
+            }
         }
     }
 
