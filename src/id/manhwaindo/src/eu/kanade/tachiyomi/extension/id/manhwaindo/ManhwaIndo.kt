@@ -102,10 +102,10 @@ class ManhwaIndo : MangaThemesia(
         screen.addPreference(baseUrlPref)
     }
 
-    // Fungsi untuk parsing detail manga dengan modifikasi pada title
     override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
-        title = document.selectFirst(seriesThumbnailSelector)!!.attr("alt")
-    }
+    title = document.selectFirst(seriesThumbnailSelector)!!.attr("alt")
+        .removeSuffix(" ID")
+}
 
     companion object {
         private const val BASE_URL_PREF_TITLE = "Ubah Domain"
