@@ -9,11 +9,11 @@ import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SManga
 import kotlinx.serialization.Serializable
-import okhttp3.Request
 import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
+import okhttp3.Request
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
-import org.jsoup.select.Elements
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.text.SimpleDateFormat
@@ -28,30 +28,30 @@ class ManhwaIndo : MangaThemesia(
 ), ConfigurableSource {
 
     private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
+    private val json = Json { ignoreUnknownKeys = true }
 
     private fun getResizeServiceUrl(): String? {
         return preferences.getString("resize_service_url", null)
     }
 
-    override var baseUrl = preferences.getString(BASE_URL_PREF, super.baseUrl)!!
+    override var baseUrl = preferences.getString(BASE_URL_PREF, super.baseUrl) ?: super.baseUrl
 
-    override val client = super.client.newBuilder()
-        .build()
+    override val client = super.client.newBuilder().build()
 
     override fun searchMangaFromElement(element: Element) = SManga.create().apply {
-    title = element.select("a").attr("title")
-        .replace(" ID", "")
-        .trim()
-}
+        title = element.select("a").attr("title")
+            .replace(" ID", "")
+            .trim()
+    }
 
     override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
-    title = document.selectFirst(seriesThumbnailSelector)!!.attr("title")
+        title = document.selectFirst(seriesThumbnailSelector)?.attr("title") ?: "Unknown Title"
 
-    description = document.select(seriesDescriptionSelector)
-        .joinToString("\n") { it.text() }
-        .trim()
-        .substringAfter("berkisah tentang :", "")
-}
+        description = document.select(seriesDescriptionSelector)
+            .joinToString("\n") { it.text() }
+            .trim()
+            .substringAfter("berkisah tentang :", "")
+    }
 
     override fun pageListParse(document: Document): List<Page> {
         val scriptContent = document.selectFirst("script:containsData(ts_reader)")?.data()
@@ -61,12 +61,14 @@ class ManhwaIndo : MangaThemesia(
         val imageUrls = tsReader.sources.firstOrNull()?.images
             ?: throw Exception("No images found in ts_reader data")
         val resizeServiceUrl = getResizeServiceUrl()
-        return imageUrls.mapIndexed { index, imageUrl -> 
+        return imageUrls.mapIndexed { index, imageUrl ->
             Page(index, document.location(), "${resizeServiceUrl ?: ""}$imageUrl")
         }
     }
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
+        super.setupPreferenceScreen(screen)
+
         val resizeServicePref = EditTextPreference(screen.context).apply {
             key = "resize_service_url"
             title = "Resize Service URL"
@@ -85,7 +87,7 @@ class ManhwaIndo : MangaThemesia(
             dialogMessage = "Original: $baseUrl"
 
             setOnPreferenceChangeListener { _, newValue ->
-                val newUrl = newValue as String
+                val newUrl = newValue as? String ?: return@setOnPreferenceChangeListener false
                 baseUrl = newUrl
                 preferences.edit().putString(BASE_URL_PREF, newUrl).apply()
                 summary = "Current domain: $newUrl"
