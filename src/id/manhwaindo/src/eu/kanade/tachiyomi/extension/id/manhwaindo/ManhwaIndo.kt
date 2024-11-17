@@ -44,6 +44,16 @@ class ManhwaIndo : MangaThemesia(
         }
         .rateLimit(4)
         .build()
+        
+        override fun mangaDetailsParse(document: Document) = SManga.create().apply {
+        document.selectFirst(seriesDetailsSelector)?.let { seriesDetails ->
+            title = seriesDetails.selectFirst(seriesTitleSelector)?.text()
+                ?.replace("ID", "", ignoreCase = true)?.trim().orEmpty()
+            description = seriesDetails.select(seriesDescriptionSelector)
+    .joinToString("\n") { it.text() }
+    .replace(Regex(".*?bercerita tentang :"), "")
+    .trim()
+ }
 
     override fun pageListParse(document: Document): List<Page> {
         val scriptContent = document.selectFirst("script:containsData(ts_reader)")?.data()
