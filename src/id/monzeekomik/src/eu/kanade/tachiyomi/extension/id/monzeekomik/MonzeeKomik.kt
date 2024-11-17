@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.extension.id.monzeekomik
 
 import android.app.Application
+import android.util.Base64
 import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.multisrc.mangathemesia.MangaThemesia
@@ -30,11 +31,34 @@ class MonzeeKomik : MangaThemesia(
 
     private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
 
+    private fun getResizeServiceUrl(): String? {
+        return preferences.getString("resize_service_url", null)
+    }
+
     override var baseUrl = preferences.getString(BASE_URL_PREF, super.baseUrl)!!
 
     override val client = super.client.newBuilder()
         .rateLimit(59, 1)
         .build()
+
+    private fun generateThumbnailUrl(imgUrl: String?, width: Int, height: Int): String? {
+        val modifiedImgUrl = imgUrl?.replace("https:///i1.wp.com", "https://")
+        return if (modifiedImgUrl != null) {
+            "https://resize.sardo.work/?width=$width&height=$height&imageUrl=$modifiedImgUrl"
+        } else {
+            null
+        }
+    }
+
+    override fun searchMangaFromElement(element: Element) = super.searchMangaFromElement(element).apply {
+        val imgUrl = element.selectFirst("noscript img")?.attr("src")
+        thumbnail_url = generateThumbnailUrl(imgUrl, 100, 100)
+    }
+
+    override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
+        val imgUrl = document.selectFirst(super.seriesThumbnailSelector)?.selectFirst("div.thumb img")?.attr("src")
+        thumbnail_url = generateThumbnailUrl(imgUrl, 150, 110)
+    }
 
     override fun pageListParse(document: Document): List<Page> {
         val script = document.select("script[src^=data:text/javascript;base64,]").mapNotNull { element ->
@@ -54,15 +78,30 @@ class MonzeeKomik : MangaThemesia(
             emptyList()
         }
 
+        // Ambil URL layanan resize dari pengaturan pengguna, kosong secara default
+        val resizeServiceUrl = getResizeServiceUrl()
+
         val scriptPages = imageList.mapIndexed { i, jsonEl ->
             val originalUrl = jsonEl.jsonPrimitive.content
-            Page(i, document.location(), originalUrl)  // Tidak ada perubahan pada URL gambar
+            // Jika URL layanan resize tersedia, gunakan; jika tidak, gunakan URL asli
+            val resizedUrl = resizeServiceUrl?.let { "$it$originalUrl" } ?: originalUrl
+            Page(i, document.location(), resizedUrl)
         }
 
         return scriptPages
     }
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
+        val resizeServicePref = EditTextPreference(screen.context).apply {
+            key = "resize_service_url"
+            title = "Resize Service URL"
+            summary = "Masukkan URL layanan resize gambar, contoh: https://resize.sardo.work."
+            setDefaultValue("") // Nilai default kosong
+            dialogTitle = "Resize Service URL"
+        }
+        screen.addPreference(resizeServicePref)
+
+        // Preference untuk mengubah base URL
         val baseUrlPref = EditTextPreference(screen.context).apply {
             key = BASE_URL_PREF
             title = BASE_URL_PREF_TITLE
