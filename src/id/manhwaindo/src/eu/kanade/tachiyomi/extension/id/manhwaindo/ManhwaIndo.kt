@@ -1,4 +1,4 @@
-package eu.kanade.tachiyomi.extension.id.manhwaindo
+package eu.kanade.tachiyomi.extension.id.monzeekomik
 
 import android.app.Application
 import android.util.Base64
@@ -107,7 +107,29 @@ class ManhwaIndo : MangaThemesia(
 }
 
     override fun searchMangaFromElement(element: Element) = super.searchMangaFromElement(element).apply {
-    title = element.selectFirst(seriesThumbnailSelector)!!.attr("alt").removeSuffix(" ID")
+    // Ambil elemen dengan seriesThumbnailSelector
+    val thumbnailElement = element.selectFirst(seriesThumbnailSelector)
+    
+    // Debug apakah elemen ditemukan atau tidak
+    if (thumbnailElement == null) {
+        println("Error: Elemen dengan selector '$seriesThumbnailSelector' tidak ditemukan.")
+    } else {
+        println("seriesThumbnailSelector ditemukan, alt attribute: ${thumbnailElement.attr("alt")}")
+    }
+    
+    // Periksa apakah atribut 'alt' ada dan tidak null
+    val altText = thumbnailElement?.attr("alt")
+    if (altText.isNullOrEmpty()) {
+        println("Error: Atribut 'alt' tidak ditemukan atau kosong pada thumbnail.")
+    } else {
+        println("Atribut 'alt' ditemukan: $altText")
+    }
+    
+    // Set title dan hapus suffix " ID" jika ada
+    title = altText?.removeSuffix(" ID") ?: title
+    
+    // Log hasil akhir dari title setelah modifikasi
+    println("Judul manga setelah removeSuffix: $title")
 }
 
     companion object {
