@@ -72,10 +72,8 @@ class ManhwaIndo : MangaThemesia(
 }
 
     override fun searchMangaFromElement(element: Element) = super.searchMangaFromElement(element).apply {
-    // Ambil elemen dengan class 'tt' yang berisi judul manga
     val titleElement = element.selectFirst("div.tt")
-    
-    // Debug apakah elemen judul ditemukan
+
     if (titleElement == null) {
         println("Error: Elemen dengan class 'tt' tidak ditemukan.")
     } else {
@@ -83,11 +81,9 @@ class ManhwaIndo : MangaThemesia(
         val titleText = titleElement.text()
         println("Judul ditemukan: $titleText")
         
-        // Hapus suffix " ID" jika ada
         title = titleText.removeSuffix(" ID")
     }
     
-    // Log hasil akhir dari title setelah modifikasi
     println("Judul manga setelah removeSuffix: $title")
 }
 
