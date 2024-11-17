@@ -4,13 +4,11 @@ import android.app.Application
 import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.multisrc.mangathemesia.MangaThemesia
-import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.interceptor.rateLimit
 import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.model.Page
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
-import okhttp3.Request
 import org.jsoup.nodes.Document
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -58,9 +56,8 @@ class ManhwaIndo : MangaThemesia(
         val tsReader = json.decodeFromString<TSReader>(jsonString)
         val imageUrls = tsReader.sources.firstOrNull()?.images ?: return emptyList()
 
-        // Menggunakan URL resize
         val resizeServiceUrl = getResizeServiceUrl()
-        return imageUrls.mapIndexed { index, imageUrl -> 
+        return imageUrls.mapIndexed { index, imageUrl ->
             Page(index, document.location(), "${resizeServiceUrl ?: ""}$imageUrl")
         }
     }
@@ -73,7 +70,6 @@ class ManhwaIndo : MangaThemesia(
             setDefaultValue(null)
             dialogTitle = "Custom User-Agent"
         }
-
         screen.addPreference(customUserAgentPref)
 
         val resizeServicePref = EditTextPreference(screen.context).apply {
@@ -85,7 +81,6 @@ class ManhwaIndo : MangaThemesia(
         }
         screen.addPreference(resizeServicePref)
 
-        // Preference untuk mengubah base URL
         val baseUrlPref = EditTextPreference(screen.context).apply {
             key = BASE_URL_PREF
             title = BASE_URL_PREF_TITLE
@@ -93,12 +88,11 @@ class ManhwaIndo : MangaThemesia(
             setDefaultValue(baseUrl)
             dialogTitle = BASE_URL_PREF_TITLE
             dialogMessage = "Original: $baseUrl"
-
             setOnPreferenceChangeListener { _, newValue ->
                 val newUrl = newValue as String
                 baseUrl = newUrl
                 preferences.edit().putString(BASE_URL_PREF, newUrl).apply()
-                summary = "Current domain: $newUrl" // Update summary untuk domain yang baru
+                summary = "Current domain: $newUrl"
                 true
             }
         }
