@@ -20,7 +20,7 @@ class ManhwaIndo : MangaThemesia(
     "https://www.manhwaindo.st",
     "id",
     "/series",
-    dateFormat = SimpleDateFormat("MMMM d, yyyy", Locale("id"))
+    dateFormat = SimpleDateFormat("MMMM d, yyyy", Locale.US)
 ), ConfigurableSource {
 
     private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
@@ -37,14 +37,13 @@ class ManhwaIndo : MangaThemesia(
 
     override fun pageListParse(document: Document): List<Page> {
         val chapterUrl = document.location()
-
         val imageElements = document.select(pageSelector)
-            .filterNot { it.imgAttr().isEmpty() }
+            .filterNot { it.attr("data-lazy-src").isEmpty() }
 
         val resizeServiceUrl = getResizeServiceUrl()
 
         return imageElements.mapIndexed { i, element ->
-            val imageUrl = element.imgAttr()
+            val imageUrl = element.attr("data-lazy-src")
             val finalImageUrl = if (resizeServiceUrl != null) {
                 "$resizeServiceUrl$imageUrl"
             } else {
@@ -65,7 +64,6 @@ class ManhwaIndo : MangaThemesia(
         }
         screen.addPreference(resizeServicePref)
 
-        // Preference untuk mengubah base URL
         val baseUrlPref = EditTextPreference(screen.context).apply {
             key = BASE_URL_PREF
             title = BASE_URL_PREF_TITLE
@@ -78,7 +76,7 @@ class ManhwaIndo : MangaThemesia(
                 val newUrl = newValue as String
                 baseUrl = newUrl
                 preferences.edit().putString(BASE_URL_PREF, newUrl).apply()
-                summary = "Current domain: $newUrl" // Update summary untuk domain yang baru
+                summary = "Current domain: $newUrl"
                 true
             }
         }
@@ -87,8 +85,6 @@ class ManhwaIndo : MangaThemesia(
 
     override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
         title = document.selectFirst(seriesThumbnailSelector)!!.attr("alt").removeSuffix(" ID")
-
-        // Ambil deskripsi dari elemen seriesDescriptionSelector dan hapus teks sebelum "berkisah tentang :"
         description = document.select(seriesDescriptionSelector)
             .joinToString("\n") { it.text() }
             .replace(Regex(".*?berkisah tentang\\s*:\\s*"), "")
@@ -98,6 +94,9 @@ class ManhwaIndo : MangaThemesia(
     override fun searchMangaFromElement(element: Element) = super.searchMangaFromElement(element).apply {
         val titleElement = element.selectFirst("div.tt")
         title = titleElement?.text()?.removeSuffix(" ID") ?: title
+
+        val imageUrl = element.imgAttr()
+            .replace("///", "//")
     }
 
     companion object {
