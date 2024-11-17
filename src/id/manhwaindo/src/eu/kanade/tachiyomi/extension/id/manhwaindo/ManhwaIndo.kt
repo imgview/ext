@@ -45,10 +45,6 @@ class ManhwaIndo : MangaThemesia(
         .rateLimit(4)
         .build()
 
-    override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
-        title = document.selectFirst(seriesThumbnailSelector)!!.attr("alt")
-    }
-
     override fun pageListParse(document: Document): List<Page> {
         val scriptContent = document.selectFirst("script:containsData(ts_reader)")?.data()
             ?: return super.pageListParse(document)
