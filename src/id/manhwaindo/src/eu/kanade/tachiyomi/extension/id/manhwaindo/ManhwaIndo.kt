@@ -4,12 +4,10 @@ import android.app.Application
 import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.multisrc.mangathemesia.MangaThemesia
-import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.interceptor.rateLimit
 import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.model.Page
 import kotlinx.serialization.Serializable
-import okhttp3.Request
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import uy.kohesive.injekt.Injekt
@@ -22,7 +20,7 @@ class ManhwaIndo : MangaThemesia(
     "https://www.manhwaindo.st",
     "id",
     "/series",
-    dateFormat = SimpleDateFormat("MMMM d, yyyy", Locale.US)
+    dateFormat = SimpleDateFormat("MMMM d, yyyy", Locale("id"))
 ), ConfigurableSource {
 
     private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
@@ -43,10 +41,6 @@ class ManhwaIndo : MangaThemesia(
         val imageElements = document.select(pageSelector)
             .filterNot { it.imgAttr().isEmpty() }
 
-        if (imageElements.isEmpty()) {
-            println("Failed to parse images from chapter: $chapterUrl")
-        }
-
         val resizeServiceUrl = getResizeServiceUrl()
 
         return imageElements.mapIndexed { i, element ->
@@ -55,13 +49,6 @@ class ManhwaIndo : MangaThemesia(
                 "$resizeServiceUrl$imageUrl"
             } else {
                 imageUrl
-            }
-
-            if (imageUrl.isEmpty()) {
-                println("Failed to get image URL for page: $chapterUrl, page index: $i")
-            } else {
-                println("Image URL: $imageUrl")
-                println("Final Image URL: $finalImageUrl")
             }
 
             Page(i, chapterUrl, finalImageUrl)
@@ -100,26 +87,20 @@ class ManhwaIndo : MangaThemesia(
 
     override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
         title = document.selectFirst(seriesThumbnailSelector)!!.attr("alt").removeSuffix(" ID")
+
+        // Ambil deskripsi dari elemen seriesDescriptionSelector dan hapus teks sebelum "berkisah tentang :"
+        description = document.select(seriesDescriptionSelector)
+            .joinToString("\n") { it.text() }
+            .replace(Regex(".*?berkisah tentang\\s*:\\s*"), "")
+            .trim()
     }
 
     override fun searchMangaFromElement(element: Element) = super.searchMangaFromElement(element).apply {
         val titleElement = element.selectFirst("div.tt")
-
-        if (titleElement == null) {
-            println("Error: Elemen dengan class 'tt' tidak ditemukan.")
-        } else {
-            // Ambil judul dari elemen 'tt'
-            val titleText = titleElement.text()
-            println("Judul ditemukan: $titleText")
-
-            title = titleText.removeSuffix(" ID")
-        }
-
-        println("Judul manga setelah removeSuffix: $title")
+        title = titleElement?.text()?.removeSuffix(" ID") ?: title
     }
 
     companion object {
-        // Konstanta untuk pengaturan ekstensi
         private const val BASE_URL_PREF_TITLE = "Ubah Domain"
         private const val BASE_URL_PREF = "overrideBaseUrl"
         private const val BASE_URL_PREF_SUMMARY = "Update domain untuk ekstensi ini"
