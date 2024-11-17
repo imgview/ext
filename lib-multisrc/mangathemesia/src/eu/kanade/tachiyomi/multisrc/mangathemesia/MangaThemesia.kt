@@ -144,14 +144,15 @@ override fun fetchSearchManga(page: Int, query: String, filters: FilterList): Ob
     }
     
     fun Resize(thumbnailUrl: String): String {
-    return "https://resize.sardo.work/?width=110&height=150&imageUrl=$thumbnailUrl"
+    return "https://resize.sardo.work/?width=110&height=150&url=$thumbnailUrl"
 }
+
+    override fun searchMangaSelector() = ".utao .uta .imgu, .listupd .bs .bsx, .listo .bs .bsx"
 
     override fun searchMangaFromElement(element: Element) = SManga.create().apply {
     val originalThumbnailUrl = element.select("img").imgAttr()
     thumbnail_url = Resize(originalThumbnailUrl)
-    // Hapus "ID" dari judul jika ada
-    title = element.select("a").attr("title").replace(" ID", "", ignoreCase = true)
+    title = element.select("a").attr("title")
     setUrlWithoutDomain(element.select("a").attr("href"))
 }
 
@@ -250,20 +251,13 @@ override fun fetchSearchManga(page: Int, query: String, filters: FilterList): Ob
         title = seriesDetails.selectFirst(seriesTitleSelector)!!.text()
         artist = seriesDetails.selectFirst(seriesArtistSelector)?.ownText().removeEmptyPlaceholder()
         author = seriesDetails.selectFirst(seriesAuthorSelector)?.ownText().removeEmptyPlaceholder()
-        
-        // Ambil deskripsi, lalu hilangkan bagian sebelum "berkisah tentang :" jika ada
-        description = seriesDetails.select(seriesDescriptionSelector)
-            .joinToString("\n") { it.text() }
-            .substringAfter("berkisah tentang :", "")
-            .trim()
+        description = seriesDetails.select(seriesDescriptionSelector).joinToString("\n") { it.text() }.trim()
 
-        // Tambahkan alternatif nama jika ada
+        // Add alternative name to manga description
         val altName = seriesDetails.selectFirst(seriesAltNameSelector)?.ownText().takeIf { it.isNullOrBlank().not() }
         altName?.let {
             description = "$description\n\n$altNamePrefix$altName".trim()
         }
-    }
-}
 
         // Process genres
         val genres = seriesDetails.select(seriesGenreSelector).map { it.text() }.toMutableList()
