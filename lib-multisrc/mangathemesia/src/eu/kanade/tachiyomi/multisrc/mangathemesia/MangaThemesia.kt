@@ -246,18 +246,17 @@ override fun fetchSearchManga(page: Int, query: String, filters: FilterList): Ob
 
     open val altNamePrefix = "${intl["alt_names_heading"]} "
 
-    override fun mangaDetailsParse(document: Document) = SManga.create().apply {
-    document.selectFirst(seriesDetailsSelector)?.let { seriesDetails ->
-        title = seriesDetails.selectFirst(seriesTitleSelector)!!.text()
-        artist = seriesDetails.selectFirst(seriesArtistSelector)?.ownText().removeEmptyPlaceholder()
-        author = seriesDetails.selectFirst(seriesAuthorSelector)?.ownText().removeEmptyPlaceholder()
-        description = seriesDetails.select(seriesDescriptionSelector).joinToString("\n") { it.text() }.trim()
-
-        // Add alternative name to manga description
-        val altName = seriesDetails.selectFirst(seriesAltNameSelector)?.ownText().takeIf { it.isNullOrBlank().not() }
-        altName?.let {
-            description = "$description\n\n$altNamePrefix$altName".trim()
-        }
+        override fun mangaDetailsParse(document: Document) = SManga.create().apply {
+        document.selectFirst(seriesDetailsSelector)?.let { seriesDetails ->
+            title = seriesDetails.selectFirst(seriesTitleSelector)!!.text()
+            artist = seriesDetails.selectFirst(seriesArtistSelector)?.ownText().removeEmptyPlaceholder()
+            author = seriesDetails.selectFirst(seriesAuthorSelector)?.ownText().removeEmptyPlaceholder()
+            description = seriesDetails.select(seriesDescriptionSelector).joinToString("\n") { it.text() }.trim()
+            // Add alternative name to manga description
+            val altName = seriesDetails.selectFirst(seriesAltNameSelector)?.ownText().takeIf { it.isNullOrBlank().not() }
+            altName?.let {
+                description = "$description\n\n$altNamePrefix$altName".trim()
+            }
 
         // Process genres
         val genres = seriesDetails.select(seriesGenreSelector).map { it.text() }.toMutableList()
