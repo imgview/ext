@@ -40,12 +40,10 @@ class ManhwaIndo : MangaThemesia(
     override val client = super.client.newBuilder()
         .rateLimit(59, 1)
         .build()
-        
-    override fun mangaDetailsParse(document: Document): SManga {
-        return super.mangaDetailsParse(document).apply {
-            title = seriesDetails.selectFirst(seriesTitleSelector)?.text()
-                ?.replace("ID", "", ignoreCase = true)?.trim().orEmpty()
-                }
+    
+        override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
+        title = document.selectFirst(seriesThumbnailSelector)!!.attr("alt")
+    }
 
     override fun pageListParse(document: Document): List<Page> {
         val script = document.select("script[src^=data:text/javascript;base64,]").mapNotNull { element ->
