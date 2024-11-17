@@ -1,4 +1,4 @@
-package eu.kanade.tachiyomi.extension.id.monzeekomik
+package eu.kanade.tachiyomi.extension.id.manhwaindo
 
 import android.app.Application
 import android.util.Base64
@@ -103,8 +103,11 @@ class ManhwaIndo : MangaThemesia(
     }
 
     override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
-    title = document.selectFirst(seriesThumbnailSelector)!!.attr("alt")
-        .removeSuffix(" ID")
+    title = document.selectFirst(seriesThumbnailSelector)!!.attr("alt").removeSuffix(" ID")
+}
+
+    override fun searchMangaFromElement(element: Element) = super.searchMangaFromElement(element).apply {
+    title = element.selectFirst(seriesThumbnailSelector)!!.attr("alt").removeSuffix(" ID")
 }
 
     companion object {
