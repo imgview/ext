@@ -37,6 +37,37 @@ class ManhwaIndo : MangaThemesia(
         .rateLimit(1)
         .build()
 
+    override fun pageListParse(document: Document): List<Page> {
+        val chapterUrl = document.location()
+
+        val imageElements = document.select(pageSelector)
+            .filterNot { it.imgAttr().isEmpty() }
+
+        if (imageElements.isEmpty()) {
+            println("Failed to parse images from chapter: $chapterUrl")
+        }
+
+        val resizeServiceUrl = getResizeServiceUrl()
+
+        return imageElements.mapIndexed { i, element ->
+            val imageUrl = element.imgAttr()
+            val finalImageUrl = if (resizeServiceUrl != null) {
+                "$resizeServiceUrl?url=${encodeURIComponent(imageUrl)}"
+            } else {
+                imageUrl
+            }
+
+            if (imageUrl.isEmpty()) {
+                println("Failed to get image URL for page: $chapterUrl, page index: $i")
+            } else {
+                println("Image URL: $imageUrl")
+                println("Final Image URL: $finalImageUrl")
+            }
+
+            Page(i, chapterUrl, finalImageUrl)
+        }
+    }
+
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
         val resizeServicePref = EditTextPreference(screen.context).apply {
             key = "resize_service_url"
@@ -67,63 +98,32 @@ class ManhwaIndo : MangaThemesia(
         screen.addPreference(baseUrlPref)
     }
 
-    override fun pageListParse(document: Document): List<Page> {
-    val chapterUrl = document.location()
-
-    val imageElements = document.select(pageSelector)
-        .filterNot { it.imgAttr().isEmpty() }
-
-    if (imageElements.isEmpty()) {
-        println("Failed to parse images from chapter: $chapterUrl")
-    }
-
-    val resizeServiceUrl = getResizeServiceUrl()
-
-    return imageElements.mapIndexed { i, element ->
-        val imageUrl = element.imgAttr()
-        val finalImageUrl = if (resizeServiceUrl != null) {
-            "$resizeServiceUrl?url=${encodeURIComponent(imageUrl)}"
-        } else {
-            imageUrl
-        }
-
-        if (imageUrl.isEmpty()) {
-            println("Failed to get image URL for page: $chapterUrl, page index: $i")
-        } else {
-            println("Image URL: $imageUrl")
-            println("Final Image URL: $finalImageUrl")
-        }
-        
-        Page(i, chapterUrl, finalImageUrl)
-    }
-}
-
     override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
-    title = document.selectFirst(seriesThumbnailSelector)!!.attr("alt").removeSuffix(" ID")
-}
+        title = document.selectFirst(seriesThumbnailSelector)!!.attr("alt").removeSuffix(" ID")
+    }
 
     override fun searchMangaFromElement(element: Element) = super.searchMangaFromElement(element).apply {
-    val titleElement = element.selectFirst("div.tt")
+        val titleElement = element.selectFirst("div.tt")
 
-    if (titleElement == null) {
-        println("Error: Elemen dengan class 'tt' tidak ditemukan.")
-    } else {
-        // Ambil judul dari elemen 'tt'
-        val titleText = titleElement.text()
-        println("Judul ditemukan: $titleText")
-        
-        title = titleText.removeSuffix(" ID")
+        if (titleElement == null) {
+            println("Error: Elemen dengan class 'tt' tidak ditemukan.")
+        } else {
+            // Ambil judul dari elemen 'tt'
+            val titleText = titleElement.text()
+            println("Judul ditemukan: $titleText")
+
+            title = titleText.removeSuffix(" ID")
+        }
+
+        println("Judul manga setelah removeSuffix: $title")
     }
-    
-    println("Judul manga setelah removeSuffix: $title")
-}
 
     companion object {
-    // Konstanta untuk pengaturan ekstensi
-    private const val BASE_URL_PREF_TITLE = "Ubah Domain"
-    private const val BASE_URL_PREF = "overrideBaseUrl"
-    private const val BASE_URL_PREF_SUMMARY = "Update domain untuk ekstensi ini"
-}
+        // Konstanta untuk pengaturan ekstensi
+        private const val BASE_URL_PREF_TITLE = "Ubah Domain"
+        private const val BASE_URL_PREF = "overrideBaseUrl"
+        private const val BASE_URL_PREF_SUMMARY = "Update domain untuk ekstensi ini"
+    }
 
     @Serializable
     data class TSReader(
