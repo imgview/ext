@@ -41,25 +41,6 @@ class MonzeeKomik : MangaThemesia(
         .rateLimit(59, 1)
         .build()
 
-    private fun generateThumbnailUrl(imgUrl: String?, width: Int, height: Int): String? {
-        val modifiedImgUrl = imgUrl?.replace("https:///i1.wp.com", "https://")
-        return if (modifiedImgUrl != null) {
-            "https://resize.sardo.work/?width=$width&height=$height&imageUrl=$modifiedImgUrl"
-        } else {
-            null
-        }
-    }
-
-    override fun searchMangaFromElement(element: Element) = super.searchMangaFromElement(element).apply {
-        val imgUrl = element.selectFirst("noscript img")?.attr("src")
-        thumbnail_url = generateThumbnailUrl(imgUrl, 100, 100)
-    }
-
-    override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
-        val imgUrl = document.selectFirst(super.seriesThumbnailSelector)?.selectFirst("div.thumb img")?.attr("src")
-        thumbnail_url = generateThumbnailUrl(imgUrl, 150, 110)
-    }
-
     override fun pageListParse(document: Document): List<Page> {
         val script = document.select("script[src^=data:text/javascript;base64,]").mapNotNull { element ->
             Base64.decode(
