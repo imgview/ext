@@ -275,7 +275,7 @@ override fun fetchSearchManga(page: Int, query: String, filters: FilterList): Ob
         status = seriesDetails.selectFirst(seriesStatusSelector)?.text().parseStatus()
 
      val originalThumbnailUrl = seriesDetails.select(seriesThumbnailSelector).imgAttr()
-        thumbnail_url = Resize(originalThumbnailUrl)
+thumbnail_url = Resize(originalThumbnailUrl.replace("///", "//"))
     }
 }
 
