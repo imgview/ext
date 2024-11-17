@@ -34,15 +34,15 @@ class ManhwaIndo : MangaThemesia(
     override var baseUrl = preferences.getString(BASE_URL_PREF, super.baseUrl)!!
 
     override val client = super.client.newBuilder()
-        .rateLimit(59, 1)
+        .rateLimit(1)
         .build()
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
         val resizeServicePref = EditTextPreference(screen.context).apply {
             key = "resize_service_url"
             title = "Resize Service URL"
-            summary = "Masukkan URL layanan resize gambar, contoh: https://resize.sardo.work."
-            setDefaultValue("") // Nilai default kosong
+            summary = "Masukkan URL Resize"
+            setDefaultValue("")
             dialogTitle = "Resize Service URL"
         }
         screen.addPreference(resizeServicePref)
