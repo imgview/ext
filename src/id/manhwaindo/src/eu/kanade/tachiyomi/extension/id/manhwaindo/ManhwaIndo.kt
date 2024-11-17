@@ -1,4 +1,4 @@
-package eu.kanade.tachiyomi.extension.id.monzeekomik
+package eu.kanade.tachiyomi.extension.id.manhwaindo
 
 import android.app.Application
 import android.util.Base64
