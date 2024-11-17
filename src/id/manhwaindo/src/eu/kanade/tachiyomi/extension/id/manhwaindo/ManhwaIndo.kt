@@ -40,10 +40,6 @@ class ManhwaIndo : MangaThemesia(
     override val client = super.client.newBuilder()
         .rateLimit(59, 1)
         .build()
-    
-        override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
-        title = document.selectFirst(seriesThumbnailSelector)!!.attr("alt")
-    }
 
     override fun pageListParse(document: Document): List<Page> {
         val script = document.select("script[src^=data:text/javascript;base64,]").mapNotNull { element ->
@@ -106,6 +102,11 @@ class ManhwaIndo : MangaThemesia(
         screen.addPreference(baseUrlPref)
     }
 
+    // Fungsi untuk parsing detail manga dengan modifikasi pada title
+    override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
+        title = document.selectFirst(seriesThumbnailSelector)!!.attr("alt")
+    }
+
     companion object {
         private const val BASE_URL_PREF_TITLE = "Ubah Domain"
         private const val BASE_URL_PREF = "overrideBaseUrl"
@@ -121,6 +122,5 @@ class ManhwaIndo : MangaThemesia(
     data class ReaderImageSource(
         val source: String,
         val images: List<String>,
-        )
-    }
+    )
 }
