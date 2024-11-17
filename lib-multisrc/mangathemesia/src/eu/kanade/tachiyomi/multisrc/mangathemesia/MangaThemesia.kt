@@ -147,12 +147,11 @@ override fun fetchSearchManga(page: Int, query: String, filters: FilterList): Ob
     return "https://resize.sardo.work/?width=110&height=150&url=$thumbnailUrl"
 }
 
-    override fun searchMangaSelector() = ".utao .uta .imgu, .listupd .bs .bsx, .listo .bs .bsx"
-
     override fun searchMangaFromElement(element: Element) = SManga.create().apply {
     val originalThumbnailUrl = element.select("img").imgAttr()
     thumbnail_url = Resize(originalThumbnailUrl)
-    title = element.select("a").attr("title")
+    // Hapus "ID" dari judul jika ada
+    title = element.select("a").attr("title").replace(" ID", "", ignoreCase = true)
     setUrlWithoutDomain(element.select("a").attr("href"))
 }
 
@@ -251,13 +250,20 @@ override fun fetchSearchManga(page: Int, query: String, filters: FilterList): Ob
         title = seriesDetails.selectFirst(seriesTitleSelector)!!.text()
         artist = seriesDetails.selectFirst(seriesArtistSelector)?.ownText().removeEmptyPlaceholder()
         author = seriesDetails.selectFirst(seriesAuthorSelector)?.ownText().removeEmptyPlaceholder()
-        description = seriesDetails.select(seriesDescriptionSelector).joinToString("\n") { it.text() }.trim()
+        
+        // Ambil deskripsi, lalu hilangkan bagian sebelum "berkisah tentang :" jika ada
+        description = seriesDetails.select(seriesDescriptionSelector)
+            .joinToString("\n") { it.text() }
+            .substringAfter("berkisah tentang :", "")
+            .trim()
 
-        // Add alternative name to manga description
+        // Tambahkan alternatif nama jika ada
         val altName = seriesDetails.selectFirst(seriesAltNameSelector)?.ownText().takeIf { it.isNullOrBlank().not() }
         altName?.let {
             description = "$description\n\n$altNamePrefix$altName".trim()
         }
+    }
+}
 
         // Process genres
         val genres = seriesDetails.select(seriesGenreSelector).map { it.text() }.toMutableList()
