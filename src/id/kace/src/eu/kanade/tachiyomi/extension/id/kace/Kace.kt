@@ -1,4 +1,4 @@
-package eu.kanade.tachiyomi.extension.id.namaproject
+package eu.kanade.tachiyomi.extension.id.kace
 
 import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.SManga
@@ -8,7 +8,7 @@ import okhttp3.Request
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 
-class NamaProject : ParsedHttpSource() {
+class Kace : ParsedHttpSource() {
 
     override val name = "Nama Project"
     override val baseUrl = "https://contoh-manga.com"
