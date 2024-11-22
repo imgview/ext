@@ -1,0 +1,9 @@
+ext {
+    extName = 'Kace'
+    extClass = '.Kace'
+    baseUrl = 'https://komik-cast.com'
+    overrideVersionCode = 1
+    isNsfw = true
+}
+
+apply from: "$rootDir/common.gradle"
