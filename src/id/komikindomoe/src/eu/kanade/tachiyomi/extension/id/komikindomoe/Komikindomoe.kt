@@ -81,14 +81,14 @@ class Komikindomoe : ParsedHttpSource() {
         else -> SManga.UNKNOWN
     }
 
-    override fun chapterListSelector() = "#chapterlist li"
+    override fun chapterListSelector() = "div#chapterlist ul > li"
 
 override fun chapterFromElement(element: Element): SChapter {
-    val urlElement = element.select(".eph-num a").first()!!
+    val urlElement = element.select("div.eph-num a").first()!!
     val chapter = SChapter.create()
     chapter.setUrlWithoutDomain(urlElement.attr("href"))
     chapter.name = urlElement.select("span.chapternum").text()
-    chapter.date_upload = element.select("span.chapterdate").first()?.text()?.let { parseChapterDate(it) } ?: 0
+    chapter.date_upload = 0L // Tidak menggunakan tanggal
     return chapter
 }
 
