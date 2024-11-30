@@ -76,7 +76,7 @@ override fun searchMangaNextPageSelector() = "a.next.page-numbers" // Selector u
         val manga = SManga.create()
         manga.title = document.select("div.thumb img").attr("title")
         manga.author = infoElement.select("b:contains(Author) + span").text()
-        manga.artist = manga.author = infoElement.select("b:contains(Artist) + span").text()
+        manga.artist = infoElement.select("b:contains(Artist) + span").text()
         val genres = mutableListOf<String>()
         infoElement.select("span.mgen a, .imptdt a").forEach { element ->
             val genre = element.text()
