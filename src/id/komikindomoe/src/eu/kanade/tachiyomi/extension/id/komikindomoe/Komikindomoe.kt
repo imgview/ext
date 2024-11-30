@@ -34,7 +34,9 @@ class Komikindomoe : ParsedHttpSource() {
     }
 
     override fun latestUpdatesRequest(page: Int): Request {
-        return GET("$baseUrl/page/$page", headers)
+        return GET("$override fun latestUpdatesRequest(page: Int): Request {
+        return GET("$baseUrl", headers)
+    }", headers)
     }
 
     override fun popularMangaSelector() = "div.listupd div.utao div.uta"
