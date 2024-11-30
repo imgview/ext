@@ -81,16 +81,16 @@ class Komikindomoe : ParsedHttpSource() {
         else -> SManga.UNKNOWN
     }
 
-    override fun chapterListSelector() = "div.bixbox ul.cl li"
+    override fun chapterListSelector() = "#chapterlist li"
 
-    override fun chapterFromElement(element: Element): SChapter {
-        val urlElement = element.select("a").first()!!
-        val chapter = SChapter.create()
-        chapter.setUrlWithoutDomain(urlElement.attr("href"))
-        chapter.name = urlElement.text()
-        chapter.date_upload = 0
-        return chapter
-    }
+override fun chapterFromElement(element: Element): SChapter {
+    val urlElement = element.select(".eph-num a").first()!!
+    val chapter = SChapter.create()
+    chapter.setUrlWithoutDomain(urlElement.attr("href"))
+    chapter.name = urlElement.select("span.chapternum").text()
+    chapter.date_upload = element.select("span.chapterdate").first()?.text()?.let { parseChapterDate(it) } ?: 0
+    return chapter
+}
 
     override fun prepareNewChapter(chapter: SChapter, manga: SManga) {
         val basic = Regex("""Chapter\s([0-9]+)""")
