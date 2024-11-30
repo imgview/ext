@@ -14,8 +14,6 @@ import okhttp3.Request
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.select.Elements
-import java.text.SimpleDateFormat
-import java.util.Calendar
 import java.util.Locale
 
 class Komikindomoe : ParsedHttpSource() {
@@ -23,7 +21,6 @@ class Komikindomoe : ParsedHttpSource() {
     override val baseUrl = "https://komikindo.moe"
     override val lang = "id"
     override val supportsLatest = true
-    private val dateFormat: SimpleDateFormat = SimpleDateFormat("MMM d, yyyy", Locale.US)
 
     override val client: OkHttpClient = network.cloudflareClient.newBuilder()
         .rateLimit(12, 3)
@@ -34,8 +31,8 @@ class Komikindomoe : ParsedHttpSource() {
     }
 
     override fun latestUpdatesRequest(page: Int): Request {
-    return GET("$baseUrl/page/$page", headers)
-}
+        return GET("$baseUrl/page/$page", headers)
+    }
 
     override fun popularMangaSelector() = "div.listupd div.utao div.uta"
     override fun latestUpdatesSelector() = popularMangaSelector()
@@ -57,12 +54,12 @@ class Komikindomoe : ParsedHttpSource() {
     }
 
     override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
-    val url = "$baseUrl/page/$page".toHttpUrl().newBuilder()
-        .addQueryParameter("s", query)
-        .addQueryParameter("page", page.toString())
-        .build()
-    return GET(url, headers)
-}
+        val url = "$baseUrl/page/$page".toHttpUrl().newBuilder()
+            .addQueryParameter("s", query)
+            .addQueryParameter("page", page.toString())
+            .build()
+        return GET(url, headers)
+    }
 
     override fun mangaDetailsParse(document: Document): SManga {
         val infoElement = document.select("div.infox").first()!!
@@ -91,46 +88,8 @@ class Komikindomoe : ParsedHttpSource() {
         val chapter = SChapter.create()
         chapter.setUrlWithoutDomain(urlElement.attr("href"))
         chapter.name = urlElement.text()
-        chapter.date_upload = element.select("span.dt").first()?.text()?.let { parseChapterDate(it) } ?: 0
+        chapter.date_upload = 0
         return chapter
-    }
-
-    private fun parseChapterDate(date: String): Long {
-        return if (date.contains("yang lalu")) {
-            val value = date.split(' ')[0].toInt()
-            when {
-                "detik" in date -> Calendar.getInstance().apply {
-                    add(Calendar.SECOND, -value)
-                }.timeInMillis
-                "menit" in date -> Calendar.getInstance().apply {
-                    add(Calendar.MINUTE, -value)
-                }.timeInMillis
-                "jam" in date -> Calendar.getInstance().apply {
-                    add(Calendar.HOUR_OF_DAY, -value)
-                }.timeInMillis
-                "hari" in date -> Calendar.getInstance().apply {
-                    add(Calendar.DATE, -value)
-                }.timeInMillis
-                "minggu" in date -> Calendar.getInstance().apply {
-                    add(Calendar.DATE, -value * 7)
-                }.timeInMillis
-                "bulan" in date -> Calendar.getInstance().apply {
-                    add(Calendar.MONTH, -value)
-                }.timeInMillis
-                "tahun" in date -> Calendar.getInstance().apply {
-                    add(Calendar.YEAR, -value)
-                }.timeInMillis
-                else -> {
-                    0L
-                }
-            }
-        } else {
-            try {
-                dateFormat.parse(date)?.time ?: 0
-            } catch (_: Exception) {
-                0L
-            }
-        }
     }
 
     override fun prepareNewChapter(chapter: SChapter, manga: SManga) {
