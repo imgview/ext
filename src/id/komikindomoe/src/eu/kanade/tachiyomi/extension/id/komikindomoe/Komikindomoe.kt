@@ -37,9 +37,9 @@ override fun latestUpdatesRequest(page: Int): Request {
     return GET("$baseUrl/page/$page", headers)
 }
 
-// Selector untuk Manga Populer dan Update Terbaru
-override fun popularMangaSelector() = "div.listupd div.utao div.uta"
-override fun latestUpdatesSelector() = popularMangaSelector()
+// Selector untuk Manga Populer
+override fun popularMangaSelector() = "div.serieslist.pop.wpop.alltime ul li"
+override fun latestUpdatesSelector() = "div.listupd div.utao div.uta"
 
 // Selector untuk Pencarian Manga
 override fun searchMangaSelector() = "div.bsx"
@@ -139,7 +139,7 @@ private fun parseChapterDate(date: String): Long {
 
     override fun pageListParse(document: Document): List<Page> {
         val pages = mutableListOf<Page>()
-        document.select("div.reading-content img").forEachIndexed { i, element ->
+        document.select("#readerarea img").forEachIndexed { i, element ->
             val url = element.imgAttr()
             if (url.isNotEmpty()) {
                 pages.add(Page(i, "", url))
@@ -160,7 +160,7 @@ private fun parseChapterDate(date: String): Long {
     }
 
     override fun getFilterList() = FilterList(
-        Filter.Header("NOTE: Filters are currently disabled."),
+        Filter.Header("Filter sengaja kosong, di webnya aja gak ada"),
         Filter.Separator()
     )
 
