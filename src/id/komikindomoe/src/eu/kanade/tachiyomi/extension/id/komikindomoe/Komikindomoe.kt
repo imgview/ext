@@ -57,7 +57,7 @@ class Komikindomoe : ParsedHttpSource() {
     }
 
     override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
-        val url = "$baseUrl/page/$page".toHttpUrl().newBuilder()
+        val url = "$baseUrl".toHttpUrl().newBuilder()
         url.addQueryParameter("s", query)
         return GET(url.build(), headers)
     }
