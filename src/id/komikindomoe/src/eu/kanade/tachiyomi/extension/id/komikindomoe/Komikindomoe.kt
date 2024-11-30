@@ -28,38 +28,49 @@ class Komikindomoe : ParsedHttpSource() {
         .rateLimit(12, 3)
         .build()
 
-    override fun popularMangaRequest(page: Int): Request {
-        return GET("$baseUrl/page/$page", headers)
-    }
+    // Request untuk Manga Populer
+override fun popularMangaRequest(page: Int): Request {
+    return GET("$baseUrl/page/$page", headers)
+}
 
-    override fun latestUpdatesRequest(page: Int): Request {
-        return GET("$baseUrl/page/$page", headers)
-    }
+// Request untuk Update Terbaru
+override fun latestUpdatesRequest(page: Int): Request {
+    return GET("$baseUrl/page/$page", headers)
+}
 
-    override fun popularMangaSelector() = "div.listupd div.utao div.uta"
-    override fun latestUpdatesSelector() = popularMangaSelector()
-    override fun searchMangaSelector() = popularMangaSelector()
+// Selector untuk Manga Populer dan Update Terbaru
+override fun popularMangaSelector() = "div.listupd div.utao div.uta"
+override fun latestUpdatesSelector() = popularMangaSelector()
 
-    override fun popularMangaFromElement(element: Element): SManga = searchMangaFromElement(element)
-    override fun latestUpdatesFromElement(element: Element): SManga = searchMangaFromElement(element)
+// Selector untuk Pencarian Manga
+override fun searchMangaSelector() = "div.bsx"
 
-    override fun popularMangaNextPageSelector() = "div.hpage a.r"
-    override fun latestUpdatesNextPageSelector() = popularMangaNextPageSelector()
-    override fun searchMangaNextPageSelector() = popularMangaNextPageSelector()
+// Fungsi untuk Mengambil Manga dari Elemen (Populer dan Update Terbaru)
+override fun popularMangaFromElement(element: Element): SManga = searchMangaFromElement(element)
+override fun latestUpdatesFromElement(element: Element): SManga = searchMangaFromElement(element)
 
-    override fun searchMangaFromElement(element: Element): SManga {
-        val manga = SManga.create()
-        manga.setUrlWithoutDomain(element.select("a.series").attr("href"))
-        manga.title = element.select("div.luf h3").text()
-        manga.thumbnail_url = element.select("div.imgu img").imgAttr()
-        return manga
-    }
+// Fungsi untuk Mengambil Manga dari Elemen (Pencarian)
+override fun searchMangaFromElement(element: Element): SManga {
+    val manga = SManga.create()
+    manga.setUrlWithoutDomain(element.select("a").attr("href"))  // Mengambil URL manga
+    manga.title = element.select("div.tt").text()  // Mengambil judul manga dari div.tt
+    manga.thumbnail_url = element.select("img.ts-post-image").attr("src")  // Mengambil URL thumbnail
+    return manga
+}
 
-    override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
+// Request untuk Pencarian Manga
+override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
     // Abaikan parameter 'page', cukup gunakan query
     val url = "$baseUrl/?s=$query".toHttpUrl().newBuilder().build()
     return GET(url, headers)
 }
+
+// Pagination Selector untuk Manga Populer dan Update Terbaru
+override fun popularMangaNextPageSelector() = "div.hpage a.r"
+override fun latestUpdatesNextPageSelector() = popularMangaNextPageSelector()
+
+// Pagination Selector untuk Pencarian Manga
+override fun searchMangaNextPageSelector() = "a.next.page-numbers" // Selector untuk tombol Next di hasil pencarian
 
     override fun mangaDetailsParse(document: Document): SManga {
         val infoElement = document.select("div.infox").first()!!
