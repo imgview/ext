@@ -1,4 +1,4 @@
-package eu.kanade.tachiyomi.extension.id.bacakomik
+package eu.kanade.tachiyomi.extension.id.komikindomoe
 
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.interceptor.rateLimit
@@ -18,25 +18,23 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
-class BacaKomik : ParsedHttpSource() {
+class Komikindomoe : ParsedHttpSource() {
     override val name = "BacaKomik"
     override val baseUrl = "https://bacakomik.net"
     override val lang = "id"
     override val supportsLatest = true
     private val dateFormat: SimpleDateFormat = SimpleDateFormat("MMM d, yyyy", Locale.US)
 
-    override val id = 4383360263234319058
-
     override val client: OkHttpClient = network.cloudflareClient.newBuilder()
         .rateLimit(12, 3)
         .build()
 
     override fun popularMangaRequest(page: Int): Request {
-        return GET("$baseUrl/daftar-komik/page/$page/?order=popular", headers)
+        return GET("$baseUrl", headers)
     }
 
     override fun latestUpdatesRequest(page: Int): Request {
-        return GET("$baseUrl/daftar-komik/page/$page/?order=update", headers)
+        return GET("$baseUrl", headers)
     }
 
     override fun popularMangaSelector() = "div.animepost"
