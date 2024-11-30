@@ -78,11 +78,18 @@ override fun searchMangaNextPageSelector() = "a.next.page-numbers" // Selector u
         manga.author = infoElement.select("b:contains(Author) + span").text()
         manga.artist = infoElement.select("b:contains(Artist) + span").text()
         val genres = mutableListOf<String>()
-        infoElement.select("span.mgen a, .imptdt a").forEach { element ->
-            val genre = element.text()
-            genres.add(genre)
-        }
-        manga.genre = genres.joinToString(", ")
+        val typeManga = mutableListOf<String>() // List untuk type manga (dari SeriesTypeSelector)
+
+// Mengambil Genre dari span.mgen a
+infoElement.select("span.mgen a").forEach { element ->
+    genres.add(element.text())
+}
+
+infoElement.select(".imptdt a").forEach { element ->
+    typeManga.add(element.text())
+}
+
+manga.genre = (genres + typeManga).joinToString(", ")
         manga.status = parseStatus(infoElement.select(".imptdt i").text())
         manga.description = descElement.select("p").text()
         manga.thumbnail_url = document.select("div.thumb img").imgAttr()
