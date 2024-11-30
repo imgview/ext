@@ -1,7 +1,7 @@
 ext {
-    extName = 'BacaKomik'
-    extClass = '.BacaKomik'
-    extVersionCode = 10
+    extName = 'Komikindo.moe'
+    extClass = '.Komikindomoe'
+    extVersionCode = 1
 }
 
 apply from: "$rootDir/common.gradle"
