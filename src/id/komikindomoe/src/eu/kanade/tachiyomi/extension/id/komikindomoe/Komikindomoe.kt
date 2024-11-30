@@ -19,8 +19,8 @@ import java.util.Calendar
 import java.util.Locale
 
 class Komikindomoe : ParsedHttpSource() {
-    override val name = "BacaKomik"
-    override val baseUrl = "https://bacakomik.net"
+    override val name = "Komikindo Moe"
+    override val baseUrl = "https://komikindo.moe"
     override val lang = "id"
     override val supportsLatest = true
     private val dateFormat: SimpleDateFormat = SimpleDateFormat("MMM d, yyyy", Locale.US)
@@ -30,14 +30,14 @@ class Komikindomoe : ParsedHttpSource() {
         .build()
 
     override fun popularMangaRequest(page: Int): Request {
-        return GET("$baseUrl", headers)
+        return GET("$baseUrl/page/$page", headers)
     }
 
     override fun latestUpdatesRequest(page: Int): Request {
-        return GET("$baseUrl", headers)
+        return GET("$baseUrl/page/$page", headers)
     }
 
-    override fun popularMangaSelector() = "div.animepost"
+    override fun popularMangaSelector() = "div.listupd div.utao div.uta"
     override fun latestUpdatesSelector() = popularMangaSelector()
     override fun searchMangaSelector() = popularMangaSelector()
 
@@ -50,53 +50,46 @@ class Komikindomoe : ParsedHttpSource() {
 
     override fun searchMangaFromElement(element: Element): SManga {
         val manga = SManga.create()
-        manga.setUrlWithoutDomain(element.select("div.animposx > a").first()!!.attr("href"))
-        manga.title = element.select(".animposx .tt h4").text()
-        manga.thumbnail_url = element.select("div.limit img").imgAttr()
+        manga.setUrlWithoutDomain(element.select("a.series").attr("href"))
+        manga.title = element.select("div.luf h3").text()
+        manga.thumbnail_url = element.select("div.imgu img").imgAttr()
         return manga
     }
 
     override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
-        val builtUrl = if (page == 1) "$baseUrl/daftar-komik/" else "$baseUrl/daftar-komik/page/$page/?order="
-        val url = builtUrl.toHttpUrl().newBuilder()
-        url.addQueryParameter("title", query)
-        url.addQueryParameter("page", page.toString())
+        val url = "$baseUrl/page/$page".toHttpUrl().newBuilder()
+        url.addQueryParameter("s", query)
         return GET(url.build(), headers)
     }
 
     override fun mangaDetailsParse(document: Document): SManga {
-        val infoElement = document.select("div.infoanime").first()!!
-        val descElement = document.select("div.desc > .entry-content.entry-content-single").first()!!
+        val infoElement = document.select("div.infox").first()!!
+        val descElement = document.select("div.entry-content.entry-content-single").first()!!
         val manga = SManga.create()
-        manga.title = document.select("#breadcrumbs li:last-child span").text()
-        manga.author = document.select(".infox .spe span:contains(Author) :not(b)").text()
-        manga.artist = document.select(".infox .spe span:contains(Artis) :not(b)").text()
-        val genres = mutableListOf<String>()
-        infoElement.select(".infox > .genre-info > a, .infox .spe span:contains(Jenis Komik) a").forEach { element ->
-            val genre = element.text()
-            genres.add(genre)
-        }
-        manga.genre = genres.joinToString(", ")
-        manga.status = parseStatus(document.select(".infox .spe span:contains(Status)").text())
-        manga.description = descElement.select("p").text().substringAfter("bercerita tentang ")
-        manga.thumbnail_url = document.select(".thumb > img:nth-child(1)").imgAttr()
+        manga.title = document.select("h1.entry-title").text()
+        manga.author = infoElement.select("span:contains(Pengarang) a").text()
+        manga.artist = manga.author // Tidak ada data artis
+        manga.genre = infoElement.select("span.mgen a").joinToString(", ") { it.text() }
+        manga.status = parseStatus(infoElement.select("span:contains(Status)").text())
+        manga.description = descElement.select("p").text()
+        manga.thumbnail_url = document.select("div.thumb img").imgAttr()
         return manga
     }
 
     private fun parseStatus(element: String): Int = when {
-        element.lowercase().contains("berjalan") -> SManga.ONGOING
-        element.lowercase().contains("tamat") -> SManga.COMPLETED
+        element.lowercase().contains("ongoing") -> SManga.ONGOING
+        element.lowercase().contains("completed") -> SManga.COMPLETED
         else -> SManga.UNKNOWN
     }
 
-    override fun chapterListSelector() = "#chapter_list li"
+    override fun chapterListSelector() = "div.bixbox ul.cl li"
 
     override fun chapterFromElement(element: Element): SChapter {
-        val urlElement = element.select(".lchx a").first()!!
+        val urlElement = element.select("a").first()!!
         val chapter = SChapter.create()
         chapter.setUrlWithoutDomain(urlElement.attr("href"))
         chapter.name = urlElement.text()
-        chapter.date_upload = element.select(".dt a").first()?.text()?.let { parseChapterDate(it) } ?: 0
+        chapter.date_upload = element.select("span.dt").first()?.text()?.let { parseChapterDate(it) } ?: 0
         return chapter
     }
 
@@ -151,13 +144,8 @@ class Komikindomoe : ParsedHttpSource() {
 
     override fun pageListParse(document: Document): List<Page> {
         val pages = mutableListOf<Page>()
-        var i = 0
-        document.select("div:has(>img[alt*=\"Chapter\"]) img").filter { element ->
-            val parent = element.parent()
-            parent != null && parent.tagName() != "noscript"
-        }.forEach { element ->
-            val url = element.attr("onError").substringAfter("src='").substringBefore("';")
-            i++
+        document.select("div.reading-content img").forEachIndexed { i, element ->
+            val url = element.imgAttr()
             if (url.isNotEmpty()) {
                 pages.add(Page(i, "", url))
             }
