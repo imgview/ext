@@ -92,6 +92,11 @@ infoElement.select(".imptdt a").forEach { element ->
 manga.genre = (genres + typeManga).joinToString(", ")
         manga.status = parseStatus(infoElement.select(".imptdt i").text())
         manga.description = descElement.select("p").text()
+                // Add alternative name to manga description
+        val altName = document.selectFirst("b:contains(Alternative Titles) + span")?.text().takeIf { it.isNullOrBlank().not() }
+        altName?.let {
+            manga.description = manga.description + "\n\n$altName"
+        }
         manga.thumbnail_url = document.select("div.thumb img").imgAttr()
         return manga
     }
