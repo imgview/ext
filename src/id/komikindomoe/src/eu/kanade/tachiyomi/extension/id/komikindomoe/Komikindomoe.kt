@@ -30,24 +30,27 @@ class Komikindomoe : ParsedHttpSource() {
 
     // Request untuk Manga Populer
 // Request untuk Manga Populer dan Update Terbaru
+// Request untuk Manga Populer
 override fun popularMangaRequest(page: Int): Request {
     return GET("$baseUrl/page/$page", headers)
 }
 
+// Request untuk Update Terbaru
 override fun latestUpdatesRequest(page: Int): Request {
     return GET("$baseUrl/page/$page", headers)
 }
 
 // Selector untuk Manga Populer dan Update Terbaru
 override fun popularMangaSelector() = "div.listupd div.utao div.uta"
-override fun latestUpdatesSelector() = popularMangaSelector() // Sama dengan selector untuk manga populer
+override fun latestUpdatesSelector() = popularMangaSelector()
 
 // Selector untuk Pencarian Manga
 override fun searchMangaSelector() = "div.bsx"
 
-// Fungsi untuk Mengambil Manga dari Elemen (Populer, Update Terbaru, dan Pencarian)
+// Fungsi untuk Mengambil Manga dari Elemen
 override fun popularMangaFromElement(element: Element): SManga = searchMangaFromElement(element)
 override fun latestUpdatesFromElement(element: Element): SManga = searchMangaFromElement(element)
+
 override fun searchMangaFromElement(element: Element): SManga {
     val manga = SManga.create()
     manga.setUrlWithoutDomain(element.select("a").attr("href"))  // Mengambil URL manga
@@ -58,28 +61,17 @@ override fun searchMangaFromElement(element: Element): SManga {
 
 // Request untuk Pencarian Manga
 override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
-    // Memastikan parameter 'page' dan 's' digunakan dalam URL pencarian
+    // Menyusun URL pencarian dengan parameter 's' (query) dan 'page' (nomor halaman)
     val url = "$baseUrl/?s=$query&page=$page".toHttpUrl().newBuilder().build()
     return GET(url, headers)
 }
 
 // Pagination Selector untuk Manga Populer dan Update Terbaru
 override fun popularMangaNextPageSelector() = "div.hpage a.r"
-override fun latestUpdatesNextPageSelector() = popularMangaNextPageSelector() // Sama dengan selector untuk manga populer
+override fun latestUpdatesNextPageSelector() = popularMangaNextPageSelector()
 
 // Pagination Selector untuk Pencarian Manga
 override fun searchMangaNextPageSelector() = "a.next.page-numbers" // Selector untuk tombol Next di hasil pencarian
-
-// Fungsi untuk Mendapatkan URL Halaman Berikutnya pada Pencarian
-override fun searchMangaNextPageFromElement(element: Element): String? {
-    // Ambil URL halaman berikutnya dengan parameter 's' dan 'page'
-    val nextPageUrl = element.select("a.next.page-numbers").attr("href")
-    if (nextPageUrl.isNotEmpty()) {
-        // Gabungkan baseUrl dengan URL relatif untuk halaman berikutnya
-        return baseUrl + nextPageUrl
-    }
-    return null
-}
 
     override fun mangaDetailsParse(document: Document): SManga {
         val infoElement = document.select("div.infox").first()!!
