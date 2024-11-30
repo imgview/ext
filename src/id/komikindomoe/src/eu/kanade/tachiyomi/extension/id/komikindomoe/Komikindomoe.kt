@@ -28,9 +28,6 @@ class Komikindomoe : ParsedHttpSource() {
         .rateLimit(12, 3)
         .build()
 
-    // Request untuk Manga Populer
-// Request untuk Manga Populer dan Update Terbaru
-// Request untuk Manga Populer
 override fun popularMangaRequest(page: Int): Request {
     return GET("$baseUrl/page/$page", headers)
 }
@@ -74,14 +71,19 @@ override fun latestUpdatesNextPageSelector() = popularMangaNextPageSelector()
 override fun searchMangaNextPageSelector() = "a.next.page-numbers" // Selector untuk tombol Next di hasil pencarian
 
     override fun mangaDetailsParse(document: Document): SManga {
-        val infoElement = document.select("div.infox").first()!!
+        val infoElement = document.select("div.wd-full, div.postbody").first()!!
         val descElement = document.select("div.entry-content.entry-content-single").first()!!
         val manga = SManga.create()
         manga.title = document.select("div.thumb img").attr("title")
-        manga.author = infoElement.select("span:contains(Pengarang) a").text()
-        manga.artist = manga.author // Tidak ada data artis
-        manga.genre = infoElement.select("span.mgen a").joinToString(", ") { it.text() }
-        manga.status = parseStatus(infoElement.select("span:contains(Status)").text())
+        manga.author = infoElement.select("b:contains(Author) + span").text()
+        manga.artist = manga.author = infoElement.select("b:contains(Artist) + span").text()
+        val genres = mutableListOf<String>()
+        infoElement.select("span.mgen a, .imptdt a").forEach { element ->
+            val genre = element.text()
+            genres.add(genre)
+        }
+        manga.genre = genres.joinToString(", ")
+        manga.status = parseStatus(infoElement.select(".imptdt i").text())
         manga.description = descElement.select("p").text()
         manga.thumbnail_url = document.select("div.thumb img").imgAttr()
         return manga
