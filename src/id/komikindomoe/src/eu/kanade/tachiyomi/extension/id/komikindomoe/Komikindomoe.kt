@@ -11,6 +11,7 @@ import eu.kanade.tachiyomi.source.online.ParsedHttpSource
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.text.SimpleDateFormat
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.select.Elements
@@ -89,8 +90,16 @@ override fun chapterFromElement(element: Element): SChapter {
     val chapter = SChapter.create()
     chapter.setUrlWithoutDomain(urlElement.attr("href"))
     chapter.name = urlElement.select("span.chapternum").text()
-    chapter.date_upload = 0L // Tidak menggunakan tanggal
+    chapter.date_upload = element.select("span.chapterdate").text()?.let { parseChapterDate(it) } ?: 0L
     return chapter
+}
+
+private fun parseChapterDate(date: String): Long {
+    return try {
+        dateFormat.parse(date)?.time ?: 0L
+    } catch (e: Exception) {
+        0L
+    }
 }
 
     override fun prepareNewChapter(chapter: SChapter, manga: SManga) {
