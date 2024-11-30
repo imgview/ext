@@ -66,7 +66,7 @@ class Komikindomoe : ParsedHttpSource() {
         val infoElement = document.select("div.infox").first()!!
         val descElement = document.select("div.entry-content.entry-content-single").first()!!
         val manga = SManga.create()
-        manga.title = document.select("h1.entry-title").text()
+        manga.title = document.select("div.thumb img").attr("title")
         manga.author = infoElement.select("span:contains(Pengarang) a").text()
         manga.artist = manga.author // Tidak ada data artis
         manga.genre = infoElement.select("span.mgen a").joinToString(", ") { it.text() }
