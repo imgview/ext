@@ -34,7 +34,7 @@ class Komikindomoe : ParsedHttpSource() {
     }
 
     override fun latestUpdatesRequest(page: Int): Request {
-    return GET("$baseUrl", headers)
+    return GET("$baseUrl/page/$page", headers)
 }
 
     override fun popularMangaSelector() = "div.listupd div.utao div.uta"
@@ -44,7 +44,7 @@ class Komikindomoe : ParsedHttpSource() {
     override fun popularMangaFromElement(element: Element): SManga = searchMangaFromElement(element)
     override fun latestUpdatesFromElement(element: Element): SManga = searchMangaFromElement(element)
 
-    override fun popularMangaNextPageSelector() = "a.next.page-numbers"
+    override fun popularMangaNextPageSelector() = "div.hpage a.r"
     override fun latestUpdatesNextPageSelector() = popularMangaNextPageSelector()
     override fun searchMangaNextPageSelector() = popularMangaNextPageSelector()
 
@@ -57,7 +57,7 @@ class Komikindomoe : ParsedHttpSource() {
     }
 
     override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
-    val url = "$baseUrl".toHttpUrl().newBuilder()
+    val url = "$baseUrl/page/$page".toHttpUrl().newBuilder()
         .addQueryParameter("s", query)
         .addQueryParameter("page", page.toString())
         .build()
