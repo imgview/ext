@@ -21,6 +21,7 @@ class Komikindomoe : ParsedHttpSource() {
     override val baseUrl = "https://komikindo.moe"
     override val lang = "id"
     override val supportsLatest = true
+    private val dateFormat: SimpleDateFormat = SimpleDateFormat("MMM d, yyyy", Locale.US)
 
     override val client: OkHttpClient = network.cloudflareClient.newBuilder()
         .rateLimit(12, 3)
