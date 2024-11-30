@@ -56,12 +56,10 @@ class Komikindomoe : ParsedHttpSource() {
     }
 
     override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
-        val url = "$baseUrl/page/$page".toHttpUrl().newBuilder()
-            .addQueryParameter("s", query)
-            .addQueryParameter("page", page.toString())
-            .build()
-        return GET(url, headers)
-    }
+    // Abaikan parameter 'page', cukup gunakan query
+    val url = "$baseUrl/?s=$query".toHttpUrl().newBuilder().build()
+    return GET(url, headers)
+}
 
     override fun mangaDetailsParse(document: Document): SManga {
         val infoElement = document.select("div.infox").first()!!
