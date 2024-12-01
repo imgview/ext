@@ -12,8 +12,8 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.text.SimpleDateFormat
-import org.jsoup.nodes.Document
 import java.util.Calendar
+import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.select.Elements
 import java.util.Locale
@@ -65,15 +65,15 @@ class Komikindomoe : ParsedHttpSource() {
     }
 
     // Pagination Selector
-override fun popularMangaNextPageUrl(document: Document, page: Int): String? {
+override fun popularMangaNextPageSelector(document: Document, page: Int): String? {
     return "$baseUrl/popular/?page=${page + 1}" // Halaman berikutnya untuk popular manga
 }
 
-override fun latestUpdatesNextPageUrl(document: Document, page: Int): String? {
+override fun latestUpdatesNextPageSelector(document: Document, page: Int): String? {
     return "$baseUrl/?page=${page + 1}" // Halaman berikutnya untuk latest updates
 }
 
-override fun searchMangaNextPageUrl(document: Document, page: Int): String? {
+override fun searchMangaNextPageSelector(document: Document, page: Int): String? {
     return "$baseUrl/?s=&page=${page + 1}" // Halaman berikutnya untuk pencarian manga
 }
 
