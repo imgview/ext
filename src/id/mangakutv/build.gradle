@@ -1,7 +1,10 @@
 ext {
     extName = 'MangakuTV'
     extClass = '.MangakuTV'
-    extVersionCode = 1
+    themePkg = 'madara'
+    baseUrl = 'https://mangaku.tv'
+    overrideVersionCode = 1
+    isNsfw = false
 }
 
 apply from: "$rootDir/common.gradle"
