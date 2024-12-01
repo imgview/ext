@@ -19,7 +19,7 @@ import java.util.Locale
 
 class Komikindomoe : ParsedHttpSource() {
     override val name = "Komikindo Moe"
-    override val baseUrl = "https://mirrorkomik.xyz"
+    override val baseUrl = "https://komikindo.moe"
     override val lang = "id"
     override val supportsLatest = true
     private val dateFormat: SimpleDateFormat = SimpleDateFormat("MMM d, yyyy", Locale.US)
@@ -51,24 +51,11 @@ override fun searchMangaSelector() = "div.bsx"
 override fun popularMangaFromElement(element: Element): SManga = searchMangaFromElement(element)
 override fun latestUpdatesFromElement(element: Element): SManga = searchMangaFromElement(element)
 
-// Fungsi untuk Mengambil Manga dari Elemen
 override fun searchMangaFromElement(element: Element): SManga {
     val manga = SManga.create()
-    
-    // Mengambil URL manga, pastikan untuk menambahkan domain base URL jika perlu
-    manga.setUrlWithoutDomain(element.select("a").attr("href"))  
-    
-    // Mengambil judul manga
-    manga.title = element.select("a").attr("title")  
-    
-    // Mengambil URL thumbnail gambar
-    manga.thumbnail_url = document.select("img").attr("src")
-    
-    // Jika gambar tidak ada di "src", coba ambil dari "data-src"
-    if (manga.thumbnail_url.isEmpty()) {
-        manga.thumbnail_url = element.select("img").attr("data-src")
-    }
-    
+    manga.setUrlWithoutDomain(element.select("a").attr("href"))  // Mengambil URL manga
+    manga.title = element.select("a").attr("title")
+    manga.thumbnail_url = element.select("img").attr("data-src")  // Mengambil URL thumbnail
     return manga
 }
 
