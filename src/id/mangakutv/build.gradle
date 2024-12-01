@@ -1,0 +1,7 @@
+ext {
+    extName = 'MangakuTV'
+    extClass = '.MangakuTV'
+    extVersionCode = 1
+}
+
+apply from: "$rootDir/common.gradle"
