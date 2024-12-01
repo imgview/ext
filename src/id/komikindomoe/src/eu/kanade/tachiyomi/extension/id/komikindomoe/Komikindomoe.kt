@@ -28,72 +28,44 @@ class Komikindomoe : ParsedHttpSource() {
         .rateLimit(12, 3)
         .build()
 
-// Request untuk Manga Populer
-override fun popularMangaRequest(page: Int): Request {
-    val url = "$baseUrl/page/$page"
-    println("Debug Popular Manga Request URL: $url")
-    return GET(url, headers)
-}
+    // Selector untuk Manga Populer, Update Terbaru, dan Pencarian
+    override fun popularMangaSelector() = "div.flex"
+    override fun latestUpdatesSelector() = popularMangaSelector()
+    override fun searchMangaSelector() = popularMangaSelector()
 
-// Request untuk Update Terbaru
-override fun latestUpdatesRequest(page: Int): Request {
-    val url = "$baseUrl/page/$page"
-    println("Debug Latest Updates Request URL: $url")
-    return GET(url, headers)
-}
-
-// Selector untuk Popular Manga
-override fun popularMangaSelector() = "div.flex.overflow-hidden"
-
-// Selector untuk Latest Updates (sama dengan Popular Manga)
-override fun latestUpdatesSelector() = popularMangaSelector()
-
-// Fungsi untuk Mengambil Data Manga dari Elemen
-override fun popularMangaFromElement(element: Element): SManga {
-    println("Debug Popular Manga Element: ${element.outerHtml()}")
-    return searchMangaFromElement(element)
-}
-
-override fun latestUpdatesFromElement(element: Element): SManga {
-    println("Debug Latest Updates Element: ${element.outerHtml()}")
-    return searchMangaFromElement(element)
-}
-
-override fun searchMangaFromElement(element: Element): SManga {
-    println("Debug Search Manga Element: ${element.outerHtml()}")
-
-    val manga = SManga.create()
-    val linkElement = element.selectFirst("a")
-
-    if (linkElement == null) {
-        println("Error: Link element not found!")
-    } else {
-        println("Debug Link Element: ${linkElement.outerHtml()}")
-        manga.setUrlWithoutDomain(linkElement.attr("href"))
+    // Request untuk Manga Populer
+    override fun popularMangaRequest(page: Int): Request {
+        return GET("$baseUrl/?page=$page", headers)
     }
 
-    val titleElement = element.selectFirst("h2, h2.hidden.md\\:block")
-    if (titleElement == null) {
-        println("Error: Title element not found!")
-    } else {
-        println("Debug Title Element: ${titleElement.outerHtml()}")
-        manga.title = titleElement.text()
+    // Request untuk Update Terbaru
+    override fun latestUpdatesRequest(page: Int): Request {
+        return popularMangaRequest(page)
     }
 
-    val thumbnailElement = element.selectFirst("img")
-    if (thumbnailElement == null) {
-        println("Error: Thumbnail element not found!")
-    } else {
-        println("Debug Thumbnail Element: ${thumbnailElement.outerHtml()}")
-        manga.thumbnail_url = thumbnailElement.attr("data-src").orEmpty()
+    // Request untuk Pencarian Manga
+    override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
+        val url = "$baseUrl/?s=$query&page=$page"
+        return GET(url, headers)
     }
 
-    return manga
-}
+    // Mengambil data Manga dari Elemen
+    override fun popularMangaFromElement(element: Element): SManga = searchMangaFromElement(element)
+    override fun latestUpdatesFromElement(element: Element): SManga = searchMangaFromElement(element)
 
-// Pagination Selector untuk Manga Populer dan Update Terbaru
-override fun popularMangaNextPageSelector() = "a.next.page-numbers"
-override fun latestUpdatesNextPageSelector() = popularMangaNextPageSelector()
+    override fun searchMangaFromElement(element: Element): SManga {
+        val manga = SManga.create()
+        val titleElement = element.selectFirst("h2 a")
+        manga.title = titleElement?.text()?.trim().orEmpty()
+        manga.setUrlWithoutDomain(titleElement?.attr("href").orEmpty())
+        manga.thumbnail_url = element.selectFirst("img")?.imgAttr().orEmpty()
+        return manga
+    }
+
+    // Pagination Selector
+    override fun popularMangaNextPageSelector() = "a.next.page-numbers"
+    override fun latestUpdatesNextPageSelector() = popularMangaNextPageSelector()
+    override fun searchMangaNextPageSelector() = popularMangaNextPageSelector()
 
     override fun mangaDetailsParse(document: Document): SManga {
         val infoElement = document.select("div.wd-full, div.postbody").first()!!
