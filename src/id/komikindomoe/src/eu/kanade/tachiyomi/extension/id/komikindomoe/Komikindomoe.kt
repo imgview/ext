@@ -29,7 +29,7 @@ class Komikindomoe : ParsedHttpSource() {
         .build()
 
     // Selector untuk Manga Populer, Update Terbaru, dan Pencarian
-    override fun popularMangaSelector() = "div.flex"
+    override fun popularMangaSelector() = "div.grid div.flex"
     override fun latestUpdatesSelector() = popularMangaSelector()
     override fun searchMangaSelector() = popularMangaSelector()
 
@@ -68,33 +68,33 @@ class Komikindomoe : ParsedHttpSource() {
     override fun searchMangaNextPageSelector() = popularMangaNextPageSelector()
 
     override fun mangaDetailsParse(document: Document): SManga {
-        val infoElement = document.select("div.wd-full, div.postbody").first()!!
-        val descElement = document.select("div.entry-content.entry-content-single").first()!!
-        val manga = SManga.create()
-        manga.title = document.select("div.thumb img").attr("title")
-        manga.author = infoElement.select("b:contains(Author) + span").text()
-        manga.artist = infoElement.select("b:contains(Artist) + span").text()
-        val genres = mutableListOf<String>()
-        val typeManga = mutableListOf<String>() // List untuk type manga (dari SeriesTypeSelector)
+    val infoElement = document.selectFirst("div.mt-4.flex.flex-col.gap-4")!!
+    val descElement = document.selectFirst("div.mt-4.w-full > p")!!
+    val manga = SManga.create()
 
-// Mengambil Genre dari span.mgen a
-infoElement.select("span.mgen a").forEach { element ->
-    genres.add(element.text())
-}
+    manga.title = document.selectFirst("div.relative.text-white h1")?.text().orEmpty()
+    manga.author = infoElement.selectFirst("p:contains(Author) + p")?.text().orEmpty()
+    manga.artist = infoElement.selectFirst("p:contains(Artist) + p")?.text().orEmpty()
+    
+    // Mengambil genre
+    val genres = document.select("a[href*='/tax/genre/']").map { it.text() }
+    manga.genre = genres.joinToString(", ")
+    
+    // Mengambil status
+    manga.status = parseStatus(infoElement.selectFirst("div.w-full.bg-green-800")?.text().orEmpty())
+    
+    // Deskripsi
+    manga.description = descElement.text()
+    
+    // Tambahkan alternatif nama jika ada
+    val altName = document.selectFirst("b:contains(Alternative Titles) + span")?.text().orEmpty()
+    if (altName.isNotBlank()) {
+        manga.description += "\n\nAlternative Name: $altName"
+    }
 
-infoElement.select(".imptdt a").forEach { element ->
-    typeManga.add(element.text())
-}
+    // Thumbnail
+    manga.thumbnail_url = document.selectFirst("div.relative.flex-shrink-0 img")?.imgAttr().orEmpty()
 
-manga.genre = (genres + typeManga).joinToString(", ")
-        manga.status = parseStatus(infoElement.select(".imptdt i").text())
-        manga.description = descElement.select("p").text()
-                // Add alternative name to manga description
-    val altName = document.selectFirst("b:contains(Alternative Titles) + span")?.text().takeIf { it.isNullOrBlank().not() }
-altName?.let {
-    manga.description = manga.description + "\n\nAlternative Name: $it"
-}
-        manga.thumbnail_url = document.select("div.thumb img").imgAttr()
     return manga
 }
 
