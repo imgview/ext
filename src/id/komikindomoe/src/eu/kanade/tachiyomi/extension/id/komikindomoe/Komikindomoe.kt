@@ -186,15 +186,18 @@ private fun parseChapterDate(date: String): Long {
     }
 
     override fun pageListParse(document: Document): List<Page> {
-        val pages = mutableListOf<Page>()
-        document.select("div#readerarea img").forEachIndexed { i, element ->
-            val url = element.imgAttr()
-            if (url.isNotEmpty()) {
-                pages.add(Page(i, "", url))
-            }
+    val pages = mutableListOf<Page>()
+
+    document.select("div.bg-reader img").forEachIndexed { index, element ->
+        val url = element.imgAttr()
+
+        if (url.isNotEmpty() && !url.contains("banner.jpg") && !url.contains("banner-footer.jpg")) {
+            pages.add(Page(index, "", url))
         }
-        return pages
     }
+
+    return pages
+}
 
     override fun imageUrlParse(document: Document): String = throw UnsupportedOperationException()
 
