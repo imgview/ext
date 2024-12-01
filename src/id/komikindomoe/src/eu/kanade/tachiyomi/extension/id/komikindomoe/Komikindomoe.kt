@@ -141,8 +141,33 @@ override fun chapterFromElement(element: Element): SChapter {
 
 private fun parseChapterDate(date: String): Long {
     return try {
-        // Memanfaatkan dateFormat yang sudah didefinisikan sebelumnya
-        dateFormat.parse(date)?.time ?: 0L
+        val currentTime = System.currentTimeMillis()
+        val lowerDate = date.lowercase()
+
+        when {
+            lowerDate.contains("mnt lalu") -> {
+                val minutes = lowerDate.split(" ")[0].toIntOrNull() ?: 0
+                currentTime - minutes * 60 * 1000
+            }
+            lowerDate.contains("jam lalu") -> {
+                val hours = lowerDate.split(" ")[0].toIntOrNull() ?: 0
+                currentTime - hours * 60 * 60 * 1000
+            }
+            lowerDate.contains("hari lalu") -> {
+                val days = lowerDate.split(" ")[0].toIntOrNull() ?: 0
+                currentTime - days * 24 * 60 * 60 * 1000
+            }
+            lowerDate.contains("mgg lalu") -> {
+                val weeks = lowerDate.split(" ")[0].toIntOrNull() ?: 0
+                currentTime - weeks * 7 * 24 * 60 * 60 * 1000
+            }
+            lowerDate.contains("bln lalu") -> {
+                val months = lowerDate.split(" ")[0].toIntOrNull() ?: 0
+                val cal = Calendar.getInstance().apply { add(Calendar.MONTH, -months) }
+                cal.timeInMillis
+            }
+            else -> 0L // Jika format tidak dikenal
+        }
     } catch (e: Exception) {
         0L
     }
