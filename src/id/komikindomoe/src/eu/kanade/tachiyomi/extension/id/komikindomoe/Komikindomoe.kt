@@ -28,24 +28,25 @@ class Komikindomoe : ParsedHttpSource() {
         .rateLimit(12, 3)
         .build()
 
+// Request untuk Manga Populer
 override fun popularMangaRequest(page: Int): Request {
-    return GET("$baseUrl/page/$page", headers)
+    val url = "$baseUrl/page/$page"
+    println("Debug Popular Manga Request URL: $url")
+    return GET(url, headers)
 }
 
 // Request untuk Update Terbaru
 override fun latestUpdatesRequest(page: Int): Request {
-    return GET("$baseUrl/page/$page", headers)
+    val url = "$baseUrl/page/$page"
+    println("Debug Latest Updates Request URL: $url")
+    return GET(url, headers)
 }
 
-// Selector untuk Manga Populer dan Update Terbaru
 // Selector untuk Popular Manga
 override fun popularMangaSelector() = "div.flex.overflow-hidden"
 
 // Selector untuk Latest Updates (sama dengan Popular Manga)
 override fun latestUpdatesSelector() = popularMangaSelector()
-
-// Selector untuk Pencarian Manga
-override fun searchMangaSelector() = popularMangaSelector()
 
 // Fungsi untuk Mengambil Data Manga dari Elemen
 override fun popularMangaFromElement(element: Element): SManga {
@@ -60,15 +61,15 @@ override fun latestUpdatesFromElement(element: Element): SManga {
 
 override fun searchMangaFromElement(element: Element): SManga {
     println("Debug Search Manga Element: ${element.outerHtml()}")
-    
+
     val manga = SManga.create()
     val linkElement = element.selectFirst("a")
-    
+
     if (linkElement == null) {
         println("Error: Link element not found!")
     } else {
         println("Debug Link Element: ${linkElement.outerHtml()}")
-        manga.setUrlWithoutDomain(linkElement.attr("href")) // Mengambil URL manga
+        manga.setUrlWithoutDomain(linkElement.attr("href"))
     }
 
     val titleElement = element.selectFirst("h2, h2.hidden.md\\:block")
@@ -90,19 +91,9 @@ override fun searchMangaFromElement(element: Element): SManga {
     return manga
 }
 
-// Request untuk Pencarian Manga
-override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
-    val url = "$baseUrl/search?s=$query&page=$page".toHttpUrl().newBuilder().build()
-    println("Debug Search Manga Request URL: $url")
-    return GET(url, headers)
-}
-
 // Pagination Selector untuk Manga Populer dan Update Terbaru
 override fun popularMangaNextPageSelector() = "a.next.page-numbers"
 override fun latestUpdatesNextPageSelector() = popularMangaNextPageSelector()
-
-// Pagination Selector untuk Pencarian Manga
-override fun searchMangaNextPageSelector() = popularMangaNextPageSelector()
 
     override fun mangaDetailsParse(document: Document): SManga {
         val infoElement = document.select("div.wd-full, div.postbody").first()!!
