@@ -38,6 +38,7 @@ override fun latestUpdatesRequest(page: Int): Request {
 }
 
 // Selector untuk Manga Populer dan Update Terbaru
+// Selector untuk Popular Manga
 override fun popularMangaSelector() = "div.flex.overflow-hidden"
 
 // Selector untuk Latest Updates (sama dengan Popular Manga)
@@ -47,22 +48,52 @@ override fun latestUpdatesSelector() = popularMangaSelector()
 override fun searchMangaSelector() = popularMangaSelector()
 
 // Fungsi untuk Mengambil Data Manga dari Elemen
-override fun popularMangaFromElement(element: Element): SManga = searchMangaFromElement(element)
-override fun latestUpdatesFromElement(element: Element): SManga = searchMangaFromElement(element)
+override fun popularMangaFromElement(element: Element): SManga {
+    println("Debug Popular Manga Element: ${element.outerHtml()}")
+    return searchMangaFromElement(element)
+}
+
+override fun latestUpdatesFromElement(element: Element): SManga {
+    println("Debug Latest Updates Element: ${element.outerHtml()}")
+    return searchMangaFromElement(element)
+}
 
 override fun searchMangaFromElement(element: Element): SManga {
+    println("Debug Search Manga Element: ${element.outerHtml()}")
+    
     val manga = SManga.create()
-    val linkElement = element.selectFirst("a")!!
-    manga.setUrlWithoutDomain(linkElement.attr("href")) // Mengambil URL manga
-    manga.title = element.selectFirst("h2, h2.hidden.md\\:block")?.text().orEmpty() // Mengambil judul manga
-    manga.thumbnail_url = element.selectFirst("img")?.attr("data-src").orEmpty() // Mengambil URL thumbnail
+    val linkElement = element.selectFirst("a")
+    
+    if (linkElement == null) {
+        println("Error: Link element not found!")
+    } else {
+        println("Debug Link Element: ${linkElement.outerHtml()}")
+        manga.setUrlWithoutDomain(linkElement.attr("href")) // Mengambil URL manga
+    }
+
+    val titleElement = element.selectFirst("h2, h2.hidden.md\\:block")
+    if (titleElement == null) {
+        println("Error: Title element not found!")
+    } else {
+        println("Debug Title Element: ${titleElement.outerHtml()}")
+        manga.title = titleElement.text()
+    }
+
+    val thumbnailElement = element.selectFirst("img")
+    if (thumbnailElement == null) {
+        println("Error: Thumbnail element not found!")
+    } else {
+        println("Debug Thumbnail Element: ${thumbnailElement.outerHtml()}")
+        manga.thumbnail_url = thumbnailElement.attr("data-src").orEmpty()
+    }
+
     return manga
 }
 
 // Request untuk Pencarian Manga
 override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
-    // Menyusun URL pencarian dengan parameter 's' (query) dan 'page' (nomor halaman)
-    val url = "$baseUrl/?s=$query&page=$page".toHttpUrl().newBuilder().build()
+    val url = "$baseUrl/search?s=$query&page=$page".toHttpUrl().newBuilder().build()
+    println("Debug Search Manga Request URL: $url")
     return GET(url, headers)
 }
 
