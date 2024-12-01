@@ -18,8 +18,8 @@ import org.jsoup.select.Elements
 import java.util.Locale
 
 class Komikindomoe : ParsedHttpSource() {
-    override val name = "Komikindo Moe"
-    override val baseUrl = "https://mirrorkomik.xyz"
+    override val name = "Komikindo.moe"
+    override val baseUrl = "https://komikav.net"
     override val lang = "id"
     override val supportsLatest = true
     private val dateFormat: SimpleDateFormat = SimpleDateFormat("MMM d, yyyy", Locale.US)
@@ -28,34 +28,34 @@ class Komikindomoe : ParsedHttpSource() {
         .rateLimit(12, 3)
         .build()
 
-// Request untuk Manga Populer
 override fun popularMangaRequest(page: Int): Request {
-    return GET("$baseUrl/list-update?page=$page", headers) // Menyesuaikan dengan URL baru
+    return GET("$baseUrl/page/$page", headers)
 }
 
 // Request untuk Update Terbaru
 override fun latestUpdatesRequest(page: Int): Request {
-    return GET("$baseUrl/list-update?page=$page", headers) // Menyesuaikan dengan URL baru
+    return GET("$baseUrl/page/$page", headers)
 }
 
-// Selector untuk Manga Populer
-override fun popularMangaSelector() = "div.flexbox3-item"
+// Selector untuk Manga Populer dan Update Terbaru
+override fun popularMangaSelector() = "div.flex.overflow-hidden"
 
-// Selector untuk Update Terbaru
-override fun latestUpdatesSelector() = "div.flexbox3-item"
+// Selector untuk Latest Updates (sama dengan Popular Manga)
+override fun latestUpdatesSelector() = popularMangaSelector()
 
 // Selector untuk Pencarian Manga
-override fun searchMangaSelector() = "div.bsx"
+override fun searchMangaSelector() = popularMangaSelector()
 
-// Fungsi untuk Mengambil Manga dari Elemen
+// Fungsi untuk Mengambil Data Manga dari Elemen
 override fun popularMangaFromElement(element: Element): SManga = searchMangaFromElement(element)
 override fun latestUpdatesFromElement(element: Element): SManga = searchMangaFromElement(element)
 
 override fun searchMangaFromElement(element: Element): SManga {
     val manga = SManga.create()
-    manga.setUrlWithoutDomain(element.select("a").attr("href"))  // Mengambil URL manga
-    manga.title = element.select("a").attr("title")
-    manga.thumbnail_url = element.select("img").attr("data-src")  // Mengambil URL thumbnail
+    val linkElement = element.selectFirst("a")!!
+    manga.setUrlWithoutDomain(linkElement.attr("href")) // Mengambil URL manga
+    manga.title = element.selectFirst("h2, h2.hidden.md\\:block")?.text().orEmpty() // Mengambil judul manga
+    manga.thumbnail_url = element.selectFirst("img")?.attr("data-src").orEmpty() // Mengambil URL thumbnail
     return manga
 }
 
@@ -67,11 +67,11 @@ override fun searchMangaRequest(page: Int, query: String, filters: FilterList): 
 }
 
 // Pagination Selector untuk Manga Populer dan Update Terbaru
-override fun popularMangaNextPageSelector() = "div.hpage a.r"
+override fun popularMangaNextPageSelector() = "a.next.page-numbers"
 override fun latestUpdatesNextPageSelector() = popularMangaNextPageSelector()
 
 // Pagination Selector untuk Pencarian Manga
-override fun searchMangaNextPageSelector() = "a.next.page-numbers" // Selector untuk tombol Next di hasil pencarian
+override fun searchMangaNextPageSelector() = popularMangaNextPageSelector()
 
     override fun mangaDetailsParse(document: Document): SManga {
         val infoElement = document.select("div.wd-full, div.postbody").first()!!
@@ -110,13 +110,13 @@ altName?.let {
         else -> SManga.UNKNOWN
     }
 
-    override fun chapterListSelector() = "div.mctnx ul > li"
+    override fun chapterListSelector() = "div#chapterlist ul > li"
 
 override fun chapterFromElement(element: Element): SChapter {
-    val urlElement = element.select("div.lch a").first()!!
+    val urlElement = element.select("div.eph-num a").first()!!
     val chapter = SChapter.create()
     chapter.setUrlWithoutDomain(urlElement.attr("href"))
-    chapter.name = urlElement.text()
+    chapter.name = urlElement.select("span.chapternum").text()
     chapter.date_upload = element.select("span.chapterdate").text()?.let { parseChapterDate(it) } ?: 0L
     return chapter
 }
@@ -141,15 +141,15 @@ private fun parseChapterDate(date: String): Long {
     }
 
     override fun pageListParse(document: Document): List<Page> {
-    val pages = mutableListOf<Page>()
-    document.select("#listchs img").forEachIndexed { i, element ->
-        val url = element.imgAttr() // Menggunakan fungsi imgAttr() yang Anda buat
-        if (url.isNotEmpty()) {
-            pages.add(Page(i, "", url))
+        val pages = mutableListOf<Page>()
+        document.select("div#readerarea img").forEachIndexed { i, element ->
+            val url = element.imgAttr()
+            if (url.isNotEmpty()) {
+                pages.add(Page(i, "", url))
+            }
         }
+        return pages
     }
-    return pages
-}
 
     override fun imageUrlParse(document: Document): String = throw UnsupportedOperationException()
 
@@ -163,16 +163,15 @@ private fun parseChapterDate(date: String): Long {
     }
 
     override fun getFilterList() = FilterList(
-        Filter.Header("Filter sengaja kosong, di webnya aja gak ada"),
+        Filter.Header("Filter sengaja kosong, di web mereka gak ada filter juga"),
         Filter.Separator()
     )
 
     private fun Element.imgAttr(): String = when {
-    hasAttr("data-lazy-src") -> attr("abs:data-lazy-src")
-    hasAttr("data-src") -> attr("abs:data-src")
-    hasAttr("data-real-src") -> attr("abs:data-real-src")  // Menambahkan dukungan untuk data-real-src
-    else -> attr("abs:src")
-}
+        hasAttr("data-lazy-src") -> attr("abs:data-lazy-src")
+        hasAttr("data-src") -> attr("abs:data-src")
+        else -> attr("abs:src")
+    }
 
     private fun Elements.imgAttr(): String = this.first()!!.imgAttr()
 }
