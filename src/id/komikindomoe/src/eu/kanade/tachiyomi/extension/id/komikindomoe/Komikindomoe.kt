@@ -68,39 +68,48 @@ class Komikindomoe : ParsedHttpSource() {
     override fun searchMangaNextPageSelector() = popularMangaNextPageSelector()
 
     override fun mangaDetailsParse(document: Document): SManga {
-    val infoElement = document.selectFirst("div.mt-4.flex.flex-col.gap-4")!!
-    val descElement = document.selectFirst("div.mt-4.w-full > p")!!
+    val infoElement = document.select("div.mt-4.flex.flex-col.gap-4").first()!!
+    val descElement = document.select("div.mt-4.w-full > p").first()!!
     val manga = SManga.create()
 
-    manga.title = document.selectFirst("div.relative.text-white h1")?.text().orEmpty()
-    manga.author = infoElement.selectFirst("p:contains(Author) + p")?.text().orEmpty()
-    manga.artist = infoElement.selectFirst("p:contains(Artist) + p")?.text().orEmpty()
+    // Mengambil judul dari atribut title pada thumbnail
+    manga.title = document.select("div.relative.flex-shrink-0 img").attr("alt")
     
-    // Mengambil genre tanpa duplikat "18+" dan menambahkan type manga
-    val genres = document.select("a[href*='/tax/genre/']")
-        .map { it.text() }
-        .filterNot { it.equals("18+", ignoreCase = true) }
-        .toMutableList()
+    // Mengambil author dan artist
+    manga.author = infoElement.select("p:contains(Author) + p").text()
+    manga.artist = infoElement.select("p:contains(Artist) + p").text()
 
-    // Menambahkan jenis manga (type manga) ke bagian genre
-    val typeManga = infoElement.selectFirst("div.w-full.bg-red-800")?.text()?.trim()
-    typeManga?.let { genres.add(it) }
-    manga.genre = genres.joinToString(", ")
-    
-    // Mengambil status
-    manga.status = parseStatus(infoElement.selectFirst("div.w-full.bg-green-800")?.text().orEmpty())
-    
-    // Deskripsi
-    manga.description = descElement.text()
-    
-    // Tambahkan alternatif nama jika ada
-    val altName = document.selectFirst("b:contains(Alternative Titles) + span")?.text().orEmpty()
-    if (altName.isNotBlank()) {
-        manga.description += "\n\nAlternative Name: $altName"
+    // Menampung genre dan type manga
+    val genres = mutableListOf<String>()
+    val typeManga = mutableListOf<String>()
+
+    // Mengambil Genre dari tautan dengan href mengarah ke genre
+    document.select("div.mt-4.w-full a[href*='/tax/genre/']").forEach { element ->
+        genres.add(element.text())
     }
 
-    // Thumbnail
-    manga.thumbnail_url = document.selectFirst("div.relative.flex-shrink-0 img")?.imgAttr().orEmpty()
+    // Mengambil Type Manga dari elemen dengan class bg-red-800
+    document.select("div.bg-red-800").forEach { element ->
+        typeManga.add(element.text().trim())
+    }
+
+    // Kombinasi genre dan type manga, type selalu di akhir
+    manga.genre = (genres.distinct() + typeManga).joinToString(", ")
+
+    // Mengambil status dari elemen dengan class bg-green-800
+    manga.status = parseStatus(infoElement.select("div.bg-green-800").text())
+
+    // Mengambil deskripsi
+    manga.description = descElement.text()
+
+    // Menambahkan alternatif nama jika ada
+    val altName = document.selectFirst("b:contains(Alternative Titles) + span")?.text()?.trim()
+    altName?.takeIf { it.isNotEmpty() }?.let {
+        manga.description += "\n\nAlternative Name: $it"
+    }
+
+    // Mengambil URL thumbnail
+    manga.thumbnail_url = document.select("div.relative.flex-shrink-0 img").imgAttr()
 
     return manga
 }
