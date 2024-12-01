@@ -120,27 +120,28 @@ class Komikindomoe : ParsedHttpSource() {
         else -> SManga.UNKNOWN
     }
 
-    override fun chapterListSelector() = "div.mt-4.flex.flex-col.gap-4 a"
+    override fun chapterListSelector() = "div.mt-4.flex.max-h-96.flex-col.gap-4.pr-2.overflow-y-auto a[href*='chapter']"
 
 override fun chapterFromElement(element: Element): SChapter {
     val chapter = SChapter.create()
 
-    // Mengambil URL chapter
-    val urlElement = element.selectFirst("a")!!
-    chapter.setUrlWithoutDomain(urlElement.attr("href"))
+    // Mengambil URL chapter (mengonversi ke URL absolut jika perlu)
+    val chapterLink = element.attr("href")
+    val fullChapterUrl = if (chapterLink.startsWith("http")) chapterLink else "$baseUrl$chapterLink"
+    chapter.setUrlWithoutDomain(fullChapterUrl)
 
     // Mengambil nama chapter
-    chapter.name = urlElement.selectFirst("p")?.text().orEmpty()
+    chapter.name = element.select("p").first()?.text()?.trim().orEmpty()
 
-    // Menggunakan teks tanggal apa adanya
-    val dateText = urlElement.selectFirst("p.text-xs")?.text().orEmpty()
-    chapter.date_upload = parseChapterDate(dateText)
+    // Mengambil tanggal upload chapter
+    chapter.date_upload = element.select(".text-xs").text()?.trim()?.let { parseChapterDate(it) } ?: 0L
 
     return chapter
 }
 
 private fun parseChapterDate(date: String): Long {
     return try {
+        // Memanfaatkan dateFormat yang sudah didefinisikan sebelumnya
         dateFormat.parse(date)?.time ?: 0L
     } catch (e: Exception) {
         0L
