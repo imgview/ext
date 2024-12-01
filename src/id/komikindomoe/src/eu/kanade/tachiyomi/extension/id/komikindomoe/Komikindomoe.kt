@@ -62,7 +62,7 @@ override fun searchMangaFromElement(element: Element): SManga {
     manga.title = element.select("a").attr("title")  
     
     // Mengambil URL thumbnail gambar
-    manga.thumbnail_url = element.select("img").attr("src")
+    manga.thumbnail_url = document.select("img").attr("src")
     
     // Jika gambar tidak ada di "src", coba ambil dari "data-src"
     if (manga.thumbnail_url.isEmpty()) {
