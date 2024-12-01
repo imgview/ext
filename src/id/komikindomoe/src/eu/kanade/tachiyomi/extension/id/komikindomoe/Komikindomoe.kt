@@ -13,9 +13,9 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.text.SimpleDateFormat
 import org.jsoup.nodes.Document
+import java.util.Calendar
 import org.jsoup.nodes.Element
 import org.jsoup.select.Elements
-import java.util.Calendar
 import java.util.Locale
 
 class Komikindomoe : ParsedHttpSource() {
@@ -30,18 +30,18 @@ class Komikindomoe : ParsedHttpSource() {
         .build()
 
     // Selector untuk Manga Populer, Update Terbaru, dan Pencarian
-    override fun popularMangaSelector() = "div.grid div.flex"
-    override fun latestUpdatesSelector() = popularMangaSelector()
+    override fun popularMangaSelector() = "div.grid div.overflow-hidden.rounded-md"
+    override fun latestUpdatesSelector() = "div.grid div.flex"
     override fun searchMangaSelector() = popularMangaSelector()
 
     // Request untuk Manga Populer
     override fun popularMangaRequest(page: Int): Request {
-        return GET("$baseUrl/?page=$page", headers)
+        return GET("$baseUrl/popular/?page=$page", headers)
     }
 
     // Request untuk Update Terbaru
     override fun latestUpdatesRequest(page: Int): Request {
-        return popularMangaRequest(page)
+        return GET("$baseUrl/?page=$page", headers)
     }
 
     // Request untuk Pencarian Manga
@@ -54,6 +54,7 @@ class Komikindomoe : ParsedHttpSource() {
     override fun popularMangaFromElement(element: Element): SManga = searchMangaFromElement(element)
     override fun latestUpdatesFromElement(element: Element): SManga = searchMangaFromElement(element)
 
+    // Fungsi untuk mengambil data manga dari elemen pencarian
     override fun searchMangaFromElement(element: Element): SManga {
         val manga = SManga.create()
         val titleElement = element.selectFirst("h2 a")
@@ -64,9 +65,17 @@ class Komikindomoe : ParsedHttpSource() {
     }
 
     // Pagination Selector
-    override fun popularMangaNextPageSelector() = "a.next.page-numbers"
-    override fun latestUpdatesNextPageSelector() = popularMangaNextPageSelector()
-    override fun searchMangaNextPageSelector() = popularMangaNextPageSelector()
+override fun popularMangaNextPageUrl(document: Document, page: Int): String? {
+    return "$baseUrl/popular/?page=${page + 1}" // Halaman berikutnya untuk popular manga
+}
+
+override fun latestUpdatesNextPageUrl(document: Document, page: Int): String? {
+    return "$baseUrl/?page=${page + 1}" // Halaman berikutnya untuk latest updates
+}
+
+override fun searchMangaNextPageUrl(document: Document, page: Int): String? {
+    return "$baseUrl/?s=&page=${page + 1}" // Halaman berikutnya untuk pencarian manga
+}
 
     override fun mangaDetailsParse(document: Document): SManga {
     val infoElement = document.select("div.mt-4.flex.flex-col.gap-4").first()!!
@@ -186,18 +195,15 @@ private fun parseChapterDate(date: String): Long {
     }
 
     override fun pageListParse(document: Document): List<Page> {
-    val pages = mutableListOf<Page>()
-
-    document.select("div.bg-reader img").forEachIndexed { index, element ->
-        val url = element.imgAttr()
-
-        if (url.isNotEmpty() && !url.contains("banner.jpg") && !url.contains("banner-footer.jpg")) {
-            pages.add(Page(index, "", url))
+        val pages = mutableListOf<Page>()
+        document.select("div#readerarea img").forEachIndexed { i, element ->
+            val url = element.imgAttr()
+            if (url.isNotEmpty()) {
+                pages.add(Page(i, "", url))
+            }
         }
+        return pages
     }
-
-    return pages
-}
 
     override fun imageUrlParse(document: Document): String = throw UnsupportedOperationException()
 
