@@ -110,14 +110,29 @@ altName?.let {
         else -> SManga.UNKNOWN
     }
 
-    override fun chapterListSelector() = "div#chapterlist ul > li"
+    override fun chapterListSelector() = "div.mctnx ul > li"  // Menyesuaikan selector list chapter
 
 override fun chapterFromElement(element: Element): SChapter {
-    val urlElement = element.select("div.eph-num a").first()!!
+    val urlElement = element.select("div.lch a").first()!!  // Selector untuk link chapter
     val chapter = SChapter.create()
+
+    // Mengambil URL chapter
     chapter.setUrlWithoutDomain(urlElement.attr("href"))
-    chapter.name = urlElement.select("span.chapternum").text()
+    
+    // Mengambil nama chapter
+    chapter.name = urlElement.text()
+
+    // Mengambil tanggal upload chapter jika ada
     chapter.date_upload = element.select("span.chapterdate").text()?.let { parseChapterDate(it) } ?: 0L
+    
+    // Menambahkan gambar chapter jika ada
+    val chapterImage = element.select("img").attr("src") // Selector untuk mengambil gambar jika ada
+    chapter.thumbnail_url = if (chapterImage.isNotEmpty()) {
+        chapterImage // Menetapkan URL gambar
+    } else {
+        ""  // Jika tidak ada gambar, kosongkan
+    }
+
     return chapter
 }
 
