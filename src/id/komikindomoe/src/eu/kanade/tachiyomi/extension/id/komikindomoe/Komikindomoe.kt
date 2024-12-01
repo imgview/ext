@@ -19,7 +19,7 @@ import java.util.Locale
 
 class Komikindomoe : ParsedHttpSource() {
     override val name = "Komikindo Moe"
-    override val baseUrl = "https://komikindo.moe"
+    override val baseUrl = "https://mirrorkomik.xyz"
     override val lang = "id"
     override val supportsLatest = true
     private val dateFormat: SimpleDateFormat = SimpleDateFormat("MMM d, yyyy", Locale.US)
@@ -28,18 +28,21 @@ class Komikindomoe : ParsedHttpSource() {
         .rateLimit(12, 3)
         .build()
 
+// Request untuk Manga Populer
 override fun popularMangaRequest(page: Int): Request {
-    return GET("$baseUrl/page/$page", headers)
+    return GET("$baseUrl/list-update?page=$page", headers) // Menyesuaikan dengan URL baru
 }
 
 // Request untuk Update Terbaru
 override fun latestUpdatesRequest(page: Int): Request {
-    return GET("$baseUrl/page/$page", headers)
+    return GET("$baseUrl/list-update?page=$page", headers) // Menyesuaikan dengan URL baru
 }
 
 // Selector untuk Manga Populer
-override fun popularMangaSelector() = "div.serieslist.pop.wpop.alltime ul li"
-override fun latestUpdatesSelector() = "div.listupd div.utao div.uta"
+override fun popularMangaSelector() = "div.flexbox3-item"
+
+// Selector untuk Update Terbaru
+override fun latestUpdatesSelector() = "div.flexbox3-item"
 
 // Selector untuk Pencarian Manga
 override fun searchMangaSelector() = "div.bsx"
@@ -48,11 +51,24 @@ override fun searchMangaSelector() = "div.bsx"
 override fun popularMangaFromElement(element: Element): SManga = searchMangaFromElement(element)
 override fun latestUpdatesFromElement(element: Element): SManga = searchMangaFromElement(element)
 
+// Fungsi untuk Mengambil Manga dari Elemen
 override fun searchMangaFromElement(element: Element): SManga {
     val manga = SManga.create()
-    manga.setUrlWithoutDomain(element.select("a").attr("href"))  // Mengambil URL manga
-    manga.title = element.select("div.tt, h3").text()  // Mengambil judul manga dari div.tt atau h3
-    manga.thumbnail_url = element.select("img.ts-post-image").attr("src")  // Mengambil URL thumbnail
+    
+    // Mengambil URL manga, pastikan untuk menambahkan domain base URL jika perlu
+    manga.setUrlWithoutDomain(element.select("a").attr("href"))  
+    
+    // Mengambil judul manga
+    manga.title = element.select("a").attr("title")  
+    
+    // Mengambil URL thumbnail gambar
+    manga.thumbnail_url = element.select("img").attr("src")
+    
+    // Jika gambar tidak ada di "src", coba ambil dari "data-src"
+    if (manga.thumbnail_url.isEmpty()) {
+        manga.thumbnail_url = element.select("img").attr("data-src")
+    }
+    
     return manga
 }
 
