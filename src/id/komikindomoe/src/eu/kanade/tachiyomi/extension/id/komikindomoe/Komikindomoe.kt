@@ -76,8 +76,15 @@ class Komikindomoe : ParsedHttpSource() {
     manga.author = infoElement.selectFirst("p:contains(Author) + p")?.text().orEmpty()
     manga.artist = infoElement.selectFirst("p:contains(Artist) + p")?.text().orEmpty()
     
-    // Mengambil genre
-    val genres = document.select("a[href*='/tax/genre/']").map { it.text() }
+    // Mengambil genre tanpa duplikat "18+" dan menambahkan type manga
+    val genres = document.select("a[href*='/tax/genre/']")
+        .map { it.text() }
+        .filterNot { it.equals("18+", ignoreCase = true) }
+        .toMutableList()
+
+    // Menambahkan jenis manga (type manga) ke bagian genre
+    val typeManga = infoElement.selectFirst("div.w-full.bg-red-800")?.text()?.trim()
+    typeManga?.let { genres.add(it) }
     manga.genre = genres.joinToString(", ")
     
     // Mengambil status
