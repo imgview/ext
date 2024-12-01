@@ -74,7 +74,7 @@ class Komikindomoe : ParsedHttpSource() {
 
     // Mengambil judul dari atribut title pada thumbnail
     manga.title = document.select("div.relative.flex-shrink-0 img").attr("alt")
-    
+
     // Mengambil author dan artist
     manga.author = infoElement.select("p:contains(Author) + p").text()
     manga.artist = infoElement.select("p:contains(Artist) + p").text()
@@ -120,14 +120,22 @@ class Komikindomoe : ParsedHttpSource() {
         else -> SManga.UNKNOWN
     }
 
-    override fun chapterListSelector() = "div#chapterlist ul > li"
+    override fun chapterListSelector() = "div.mt-4.flex.flex-col.gap-4 a"
 
 override fun chapterFromElement(element: Element): SChapter {
-    val urlElement = element.select("div.eph-num a").first()!!
     val chapter = SChapter.create()
+
+    // Mengambil URL chapter
+    val urlElement = element.selectFirst("a")!!
     chapter.setUrlWithoutDomain(urlElement.attr("href"))
-    chapter.name = urlElement.select("span.chapternum").text()
-    chapter.date_upload = element.select("span.chapterdate").text()?.let { parseChapterDate(it) } ?: 0L
+
+    // Mengambil nama chapter
+    chapter.name = urlElement.selectFirst("p")?.text().orEmpty()
+
+    // Menggunakan teks tanggal apa adanya
+    val dateText = urlElement.selectFirst("p.text-xs")?.text().orEmpty()
+    chapter.date_upload = parseChapterDate(dateText)
+
     return chapter
 }
 
