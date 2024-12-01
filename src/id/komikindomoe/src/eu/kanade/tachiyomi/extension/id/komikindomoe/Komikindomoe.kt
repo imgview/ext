@@ -19,7 +19,7 @@ import java.util.Locale
 
 class Komikindomoe : ParsedHttpSource() {
     override val name = "Komikindo Moe"
-    override val baseUrl = "https://komikindo.moe"
+    override val baseUrl = "https://mirrorkomik.xyz"
     override val lang = "id"
     override val supportsLatest = true
     private val dateFormat: SimpleDateFormat = SimpleDateFormat("MMM d, yyyy", Locale.US)
@@ -110,29 +110,14 @@ altName?.let {
         else -> SManga.UNKNOWN
     }
 
-    override fun chapterListSelector() = "div.mctnx ul > li"  // Menyesuaikan selector list chapter
+    override fun chapterListSelector() = "div.mctnx ul > li"
 
 override fun chapterFromElement(element: Element): SChapter {
-    val urlElement = element.select("div.lch a").first()!!  // Selector untuk link chapter
+    val urlElement = element.select("div.lch a").first()!!
     val chapter = SChapter.create()
-
-    // Mengambil URL chapter
     chapter.setUrlWithoutDomain(urlElement.attr("href"))
-    
-    // Mengambil nama chapter
     chapter.name = urlElement.text()
-
-    // Mengambil tanggal upload chapter jika ada
     chapter.date_upload = element.select("span.chapterdate").text()?.let { parseChapterDate(it) } ?: 0L
-    
-    // Menambahkan gambar chapter jika ada
-    val chapterImage = element.select("img").attr("src") // Selector untuk mengambil gambar jika ada
-    chapter.thumbnail_url = if (chapterImage.isNotEmpty()) {
-        chapterImage // Menetapkan URL gambar
-    } else {
-        ""  // Jika tidak ada gambar, kosongkan
-    }
-
     return chapter
 }
 
