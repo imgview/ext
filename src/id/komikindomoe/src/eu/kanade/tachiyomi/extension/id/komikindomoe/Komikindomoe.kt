@@ -65,17 +65,9 @@ class Komikindomoe : ParsedHttpSource() {
     }
 
     // Pagination Selector
-override fun popularMangaNextPageSelector(document: Document, page: Int): String? {
-    return "$baseUrl/popular/?page=${page + 1}" // Halaman berikutnya untuk popular manga
-}
-
-override fun latestUpdatesNextPageSelector(document: Document, page: Int): String? {
-    return "$baseUrl/?page=${page + 1}" // Halaman berikutnya untuk latest updates
-}
-
-override fun searchMangaNextPageSelector(document: Document, page: Int): String? {
-    return "$baseUrl/?s=&page=${page + 1}" // Halaman berikutnya untuk pencarian manga
-}
+override fun popularMangaNextPageSelector() = "a[href*='?page=']" // Dummy selector, tidak digunakan
+override fun latestUpdatesNextPageSelector() = "a[href*='?page=']" // Dummy selector, tidak digunakan
+override fun searchMangaNextPageSelector() = "a[href*='?page=']" // Dummy selector, tidak digunakan
 
     override fun mangaDetailsParse(document: Document): SManga {
     val infoElement = document.select("div.mt-4.flex.flex-col.gap-4").first()!!
