@@ -8,7 +8,7 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 
 class MangakuTV : Madara(
-    "Mangaku.tv",
+    "MangakuTV",
     "https://mangaku.tv",
     "id",
     dateFormat = SimpleDateFormat("MMM d, yyyy", Locale.US),
