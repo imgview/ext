@@ -141,15 +141,15 @@ private fun parseChapterDate(date: String): Long {
     }
 
     override fun pageListParse(document: Document): List<Page> {
-        val pages = mutableListOf<Page>()
-        document.select("#readerarea img").forEachIndexed { i, element ->
-            val url = element.imgAttr()
-            if (url.isNotEmpty()) {
-                pages.add(Page(i, "", url))
-            }
+    val pages = mutableListOf<Page>()
+    document.select("#listchs img").forEachIndexed { i, element ->
+        val url = element.imgAttr() // Menggunakan fungsi imgAttr() yang Anda buat
+        if (url.isNotEmpty()) {
+            pages.add(Page(i, "", url))
         }
-        return pages
     }
+    return pages
+}
 
     override fun imageUrlParse(document: Document): String = throw UnsupportedOperationException()
 
@@ -168,10 +168,11 @@ private fun parseChapterDate(date: String): Long {
     )
 
     private fun Element.imgAttr(): String = when {
-        hasAttr("data-lazy-src") -> attr("abs:data-lazy-src")
-        hasAttr("data-src") -> attr("abs:data-src")
-        else -> attr("abs:src")
-    }
+    hasAttr("data-lazy-src") -> attr("abs:data-lazy-src")
+    hasAttr("data-src") -> attr("abs:data-src")
+    hasAttr("data-real-src") -> attr("abs:data-real-src")  // Menambahkan dukungan untuk data-real-src
+    else -> attr("abs:src")
+}
 
     private fun Elements.imgAttr(): String = this.first()!!.imgAttr()
 }
