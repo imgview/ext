@@ -1,0 +1,17 @@
+jobs:
+  codeberg:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      
+      - name: Generate SSH key
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keygen -t rsa -b 4096 -C "your_email@example.com" -f ~/.ssh/id_rsa -N ""
+          echo "SSH key generated"
+
+      - name: Add SSH key to Codeberg
+        run: |
+          cat ~/.ssh/id_rsa.pub
+          # Add your SSH public key to your Codeberg account manually, then continue the pipeline.
