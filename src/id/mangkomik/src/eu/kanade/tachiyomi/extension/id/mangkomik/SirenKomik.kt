@@ -7,6 +7,8 @@ import eu.kanade.tachiyomi.source.model.SChapter
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.decodeFromString
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -42,8 +44,8 @@ class SirenKomik : MangaThemesia(
         // Ekstrak JSON dari fungsi 'SExtras.imgview({...});'
         val jsonString = scriptContent.substringAfter("SExtras.imgview(").substringBefore(");")
 
-        // Parsing JSON ke dalam model data
-        val sExtrasData = json.decodeFromString<SExtras>(jsonString)
+        // Parsing JSON ke dalam model data menggunakan Json.decodeFromString
+        val sExtrasData = Json.decodeFromString<SExtras>(jsonString)
 
         // Ambil URL gambar dari sumber pertama
         val imageUrls = sExtrasData.sources.firstOrNull()?.images ?: return emptyList()
@@ -51,6 +53,7 @@ class SirenKomik : MangaThemesia(
         // Konversi URL gambar menjadi daftar Page
         return imageUrls.mapIndexed { index, imageUrl -> Page(index, document.location(), imageUrl) }
     }
+}
 
 @Serializable
 data class SExtras(
@@ -62,4 +65,3 @@ data class ImageSource(
     val source: String,
     val images: List<String>,
 )
-}
