@@ -51,7 +51,6 @@ class SirenKomik : MangaThemesia(
         // Konversi URL gambar menjadi daftar Page
         return imageUrls.mapIndexed { index, imageUrl -> Page(index, document.location(), imageUrl) }
     }
-}
 
 @Serializable
 data class SExtras(
@@ -63,3 +62,4 @@ data class ImageSource(
     val source: String,
     val images: List<String>,
 )
+}
