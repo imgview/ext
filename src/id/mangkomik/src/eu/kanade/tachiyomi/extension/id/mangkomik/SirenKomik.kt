@@ -1,51 +1,115 @@
 package eu.kanade.tachiyomi.extension.id.mangkomik
 
+import android.app.Application
+import androidx.preference.PreferenceScreen
+import eu.kanade.tachiyomi.lib.randomua.addRandomUAPreferenceToScreen
+import eu.kanade.tachiyomi.lib.randomua.getPrefCustomUA
+import eu.kanade.tachiyomi.lib.randomua.getPrefUAType
+import eu.kanade.tachiyomi.lib.randomua.setRandomUserAgent
 import eu.kanade.tachiyomi.multisrc.mangathemesia.MangaThemesia
 import eu.kanade.tachiyomi.network.GET
+import eu.kanade.tachiyomi.network.interceptor.rateLimit
+import eu.kanade.tachiyomi.source.ConfigurableSource
+import eu.kanade.tachiyomi.source.model.Filter
+import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.Page
-import eu.kanade.tachiyomi.source.model.SChapter
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
+import okhttp3.Request
 import org.jsoup.nodes.Document
-import org.jsoup.nodes.Element
-import java.text.SimpleDateFormat
-import java.util.Locale
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 
-class SirenKomik : MangaThemesia(
-    "Siren Komik",
-    "https://sirenkomik.my.id",
-    "id",
-    dateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale("id")),
-) {
-    override val id = 8457447675410081142
+class SirenKomik :
+    MangaThemesia(
+        "Siren Komik",
+        "https://sirenkomik.my.id",
+        "id",
+        "/manga",
+    ),
+    ConfigurableSource {
 
-    override val hasProjectPage = true
+    private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
 
-    override val seriesTitleSelector = "h1.judul-komik"
-    override val seriesThumbnailSelector = ".gambar-kecil img"
-    override val seriesGenreSelector = ".genre-komik a"
-    override val seriesAuthorSelector = ".keterangan-komik:contains(author) span"
-    override val seriesArtistSelector = ".keterangan-komik:contains(artist) span"
+    override val client = super.client.newBuilder()
+        .setRandomUserAgent(
+            preferences.getPrefUAType(),
+            preferences.getPrefCustomUA(),
+        )
+        .rateLimit(1)
+        .build()
 
-    override fun chapterFromElement(element: Element) = SChapter.create().apply {
-        val urlElements = element.select("a")
-        setUrlWithoutDomain(urlElements.attr("href"))
-        name = element.select(".nomer-chapter").text().ifBlank { urlElements.first()!!.text() }
-        date_upload = element.selectFirst(".tgl-chapter")?.text().parseChapterDate()
+    override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
+        return if (query.isEmpty()) {
+            super.searchMangaRequest(page, query, filters)
+        } else {
+            GET("$baseUrl/?s=$query&page=$page", headers)
+        }
+    }
+
+    override fun getFilterList(): FilterList {
+        val filters = mutableListOf<Filter<*>>(
+            Filter.Header("Note: Can't be used with text search!"),
+            Filter.Separator(),
+            StatusFilter(intl["status_filter_title"], statusOptions),
+            TypeFilter(intl["type_filter_title"], typeFilterOptions),
+            OrderByFilter(intl["order_by_filter_title"], orderByFilterOptions),
+        )
+        if (!genrelist.isNullOrEmpty()) {
+            filters.addAll(
+                listOf(
+                    Filter.Header(intl["genre_exclusion_warning"]),
+                    GenreListFilter(intl["genre_filter_title"], getGenreList()),
+                ),
+            )
+        } else {
+            filters.add(
+                Filter.Header(intl["genre_missing_warning"]),
+            )
+        }
+        if (hasProjectPage) {
+            filters.addAll(
+                mutableListOf<Filter<*>>(
+                    Filter.Separator(),
+                    Filter.Header(intl["project_filter_warning"]),
+                    Filter.Header(intl.format("project_filter_name", name)),
+                    ProjectFilter(intl["project_filter_title"], projectFilterOptions),
+                ),
+            )
+        }
+        return FilterList(filters)
     }
 
     override fun pageListParse(document: Document): List<Page> {
-        // Get external JS for image urls
-        val scriptEl = document.selectFirst("script[data-minify]")
-        val scriptUrl = scriptEl?.attr("src")
-        if (scriptUrl.isNullOrEmpty()) {
-            return super.pageListParse(document)
-        }
+    // Cari elemen <script> yang mengandung 'SExtras.imgview'
+    val scriptContent = document.selectFirst("script:containsData(SExtras.imgview)")?.data()
+        ?: return super.pageListParse(document)
+    
+    // Ekstrak JSON dari fungsi 'SExtras.imgview({...});'
+    val jsonString = scriptContent.substringAfter("SExtras.imgview(").substringBefore(");")
+    
+    // Parsing JSON ke dalam model data
+    val sExtrasData = json.decodeFromString<SExtras>(jsonString)
+    
+    // Ambil URL gambar dari sumber pertama
+    val imageUrls = sExtrasData.sources.firstOrNull()?.images ?: return emptyList()
+    
+    // Konversi URL gambar menjadi daftar Page
+    return imageUrls.mapIndexed { index, imageUrl -> Page(index, document.location(), imageUrl) }
+}
 
-        val scriptResponse = client.newCall(
-            GET(scriptUrl, headers),
-        ).execute()
-
-        // Inject external JS
-        scriptEl.text(scriptResponse.body.string())
-        return super.pageListParse(document)
+    override fun setupPreferenceScreen(screen: PreferenceScreen) {
+        addRandomUAPreferenceToScreen(screen)
     }
+
+    @Serializable
+    data class TSReader(
+        val sources: List<ReaderImageSource>,
+    )
+
+    @Serializable
+    data class ReaderImageSource(
+        val source: String,
+        val images: List<String>,
+    )
 }
