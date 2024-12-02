@@ -1,17 +1,48 @@
+name: Mirror to Codeberg
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # Manual trigger
+  schedule:
+    - cron: "0 */8 * * *"  # Every 8 hours
+
 jobs:
-  codeberg:
+  generate_ssh_key_and_mirror:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
       
-      - name: Generate SSH key
+      - name: Generate SSH Key Pair
         run: |
+          # Create SSH key directory and generate a new SSH key pair
           mkdir -p ~/.ssh
           ssh-keygen -t rsa -b 4096 -C "your_email@example.com" -f ~/.ssh/id_rsa -N ""
-          echo "SSH key generated"
+          echo "SSH key pair generated"
 
-      - name: Add SSH key to Codeberg
+      - name: Show SSH Public Key
         run: |
+          # Output the SSH public key to the GitHub Actions log
           cat ~/.ssh/id_rsa.pub
-          # Add your SSH public key to your Codeberg account manually, then continue the pipeline.
+          echo "The public key above must be added to your Codeberg account."
+
+      - name: Add SSH key to Codeberg (Manual Step)
+        run: |
+          echo "Please copy the public key above and manually add it to your Codeberg account under Settings > SSH Keys."
+          
+      - name: Set up SSH for GitHub Actions
+        run: |
+          # Add the private key from the previous step to the SSH directory
+          echo "${{ secrets.CODEBERG_SSH }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          # Add Codeberg's SSH host to known hosts to avoid SSH warnings
+          ssh-keyscan codeberg.org >> ~/.ssh/known_hosts
+          echo "SSH setup complete"
+
+      - name: Mirror GitHub repo to Codeberg
+        run: |
+          # Mirror push from GitHub to Codeberg
+          git remote set-url origin git@codeberg.org:paanci/ext.git
+          git push --mirror
