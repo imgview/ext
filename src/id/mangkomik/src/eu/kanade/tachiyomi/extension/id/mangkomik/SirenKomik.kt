@@ -2,7 +2,6 @@ package eu.kanade.tachiyomi.extension.id.mangkomik
 
 import eu.kanade.tachiyomi.multisrc.mangathemesia.MangaThemesia
 import eu.kanade.tachiyomi.network.GET
-import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.Page
@@ -17,8 +16,7 @@ class SirenKomik :
         "https://sirenkomik.my.id",
         "id",
         "/manga",
-    ),
-    ConfigurableSource {
+    ) {
 
     override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
         return if (query.isEmpty()) {
