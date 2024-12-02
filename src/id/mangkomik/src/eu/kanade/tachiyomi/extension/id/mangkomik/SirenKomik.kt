@@ -2,9 +2,9 @@ package eu.kanade.tachiyomi.extension.id.mangkomik
 
 import eu.kanade.tachiyomi.multisrc.mangathemesia.MangaThemesia
 import eu.kanade.tachiyomi.network.GET
-import eu.kanade.tachiyomi.source.model.Filter
-import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.Page
+import eu.kanade.tachiyomi.source.model.SChapter
+import org.jsoup.nodes.Element
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import okhttp3.Request
@@ -12,27 +12,11 @@ import org.jsoup.nodes.Document
 
 class SirenKomik :
     MangaThemesia(
-        "Siren Komik",
-        "https://sirenkomik.my.id",
-        "id",
-        "/manga",
+    "Siren Komik",
+    "https://sirenkomik.my.id",
+    "id",
+    dateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale("id")),
     ) {
-
-    override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
-        return if (query.isEmpty()) {
-            super.searchMangaRequest(page, query, filters)
-        } else {
-            GET("$baseUrl/?s=$query&page=$page", headers)
-        }
-    }
-
-    override fun getFilterList(): FilterList {
-        val filters = mutableListOf<Filter<*>>(
-            Filter.Header("Note: Can't be used with text search!"),
-            Filter.Separator(),
-        )
-        return FilterList(filters)
-    }
     
         override val id = 8457447675410081142
 
