@@ -9,6 +9,8 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import okhttp3.Request
 import org.jsoup.nodes.Document
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 class SirenKomik :
     MangaThemesia(
