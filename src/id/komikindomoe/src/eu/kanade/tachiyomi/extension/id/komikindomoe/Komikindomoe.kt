@@ -154,11 +154,14 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         Filter.Separator()
     )
 
-    private fun Element.imgAttr(): String = when {
+    private fun Element.imgAttr(): String {
+    return when {
         hasAttr("data-lazy-src") -> attr("abs:data-lazy-src")
         hasAttr("data-src") -> attr("abs:data-src")
-        else -> attr("abs:src")
+        hasAttr("src") -> attr("abs:src")
+        else -> ""
     }
+}
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
         val resizeServicePref = EditTextPreference(screen.context).apply {
