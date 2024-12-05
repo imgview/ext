@@ -11,7 +11,7 @@ class MangakuTV : Madara(
     "MangakuTV",
     "https://mangaku.tv",
     "id",
-    dateFormat = SimpleDateFormat("MMM d, yyyy", Locale.US),
+    dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale("id")),
 ) {
     // Override mangaSubString dengan nilai yang sesuai
     override val mangaSubString = "manga-tag/warna"
