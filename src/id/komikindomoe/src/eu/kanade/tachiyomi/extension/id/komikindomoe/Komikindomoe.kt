@@ -66,9 +66,13 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     manga.setUrlWithoutDomain(element.select("a").attr("href")) // URL manga
     manga.title = element.select("div.tt, h3").text() // Judul manga
 
-    // Mengatur thumbnail dengan ukuran 50x50
+    // Mengatur thumbnail dengan penggantian URL dan resize
     val originalImageUrl = element.selectFirst("img.ts-post-image")?.attr("src") ?: ""
-    manga.thumbnail_url = resizeImage(originalImageUrl, 50, 50)
+    val replacedImageUrl = originalImageUrl.replace(
+        "https://cdn.statically.io/img/komikindo.moe/img",
+        "https://ikiru.one/wp-content/uploads"
+    )
+    manga.thumbnail_url = resizeImage(replacedImageUrl, 50, 50)
 
     return manga
 }
@@ -107,9 +111,13 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         manga.description += "\n\nAlternative Name: $altName"
     }
 
-    // Mengatur thumbnail dengan ukuran 110x150
+    // Mengatur thumbnail dengan penggantian URL dan resize
     val originalImageUrl = document.selectFirst("div.thumb img")?.attr("src") ?: ""
-    manga.thumbnail_url = resizeImage(originalImageUrl, 110, 150)
+    val replacedImageUrl = originalImageUrl.replace(
+        "https://cdn.statically.io/img/komikindo.moe/img",
+        "https://ikiru.one/wp-content/uploads"
+    )
+    manga.thumbnail_url = resizeImage(replacedImageUrl, 110, 150)
 
     return manga
 }
