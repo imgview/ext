@@ -35,7 +35,7 @@ class Noromax : MangaThemesia(
     override var baseUrl = preferences.getString(BASE_URL_PREF, super.baseUrl)!!
 
     override val client = super.client.newBuilder()
-        .rateLimit(60, 1)
+        .rateLimit(2, 1)
         .build()
 
     override fun searchMangaFromElement(element: Element) = SManga.create().apply {
