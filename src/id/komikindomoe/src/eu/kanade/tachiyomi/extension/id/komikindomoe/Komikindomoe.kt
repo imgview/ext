@@ -50,6 +50,10 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         return GET("$baseUrl/page/$page", headers)
     }
 
+    private fun resizeImage(imageUrl: String, width: Int, height: Int): String {
+    return "https://resize.sardo.work/?width=$width&height=$height&imageUrl=$imageUrl"
+}
+
     override fun popularMangaSelector() = "div.listupd div.utao div.uta"
     override fun latestUpdatesSelector() = popularMangaSelector()
     override fun searchMangaSelector() = "div.bsx"
