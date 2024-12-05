@@ -61,7 +61,11 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         val manga = SManga.create()
         manga.setUrlWithoutDomain(element.select("a").attr("href"))
         manga.title = element.select("div.tt, h3").text()
-        manga.thumbnail_url = element.select("img.ts-post-image").attr("src")
+        val imageUrl = element.selectFirst("img.ts-post-image")?.attr("src") ?: ""
+        manga.thumbnail_url = element.select("img.ts-post-image")
+    .attr("src")
+    .let { resizeImage(it, 50, 50) 
+}
         return manga
     }
 
@@ -94,7 +98,10 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         altName?.let {
             manga.description = manga.description + "\n\nAlternative Name: $it"
         }
-        manga.thumbnail_url = document.select("div.thumb img").imgAttr()
+        manga.thumbnail_url = element.select("div.thumb img")
+    .attr("src")
+    .let { resizeImage(it, 110, 150) 
+}
         return manga
     }
 
