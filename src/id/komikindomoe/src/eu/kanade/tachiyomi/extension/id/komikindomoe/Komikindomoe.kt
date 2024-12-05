@@ -17,6 +17,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
+import org.jsoup.select.Elements
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.text.SimpleDateFormat
@@ -191,6 +192,8 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         }
         screen.addPreference(baseUrlPref)
     }
+    
+    private fun Elements.imgAttr(): String = this.first()!!.imgAttr()
 
     companion object {
         private const val BASE_URL_PREF_TITLE = "Ubah Domain"
