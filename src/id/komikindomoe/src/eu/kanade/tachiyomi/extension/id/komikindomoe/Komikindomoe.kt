@@ -6,7 +6,11 @@ import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.interceptor.rateLimit
 import eu.kanade.tachiyomi.source.ConfigurableSource
+import eu.kanade.tachiyomi.source.model.Filter
+import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.Page
+import eu.kanade.tachiyomi.source.model.SChapter
+import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.ParsedHttpSource
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
@@ -19,41 +23,141 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 
 class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
-
     override val name = "Komikindo.moe"
-    override var baseUrl: String = "https://komikindo.moe"
-    override val lang = "id"
-    override val supportsLatest = true
-    private val dateFormat: SimpleDateFormat = SimpleDateFormat("MMM d, yyyy", Locale.US)
 
     private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
 
-    private fun getResizeServiceUrl(): String? {
-        return preferences.getString("resize_service_url", null)
-    }
+    override var baseUrl: String = preferences.getString(BASE_URL_PREF, "https://komikindo.moe")!!
+
+    override val lang = "id"
+    override val supportsLatest = true
+    private val dateFormat: SimpleDateFormat = SimpleDateFormat("MMM d, yyyy", Locale.US)
 
     override val client: OkHttpClient = network.cloudflareClient.newBuilder()
         .rateLimit(12, 3)
         .build()
 
-    override fun pageListParse(document: Document): List<Page> {
-        val chapterUrl = document.location()
+    private fun getResizeServiceUrl(): String? {
+        return preferences.getString("resize_service_url", null)
+    }
 
-        val imageElements = document.select("div#readerarea img")
-            .filterNot { it.imgAttr().isEmpty() }
+    override fun popularMangaRequest(page: Int): Request {
+        return GET("$baseUrl/page/$page", headers)
+    }
 
-        val resizeServiceUrl = getResizeServiceUrl()
+    override fun latestUpdatesRequest(page: Int): Request {
+        return GET("$baseUrl/page/$page", headers)
+    }
 
-        return imageElements.mapIndexed { i, element ->
-            val imageUrl = element.imgAttr()
-            val finalImageUrl = if (resizeServiceUrl != null) {
-                "$resizeServiceUrl$imageUrl"
-            } else {
-                imageUrl
-            }
+    override fun popularMangaSelector() = "div.listupd div.utao div.uta"
+    override fun latestUpdatesSelector() = popularMangaSelector()
+    override fun searchMangaSelector() = "div.bsx"
 
-            Page(i, chapterUrl, finalImageUrl)
+    override fun popularMangaFromElement(element: Element): SManga = searchMangaFromElement(element)
+    override fun latestUpdatesFromElement(element: Element): SManga = searchMangaFromElement(element)
+
+    override fun searchMangaFromElement(element: Element): SManga {
+        val manga = SManga.create()
+        manga.setUrlWithoutDomain(element.select("a").attr("href"))
+        manga.title = element.select("div.tt, h3").text()
+        manga.thumbnail_url = element.select("img.ts-post-image").attr("src")
+        return manga
+    }
+
+    override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
+        val url = "$baseUrl/?s=$query&page=$page".toHttpUrl().newBuilder().build()
+        return GET(url, headers)
+    }
+
+    override fun popularMangaNextPageSelector() = "div.hpage a.r"
+    override fun latestUpdatesNextPageSelector() = popularMangaNextPageSelector()
+    override fun searchMangaNextPageSelector() = "a.next.page-numbers"
+
+    override fun mangaDetailsParse(document: Document): SManga {
+        val infoElement = document.select("div.wd-full, div.postbody").first()!!
+        val descElement = document.select("div.entry-content.entry-content-single").first()!!
+        val manga = SManga.create()
+        manga.title = document.select("div.thumb img").attr("title")
+        manga.author = infoElement.select("b:contains(Author) + span").text()
+        manga.artist = infoElement.select("b:contains(Artist) + span").text()
+
+        val genres = mutableListOf<String>()
+        val typeManga = mutableListOf<String>()
+        infoElement.select("span.mgen a").forEach { genres.add(it.text()) }
+        infoElement.select(".imptdt a").forEach { typeManga.add(it.text()) }
+        manga.genre = (genres + typeManga).joinToString(", ")
+
+        manga.status = parseStatus(infoElement.select(".imptdt i").text())
+        manga.description = descElement.select("p").text()
+        val altName = document.selectFirst("b:contains(Alternative Titles) + span")?.text()
+        altName?.let {
+            manga.description = manga.description + "\n\nAlternative Name: $it"
         }
+        manga.thumbnail_url = document.select("div.thumb img").imgAttr()
+        return manga
+    }
+
+    private fun parseStatus(element: String): Int = when {
+        element.lowercase().contains("ongoing") -> SManga.ONGOING
+        element.lowercase().contains("completed") -> SManga.COMPLETED
+        else -> SManga.UNKNOWN
+    }
+
+    override fun chapterListSelector() = "div#chapterlist ul > li"
+
+    override fun chapterFromElement(element: Element): SChapter {
+        val urlElement = element.select("div.eph-num a").first()!!
+        val chapter = SChapter.create()
+        chapter.setUrlWithoutDomain(urlElement.attr("href"))
+        chapter.name = urlElement.select("span.chapternum").text()
+        chapter.date_upload = element.select("span.chapterdate").text()?.let { parseChapterDate(it) } ?: 0L
+        return chapter
+    }
+
+    private fun parseChapterDate(date: String): Long {
+        return try {
+            dateFormat.parse(date)?.time ?: 0L
+        } catch (e: Exception) {
+            0L
+        }
+    }
+
+    override fun prepareNewChapter(chapter: SChapter, manga: SManga) {
+        val basic = Regex("""Chapter\s([0-9]+)""")
+        if (basic.containsMatchIn(chapter.name)) {
+            chapter.chapter_number = basic.find(chapter.name)?.groups?.get(1)?.value?.toFloat() ?: 0f
+        }
+    }
+
+    override fun pageListParse(document: Document): List<Page> {
+        val resizeServiceUrl = getResizeServiceUrl()
+        return document.select("div#readerarea img").mapIndexed { i, element ->
+            val imageUrl = element.imgAttr()
+            val finalImageUrl = resizeServiceUrl?.let { "$it$imageUrl" } ?: imageUrl
+            Page(i, "", finalImageUrl)
+        }
+    }
+
+    override fun imageUrlParse(document: Document): String = throw UnsupportedOperationException()
+
+    override fun imageRequest(page: Page): Request {
+        val newHeaders = headersBuilder()
+            .set("Accept", "image/avif,image/webp,image/png,image/jpeg,*/*")
+            .set("Referer", page.url)
+            .build()
+
+        return GET(page.imageUrl!!, newHeaders)
+    }
+
+    override fun getFilterList() = FilterList(
+        Filter.Header("Filter sengaja kosong, di web mereka gak ada filter juga"),
+        Filter.Separator()
+    )
+
+    private fun Element.imgAttr(): String = when {
+        hasAttr("data-lazy-src") -> attr("abs:data-lazy-src")
+        hasAttr("data-src") -> attr("abs:data-src")
+        else -> attr("abs:src")
     }
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
@@ -83,21 +187,6 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
             }
         }
         screen.addPreference(baseUrlPref)
-    }
-
-    override fun imageRequest(page: Page): Request {
-        val newHeaders = headersBuilder()
-            .set("Accept", "image/avif,image/webp,image/png,image/jpeg,*/*")
-            .set("Referer", page.url)
-            .build()
-
-        return GET(page.imageUrl!!, newHeaders)
-    }
-
-    private fun Element.imgAttr(): String = when {
-        hasAttr("data-lazy-src") -> attr("abs:data-lazy-src")
-        hasAttr("data-src") -> attr("abs:data-src")
-        else -> attr("abs:src")
     }
 
     companion object {
