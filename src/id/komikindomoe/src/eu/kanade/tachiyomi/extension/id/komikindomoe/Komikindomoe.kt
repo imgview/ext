@@ -62,16 +62,16 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     override fun latestUpdatesFromElement(element: Element): SManga = searchMangaFromElement(element)
 
     override fun searchMangaFromElement(element: Element): SManga {
-        val manga = SManga.create()
-        manga.setUrlWithoutDomain(element.select("a").attr("href"))
-        manga.title = element.select("div.tt, h3").text()
-        val imageUrl = element.selectFirst("img.ts-post-image")?.attr("src") ?: ""
-        manga.thumbnail_url = element.select("img.ts-post-image")
-    .attr("src")
-    .let { resizeImage(it, 50, 50) 
+    val manga = SManga.create()
+    manga.setUrlWithoutDomain(element.select("a").attr("href")) // URL manga
+    manga.title = element.select("div.tt, h3").text() // Judul manga
+
+    // Mengatur thumbnail dengan ukuran 50x50
+    val originalImageUrl = element.selectFirst("img.ts-post-image")?.attr("src") ?: ""
+    manga.thumbnail_url = resizeImage(originalImageUrl, 50, 50)
+
+    return manga
 }
-        return manga
-    }
 
     override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
         val url = "$baseUrl/?s=$query&page=$page".toHttpUrl().newBuilder().build()
@@ -83,31 +83,36 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     override fun searchMangaNextPageSelector() = "a.next.page-numbers"
 
     override fun mangaDetailsParse(document: Document): SManga {
-        val infoElement = document.select("div.wd-full, div.postbody").first()!!
-        val descElement = document.select("div.entry-content.entry-content-single").first()!!
-        val manga = SManga.create()
-        manga.title = document.select("div.thumb img").attr("title")
-        manga.author = infoElement.select("b:contains(Author) + span").text()
-        manga.artist = infoElement.select("b:contains(Artist) + span").text()
+    val manga = SManga.create()
+    val infoElement = document.select("div.wd-full, div.postbody").first()!!
+    val descElement = document.select("div.entry-content.entry-content-single").first()!!
 
-        val genres = mutableListOf<String>()
-        val typeManga = mutableListOf<String>()
-        infoElement.select("span.mgen a").forEach { genres.add(it.text()) }
-        infoElement.select(".imptdt a").forEach { typeManga.add(it.text()) }
-        manga.genre = (genres + typeManga).joinToString(", ")
+    manga.title = document.select("div.thumb img").attr("title") // Judul manga
+    manga.author = infoElement.select("b:contains(Author) + span").text() // Penulis
+    manga.artist = infoElement.select("b:contains(Artist) + span").text() // Ilustrator
 
-        manga.status = parseStatus(infoElement.select(".imptdt i").text())
-        manga.description = descElement.select("p").text()
-        val altName = document.selectFirst("b:contains(Alternative Titles) + span")?.text()
-        altName?.let {
-            manga.description = manga.description + "\n\nAlternative Name: $it"
-        }
-        manga.thumbnail_url = element.select("div.thumb img")
-    .attr("src")
-    .let { resizeImage(it, 110, 150) 
-}
-        return manga
+    // Menambahkan genre dan tipe manga
+    val genres = mutableListOf<String>()
+    val typeManga = mutableListOf<String>()
+    infoElement.select("span.mgen a").forEach { genres.add(it.text()) }
+    infoElement.select(".imptdt a").forEach { typeManga.add(it.text()) }
+    manga.genre = (genres + typeManga).joinToString(", ")
+
+    manga.status = parseStatus(infoElement.select(".imptdt i").text()) // Status manga
+    manga.description = descElement.select("p").text() // Deskripsi
+
+    // Menambahkan nama alternatif jika ada
+    val altName = document.selectFirst("b:contains(Alternative Titles) + span")?.text()
+    if (altName != null) {
+        manga.description += "\n\nAlternative Name: $altName"
     }
+
+    // Mengatur thumbnail dengan ukuran 110x150
+    val originalImageUrl = document.selectFirst("div.thumb img")?.attr("src") ?: ""
+    manga.thumbnail_url = resizeImage(originalImageUrl, 110, 150)
+
+    return manga
+}
 
     private fun parseStatus(element: String): Int = when {
         element.lowercase().contains("ongoing") -> SManga.ONGOING
@@ -203,7 +208,7 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         }
         screen.addPreference(baseUrlPref)
     }
-    
+
     private fun Elements.imgAttr(): String = this.first()!!.imgAttr()
 
     companion object {
