@@ -38,26 +38,11 @@ class SirenKomik :
     }
 
     override fun pageListParse(document: Document): List<Page> {
-        val scriptContent = document.selectFirst("script:containsData(SExtras.imgview)")?.data()
-            ?: return super.pageListParse(document)
+    val imageElements = document.select("img.ts-main-image") // Selector yang sesuai
+    if (imageElements.isEmpty()) return super.pageListParse(document)
 
-        val jsonString = scriptContent.substringAfter("SExtras.imgview(").substringBefore(");")
-        val sExtrasData = json.decodeFromString<SExtras>(jsonString)
-        val imageUrls: List<String> = sExtrasData.sources.firstOrNull()?.images ?: return emptyList()
-
-        return imageUrls.mapIndexed { index, imageUrl -> 
-            Page(index, document.location(), imageUrl)
-        }
+    return imageElements.mapIndexed { index, element ->
+        val imageUrl = element.attr("src") // Ambil URL gambar
+        Page(index, document.location(), imageUrl)
     }
-
-    @Serializable
-    data class SExtras(
-        val sources: List<ImageSource>,
-    )
-
-    @Serializable
-    data class ImageSource(
-        val source: String,
-        val images: List<String>,
-    )
 }
