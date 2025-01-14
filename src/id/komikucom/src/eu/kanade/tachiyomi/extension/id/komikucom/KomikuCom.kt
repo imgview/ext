@@ -12,6 +12,8 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import org.jsoup.nodes.Document
 import uy.kohesive.injekt.Injekt
+import org.jsoup.nodes.Element
+import eu.kanade.tachiyomi.source.model.SManga
 import uy.kohesive.injekt.api.get
 import java.text.SimpleDateFormat
 import java.util.Locale
