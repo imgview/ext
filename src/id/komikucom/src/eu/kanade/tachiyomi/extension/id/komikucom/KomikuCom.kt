@@ -52,17 +52,30 @@ class KomikuCom : MangaThemesia(
 }
 
     override fun pageListParse(document: Document): List<Page> {
-        val scriptContent = document.selectFirst("script:containsData(ts_reader)")?.data()
-            ?: throw Exception("Script containing 'ts_reader' not found")
-        val jsonString = scriptContent.substringAfter("ts_reader.run(").substringBefore(");")
-        val tsReader = json.decodeFromString<TSReader>(jsonString)
-        val imageUrls = tsReader.sources.firstOrNull()?.images
-            ?: throw Exception("No images found in ts_reader data")
-        val resizeServiceUrl = getResizeServiceUrl()
-        return imageUrls.mapIndexed { index, imageUrl -> 
-            Page(index, document.location(), "${resizeServiceUrl ?: ""}$imageUrl")
-        }
+    val scriptContent = document.selectFirst("script:containsData(ts_reader)")?.data()
+        ?: throw Exception("Script containing 'ts_reader' not found")
+    val jsonString = scriptContent.substringAfter("ts_reader.run(").substringBefore(");")
+    val tsReader = json.decodeFromString<TSReader>(jsonString)
+
+    // Ambil daftar URL gambar dari `ts_reader`
+    val imageUrls = tsReader.sources.firstOrNull()?.images
+        ?: throw Exception("No images found in ts_reader data")
+    
+    // Mengecualikan gambar pertama dan terakhir
+    val filteredImageUrls = if (imageUrls.size > 2) {
+        imageUrls.drop(1).dropLast(1) // Buang elemen pertama dan terakhir
+    } else {
+        emptyList() // Jika kurang dari 3 elemen, kosongkan
     }
+
+    // URL layanan resize (jika ada)
+    val resizeServiceUrl = getResizeServiceUrl()
+
+    // Kembalikan daftar halaman dengan gambar yang sudah difilter
+    return filteredImageUrls.mapIndexed { index, imageUrl -> 
+        Page(index, document.location(), "${resizeServiceUrl ?: ""}$imageUrl")
+    }
+}
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
         val resizeServicePref = EditTextPreference(screen.context).apply {
