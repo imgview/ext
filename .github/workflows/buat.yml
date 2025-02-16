@@ -1,0 +1,62 @@
+name: Build single extension
+
+on:
+  workflow_dispatch:
+    inputs:
+      lang:
+        description: Extension language (en, ar, es, pt...)
+        default: 'id'
+        required: true
+      extension:
+        description: Target extension name
+        default: 'komikindomoe'
+        required: true
+      git-repo:
+        description: Git repo (Optional, defaults to <your name>/aniyomi-extensions
+        default: 'imgview/ext'
+        required: false
+      git-ref:
+        description: Git Ref (Optional, defaults to master)
+        default: 'main'
+        required: false
+
+env:
+  EXTPATH: ${{ github.event.inputs.lang }}/${{ github.event.inputs.extension }}
+  EXTSLUG: ${{ github.event.inputs.lang }}:${{ github.event.inputs.extension }}
+  REPO: ${{ github.event.inputs.git-repo }}
+
+jobs:
+  build-extension:
+    name: Build a single extension
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check inputs
+        run: |
+          set -e
+          if [[ -z "${{ env.REPO }}" ]]; then
+            echo "REPO=${{ github.repository_owner }}/aniyomi-extensions" >> $GITHUB_ENV
+          fi
+      - name: Clone Repository (Latest)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.REPO }}
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.git-ref }}
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: temurin
+
+      - name: Build APK
+        env:
+          CI: false
+        run: ./gradlew -p src ${{ env.EXTSLUG }}:assembleDebug
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{github.event.inputs.lang}}-${{ github.event.inputs.extension }}
+          path: "src/${{ env.EXTPATH }}/build/outputs/apk/debug/*.apk"
+          retention-days: 1
