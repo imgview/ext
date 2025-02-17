@@ -67,26 +67,29 @@ abstract class MangaThemesia(
     override fun latestUpdatesParse(response: Response) = searchMangaParse(response)
 
     // Search
-    override fun fetchSearchManga(page: Int, query: String, filters: FilterList): Observable<MangasPage> {
-        if (query.startsWith(URL_SEARCH_PREFIX).not()) return super.fetchSearchManga(page, query, filters)
+override fun fetchSearchManga(page: Int, query: String, filters: FilterList): Observable<MangasPage> {
+    if (query.startsWith(URL_SEARCH_PREFIX).not()) return super.fetchSearchManga(page, query, filters)
 
-        val mangaPath = try {
-            mangaPathFromUrl(query.substringAfter(URL_SEARCH_PREFIX))
-                ?: return Observable.just(MangasPage(emptyList(), false))
-        } catch (e: Exception) {
-            return Observable.error(e)
-        }
-
-        return fetchMangaDetails(
-            SManga.create()
-                .apply { this.url = "$mangaUrlDirectory/$mangaPath/" },
-        )
-            .map {
-                // Isn't set in returned manga
-                it.url = "$mangaUrlDirectory/$mangaPath/"
-                MangasPage(listOf(it), false)
-            }
+    val mangaPath = try {
+        mangaPathFromUrl(query.substringAfter(URL_SEARCH_PREFIX))
+            ?: return Observable.just(MangasPage(emptyList(), false))
+    } catch (e: Exception) {
+        return Observable.error(e)
     }
+
+    // Menghapus angka di awal jika ada (contoh: "1578-nama-komik" menjadi "nama-komik")
+    val cleanedMangaPath = mangaPath.replace(Regex("^\\d+-"), "")
+
+    return fetchMangaDetails(
+        SManga.create()
+            .apply { this.url = "$mangaUrlDirectory/$cleanedMangaPath/" },
+    )
+        .map {
+            // Isn't set in returned manga
+            it.url = "$mangaUrlDirectory/$cleanedMangaPath/"
+            MangasPage(listOf(it), false)
+        }
+}
 
     override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
         val url = baseUrl.toHttpUrl().newBuilder()
@@ -140,13 +143,18 @@ abstract class MangaThemesia(
         return super.searchMangaParse(response)
     }
 
+    fun Resize(thumbnailUrl: String): String {
+    return "https://resize.sardo.work/?width=110&height=150&imageUrl=$thumbnailUrl"
+}
+
     override fun searchMangaSelector() = ".utao .uta .imgu, .listupd .bs .bsx, .listo .bs .bsx"
 
     override fun searchMangaFromElement(element: Element) = SManga.create().apply {
-        thumbnail_url = element.select("img").imgAttr()
-        title = element.select("a").attr("title")
-        setUrlWithoutDomain(element.select("a").attr("href"))
-    }
+    val originalThumbnailUrl = element.select("img").imgAttr()
+    thumbnail_url = Resize(originalThumbnailUrl.replace("///", "//"))
+    title = element.select("a").attr("title")
+    setUrlWithoutDomain(element.select("a").attr("href"))
+}
 
     override fun searchMangaNextPageSelector() = "div.pagination .next, div.hpage .r"
 
@@ -238,7 +246,7 @@ abstract class MangaThemesia(
 
     open val altNamePrefix = "${intl["alt_names_heading"]} "
 
-    override fun mangaDetailsParse(document: Document) = SManga.create().apply {
+        override fun mangaDetailsParse(document: Document) = SManga.create().apply {
         document.selectFirst(seriesDetailsSelector)?.let { seriesDetails ->
             title = seriesDetails.selectFirst(seriesTitleSelector)!!.text()
             artist = seriesDetails.selectFirst(seriesArtistSelector)?.ownText().removeEmptyPlaceholder()
@@ -249,24 +257,27 @@ abstract class MangaThemesia(
             altName?.let {
                 description = "$description\n\n$altNamePrefix$altName".trim()
             }
-            val genres = seriesDetails.select(seriesGenreSelector).map { it.text() }.toMutableList()
-            // Add series type (manga/manhwa/manhua/other) to genre
-            seriesDetails.selectFirst(seriesTypeSelector)?.ownText().takeIf { it.isNullOrBlank().not() }?.let { genres.add(it) }
-            genre = genres.map { genre ->
-                genre.lowercase(Locale.forLanguageTag(lang)).replaceFirstChar { char ->
-                    if (char.isLowerCase()) {
-                        char.titlecase(Locale.forLanguageTag(lang))
-                    } else {
-                        char.toString()
-                    }
+
+        // Process genres
+        val genres = seriesDetails.select(seriesGenreSelector).map { it.text() }.toMutableList()
+        seriesDetails.selectFirst(seriesTypeSelector)?.ownText().takeIf { it.isNullOrBlank().not() }?.let { genres.add(it) }
+        genre = genres.map { genre ->
+            genre.lowercase(Locale.forLanguageTag(lang)).replaceFirstChar { char ->
+                if (char.isLowerCase()) {
+                    char.titlecase(Locale.forLanguageTag(lang))
+                } else {
+                    char.toString()
                 }
             }
-                .joinToString { it.trim() }
+        }.joinToString { it.trim() }
 
-            status = seriesDetails.selectFirst(seriesStatusSelector)?.text().parseStatus()
-            thumbnail_url = seriesDetails.select(seriesThumbnailSelector).imgAttr()
-        }
+        // Parse status
+        status = seriesDetails.selectFirst(seriesStatusSelector)?.text().parseStatus()
+
+     val originalThumbnailUrl = seriesDetails.select(seriesThumbnailSelector).imgAttr()
+thumbnail_url = Resize(originalThumbnailUrl.replace("///", "//"))
     }
+}
 
     protected fun String?.removeEmptyPlaceholder(): String? {
         return if (this.isNullOrBlank() || this == "-" || this == "N/A" || this == "n/a") null else this
@@ -292,7 +303,7 @@ abstract class MangaThemesia(
         listOf("canceled", "cancelled", "cancelado", "cancellato", "cancelados", "dropped", "discontinued", "abandonné")
             .any { this.contains(it, ignoreCase = true) } -> SManga.CANCELLED
 
-        listOf("hiatus", "on hold", "pausado", "en espera", "en pause", "en attente", "hiato")
+        listOf("hiatus", "on hold", "pausado", "en espera", "en pause", "en attente")
             .any { this.contains(it, ignoreCase = true) } -> SManga.ON_HIATUS
 
         else -> SManga.UNKNOWN
