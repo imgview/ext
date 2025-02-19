@@ -15,6 +15,9 @@ import uy.kohesive.injekt.Injekt
 import org.jsoup.nodes.Element
 import eu.kanade.tachiyomi.source.model.SManga
 import uy.kohesive.injekt.api.get
+import okhttp3.Headers
+import okhttp3.Interceptor
+import okhttp3.Response
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -39,7 +42,9 @@ class KomikuCom : MangaThemesia(
         .addInterceptor { chain ->
             val originalRequest = chain.request()
             val newRequest = originalRequest.newBuilder()
-                .addHeader("Cookie", cookies) // Menambahkan cookies ke header
+                .addHeader("Cookie", cookies)
+                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3")
+                .addHeader("Referer", baseUrl)
                 .build()
             chain.proceed(newRequest)
         }
