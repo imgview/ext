@@ -69,6 +69,10 @@ class KomikuCom : MangaThemesia(
         }
     }
 
+    private fun getResizeServiceUrl(): String? {
+        return preferences.getString("resize_service_url", null)
+    }
+
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
         val resizeServicePref = EditTextPreference(screen.context).apply {
             key = "resize_service_url"
