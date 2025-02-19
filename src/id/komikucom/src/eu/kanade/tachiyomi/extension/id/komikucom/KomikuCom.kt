@@ -28,14 +28,21 @@ class KomikuCom : MangaThemesia(
 
     private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
 
-    private fun getResizeServiceUrl(): String? {
-        return preferences.getString("resize_service_url", null)
-    }
+    // Field untuk menyimpan cookies
+    private val cookies: String
+        get() = preferences.getString("cookies", "") ?: ""
 
     override var baseUrl = preferences.getString(BASE_URL_PREF, super.baseUrl)!!
 
     override val client = super.client.newBuilder()
         .rateLimit(1, 1)
+        .addInterceptor { chain ->
+            val originalRequest = chain.request()
+            val newRequest = originalRequest.newBuilder()
+                .addHeader("Cookie", cookies) // Menambahkan cookies ke header
+                .build()
+            chain.proceed(newRequest)
+        }
         .build()
 
     override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
@@ -43,28 +50,24 @@ class KomikuCom : MangaThemesia(
     }
 
     override fun pageListParse(document: Document): List<Page> {
-    val scriptContent = document.selectFirst("script:containsData(ts_reader)")?.data()
-        ?: throw Exception("Script containing 'ts_reader' not found")
-    val jsonString = scriptContent.substringAfter("ts_reader.run(").substringBefore(");")
-    val tsReader = json.decodeFromString<TSReader>(jsonString)
+        val scriptContent = document.selectFirst("script:containsData(ts_reader)")?.data()
+            ?: throw Exception("Script containing 'ts_reader' not found")
+        val jsonString = scriptContent.substringAfter("ts_reader.run(").substringBefore(");")
+        val tsReader = json.decodeFromString<TSReader>(jsonString)
 
-    // Ambil daftar URL gambar dari `ts_reader`
-    val imageUrls = tsReader.sources.firstOrNull()?.images
-        ?: throw Exception("No images found in ts_reader data")
+        val imageUrls = tsReader.sources.firstOrNull()?.images
+            ?: throw Exception("No images found in ts_reader data")
 
-    // Mengecualikan gambar dengan URL yang mengandung 'banner'
-    val filteredImageUrls = imageUrls.filterNot { imageUrl ->
-        imageUrl.contains("/banner/", ignoreCase = true)
+        val filteredImageUrls = imageUrls.filterNot { imageUrl ->
+            imageUrl.contains("/banner/", ignoreCase = true)
+        }
+
+        val resizeServiceUrl = getResizeServiceUrl()
+
+        return filteredImageUrls.mapIndexed { index, imageUrl ->
+            Page(index, document.location(), "${resizeServiceUrl ?: ""}$imageUrl")
+        }
     }
-
-    // URL layanan resize (jika ada)
-    val resizeServiceUrl = getResizeServiceUrl()
-
-    // Kembalikan daftar halaman dengan gambar yang sudah difilter
-    return filteredImageUrls.mapIndexed { index, imageUrl ->
-        Page(index, document.location(), "${resizeServiceUrl ?: ""}$imageUrl")
-    }
-}
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
         val resizeServicePref = EditTextPreference(screen.context).apply {
@@ -93,6 +96,16 @@ class KomikuCom : MangaThemesia(
             }
         }
         screen.addPreference(baseUrlPref)
+
+        // Preference untuk memasukkan cookies
+        val cookiesPref = EditTextPreference(screen.context).apply {
+            key = "cookies"
+            title = "Cookies"
+            summary = "Masukkan cookies untuk autentikasi."
+            setDefaultValue(null)
+            dialogTitle = "Cookies"
+        }
+        screen.addPreference(cookiesPref)
     }
 
     companion object {
