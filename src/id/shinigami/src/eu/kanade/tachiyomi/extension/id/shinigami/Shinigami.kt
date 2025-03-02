@@ -20,6 +20,7 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
 class Shinigami : Madara("Shinigami", "https://shinigami09.com", "id"), ConfigurableSource {
+    // moved from Reaper Scans (id) to Shinigami (id)
     override val id = 3411809758861089969
 
     override val baseUrl by lazy { getPrefBaseUrl() }
@@ -33,7 +34,6 @@ class Shinigami : Madara("Shinigami", "https://shinigami09.com", "id"), Configur
     }
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
-        // Base URL preference for main domain
         val baseUrlPref = androidx.preference.EditTextPreference(screen.context).apply {
             key = BASE_URL_PREF
             title = BASE_URL_PREF_TITLE
@@ -48,27 +48,9 @@ class Shinigami : Madara("Shinigami", "https://shinigami09.com", "id"), Configur
             }
         }
         screen.addPreference(baseUrlPref)
-
-        // Image proxy URL preference
-        val imageProxyUrlPref = androidx.preference.EditTextPreference(screen.context).apply {
-            key = IMAGE_PROXY_URL_PREF
-            title = IMAGE_PROXY_URL_PREF_TITLE
-            summary = IMAGE_PROXY_URL_PREF_SUMMARY
-            this.setDefaultValue(DEFAULT_IMAGE_PROXY_URL)
-            dialogTitle = IMAGE_PROXY_URL_PREF_TITLE
-            dialogMessage = "Default: $DEFAULT_IMAGE_PROXY_URL"
-
-            setOnPreferenceChangeListener { _, newValue ->
-                Toast.makeText(screen.context, RESTART_APP, Toast.LENGTH_LONG).show()
-                true
-            }
-        }
-        screen.addPreference(imageProxyUrlPref)
     }
 
     private fun getPrefBaseUrl(): String = preferences.getString(BASE_URL_PREF, super.baseUrl)!!
-
-    private fun getImageProxyUrl(): String = preferences.getString(IMAGE_PROXY_URL_PREF, DEFAULT_IMAGE_PROXY_URL)!!
 
     init {
         preferences.getString(DEFAULT_BASE_URL_PREF, null).let { prefDefaultBaseUrl ->
@@ -98,9 +80,10 @@ class Shinigami : Madara("Shinigami", "https://shinigami09.com", "id"), Configur
 
             chain.proceed(request.newBuilder().headers(headers).build())
         }
-        .rateLimit(59, 1)
+        .rateLimit(3)
         .build()
 
+    // Tags are useless as they are just SEO keywords.
     override val mangaDetailsSelectorTag = ""
 
     override val chapterUrlSelector = "div.chapter-link:not([style~=display:\\snone]) a"
@@ -145,12 +128,8 @@ class Shinigami : Madara("Shinigami", "https://shinigami09.com", "id"), Configur
 
         val decrypted = CryptoAES.decrypt(Base64.encodeToString(ciphertext, Base64.DEFAULT), key)
         val data = json.decodeFromString<List<String>>(decrypted)
-
-        val imageProxyUrl = getImageProxyUrl()
-
-        return data.mapIndexed { idx, imageUrl ->
-            val proxiedImageUrl = "$imageProxyUrl${java.net.URLEncoder.encode(imageUrl, "UTF-8")}"
-            Page(idx, document.location(), proxiedImageUrl)
+        return data.mapIndexed { idx, it ->
+            Page(idx, document.location(), it)
         }
     }
 
@@ -169,11 +148,5 @@ class Shinigami : Madara("Shinigami", "https://shinigami09.com", "id"), Configur
         private const val BASE_URL_PREF = "overrideBaseUrl"
         private const val BASE_URL_PREF_SUMMARY = "Untuk penggunaan sementara. Memperbarui aplikasi akan menghapus pengaturan"
         private const val DEFAULT_BASE_URL_PREF = "defaultBaseUrl"
-
-        // New constants for image proxy
-        private const val IMAGE_PROXY_URL_PREF_TITLE = "Ubah Image Proxy"
-        private const val IMAGE_PROXY_URL_PREF = "imageProxyUrl"
-        private const val IMAGE_PROXY_URL_PREF_SUMMARY = "URL Resize"
-        private const val DEFAULT_IMAGE_PROXY_URL = ""
     }
 }
