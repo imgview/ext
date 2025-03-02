@@ -106,32 +106,40 @@ class Shinigami : Madara("Shinigami", "https://shinigami09.com", "id"), Configur
     data class CDT(val ct: String, val s: String)
 
     override fun pageListParse(document: Document): List<Page> {
-        val script = document.selectFirst("script:containsData(chapter_data)")?.data()
-            ?: throw Exception("chapter_data script not found")
+    val script = document.selectFirst("script:containsData(chapter_data)")?.data()
+        ?: throw Exception("chapter_data script not found")
 
-        val deobfuscated = Deobfuscator.deobfuscateScript(script)
-            ?: throw Exception("Unable to deobfuscate chapter_data script")
+    val deobfuscated = Deobfuscator.deobfuscateScript(script)
+        ?: throw Exception("Unable to deobfuscate chapter_data script")
 
-        val keyMatch = KEY_REGEX.find(deobfuscated)?.groupValues
-            ?: throw Exception("Unable to find key")
+    val keyMatch = KEY_REGEX.find(deobfuscated)?.groupValues
+        ?: throw Exception("Unable to find key")
 
-        val chapterData = json.decodeFromString<CDT>(
-            CHAPTER_DATA_REGEX.find(script)?.groupValues?.get(1) ?: throw Exception("Unable to get chapter data"),
-        )
-        val postId = POST_ID_REGEX.find(script)?.groupValues?.get(1) ?: throw Exception("Unable to get post_id")
-        val otherId = OTHER_ID_REGEX.findAll(script).firstOrNull { it.groupValues[1] != "post" }?.groupValues?.get(2) ?: throw Exception("Unable to get other id")
-        val key = otherId + keyMatch[1] + postId + keyMatch[2] + postId
-        val salt = chapterData.s.decodeHex()
+    val chapterData = json.decodeFromString<CDT>(
+        CHAPTER_DATA_REGEX.find(script)?.groupValues?.get(1) ?: throw Exception("Unable to get chapter data"),
+    )
+    val postId = POST_ID_REGEX.find(script)?.groupValues?.get(1) ?: throw Exception("Unable to get post_id")
+    val otherId = OTHER_ID_REGEX.findAll(script).firstOrNull { it.groupValues[1] != "post" }?.groupValues?.get(2) ?: throw Exception("Unable to get other id")
+    val key = otherId + keyMatch[1] + postId + keyMatch[2] + postId
+    val salt = chapterData.s.decodeHex()
 
-        val unsaltedCiphertext = Base64.decode(chapterData.ct, Base64.DEFAULT)
-        val ciphertext = salted + salt + unsaltedCiphertext
+    val unsaltedCiphertext = Base64.decode(chapterData.ct, Base64.DEFAULT)
+    val ciphertext = salted + salt + unsaltedCiphertext
 
-        val decrypted = CryptoAES.decrypt(Base64.encodeToString(ciphertext, Base64.DEFAULT), key)
-        val data = json.decodeFromString<List<String>>(decrypted)
-        return data.mapIndexed { idx, it ->
-            Page(idx, document.location(), it)
-        }
+    val decrypted = CryptoAES.decrypt(Base64.encodeToString(ciphertext, Base64.DEFAULT), key)
+    val data = json.decodeFromString<List<String>>(decrypted)
+    
+    // Mengubah URL gambar menggunakan layanan images.weserv.nl
+    return data.mapIndexed { idx, it ->
+        val resizedImageUrl = resizeImageUrl(it) // Resizing gambar menggunakan layanan
+        Page(idx, document.location(), resizedImageUrl) // Menggunakan URL yang sudah diresize
     }
+}
+
+private fun resizeImageUrl(originalUrl: String): String {
+    // URL gambar yang sudah diproses untuk meresize dengan layanan Weserv
+    return "https://resize$originalUrl"
+}
 
     private fun randomString(length: Int): String {
         val charPool = ('a'..'z') + ('A'..'Z')
