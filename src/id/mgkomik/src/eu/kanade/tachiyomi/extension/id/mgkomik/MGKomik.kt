@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.interceptor.rateLimit
 import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
+import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.util.asJsoup
 import okhttp3.Request
 import org.jsoup.nodes.Document
@@ -140,6 +141,17 @@ class MGKomik : Madara(
             Genre(a.text(), a.absUrl("href"))
         }
         return genres
+    }
+
+    // ================================ Page List Parse ================================
+
+    override fun pageListParse(response: okhttp3.Response): List<Page> {
+        val document = response.asJsoup()
+        return document.select("div.page-break img").mapIndexed { index, element ->
+            val imageUrl = element.absUrl("data-src").ifEmpty { element.absUrl("src") }
+            val resizedImageUrl = "https://images.weserv.nl/?w=300&q=70&url=$imageUrl"
+            Page(index, "", resizedImageUrl)
+        }
     }
 
     // =============================== Utilities ==============================
