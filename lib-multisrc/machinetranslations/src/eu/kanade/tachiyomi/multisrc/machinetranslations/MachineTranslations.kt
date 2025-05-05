@@ -219,21 +219,24 @@ abstract class MachineTranslations(
     // =============================== Pages ================================
 
     override fun pageListParse(document: Document): List<Page> {
-        val pages = document.selectFirst("div#json-data")
-            ?.ownText()?.parseAs<List<PageDto>>()
-            ?: throw Exception("Pages not found")
+    val pages = document.selectFirst("div#json-data")
+        ?.ownText()?.parseAs<List<PageDto>>()
+        ?: throw Exception("Pages not found")
 
-        return pages.mapIndexed { index, dto ->
-            val imageUrl = when {
-                dto.imageUrl.startsWith("http") -> dto.imageUrl
-                else -> "https://${dto.imageUrl}"
-            }
-            val fragment = json.encodeToString<List<Dialog>>(
-                dto.dialogues.filter { it.getTextBy(language).isNotBlank() },
-            )
-            Page(index, imageUrl = "$imageUrl#$fragment")
+    return pages.mapIndexed { index, dto ->
+        val originalImageUrl = when {
+            dto.imageUrl.startsWith("http") -> dto.imageUrl
+            else -> "https://${dto.imageUrl}"
         }
+        // Gunakan layanan resize Weserv untuk memodifikasi URL gambar
+        val resizedImageUrl = "https://images.weserv.nl/?w=300&q=70&url=$originalImageUrl"
+
+        val fragment = json.encodeToString<List<Dialog>>(
+            dto.dialogues.filter { it.getTextBy(language).isNotBlank() },
+        )
+        Page(index, imageUrl = "$resizedImageUrl#$fragment")
     }
+}
 
     override fun imageUrlParse(document: Document): String = ""
 
