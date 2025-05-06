@@ -216,16 +216,27 @@ class BacaKomik : ParsedHttpSource() {
 
     override fun pageListParse(document: Document): List<Page> {
     val pages = mutableListOf<Page>()
-    var i = 0
-    document.select("div.img-landmine img").forEach { element ->
-        val originalUrl = element.attr("onError").substringAfter("src='").substringBefore("';")
-        i++
+    var index = 0
+
+    // Pilih elemen gambar berdasarkan kelas terbaru
+    document.select("div.oi_ada_class_skrng img").forEach { element ->
+        // Ambil URL gambar dari atribut onError
+        val originalUrl = element.attr("onError")
+            .substringAfter("this.src='")
+            .substringBefore("';")
+
         if (originalUrl.isNotEmpty()) {
-            // Gunakan layanan resize weserv
+            // Tambahkan layanan resize wsrv.nl
             val resizedUrl = "https://images.weserv.nl/?w=300&q=70&url=$originalUrl"
-            pages.add(Page(i, "", resizedUrl))
+            pages.add(Page(index++, "", resizedUrl))
         }
     }
+
+    // Jika tidak ada gambar ditemukan, lempar Exception
+    if (pages.isEmpty()) {
+        throw Exception("Page not found")
+    }
+
     return pages
 }
 
