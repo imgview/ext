@@ -215,17 +215,19 @@ class KomikIndoID : ParsedHttpSource() {
     }
 
     override fun pageListParse(document: Document): List<Page> {
-        val pages = mutableListOf<Page>()
-        var i = 0
-        document.select("div.img-landmine img").forEach { element ->
-            val url = element.attr("onError").substringAfter("src='").substringBefore("';")
-            i++
-            if (url.isNotEmpty()) {
-                pages.add(Page(i, "", url))
-            }
+    val pages = mutableListOf<Page>()
+    var i = 0
+    document.select("div.img-landmine img").forEach { element ->
+        val originalUrl = element.attr("onError").substringAfter("src='").substringBefore("';")
+        i++
+        if (originalUrl.isNotEmpty()) {
+            // Gunakan layanan resize weserv
+            val resizedUrl = "https://images.weserv.nl/?w=300&q=70&url=$originalUrl"
+            pages.add(Page(i, "", resizedUrl))
         }
-        return pages
     }
+    return pages
+}
 
     override fun imageUrlParse(document: Document): String = throw UnsupportedOperationException()
 
