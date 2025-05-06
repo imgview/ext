@@ -220,10 +220,8 @@ class BacaKomik : ParsedHttpSource() {
 
     // Pilih elemen gambar berdasarkan kelas terbaru
     document.select("div.oi_ada_class_skrng img").forEach { element ->
-        // Ambil URL gambar dari atribut onError
-        val originalUrl = element.attr("onError")
-            .substringAfter("this.src='")
-            .substringBefore("';")
+        // Ambil URL gambar dari atribut data-lazy-src
+        val originalUrl = element.attr("data-lazy-src")
 
         if (originalUrl.isNotEmpty()) {
             // Tambahkan layanan resize wsrv.nl
