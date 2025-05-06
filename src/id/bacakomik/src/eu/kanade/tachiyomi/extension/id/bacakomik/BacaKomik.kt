@@ -144,7 +144,7 @@ class BacaKomik : ParsedHttpSource() {
         altName?.let {
             manga.description = manga.description + "\n\n$altName"
         }
-        manga.thumbnail_url = document.select(".thumb > noscript img").substringBeforeLast("?")
+        manga.thumbnail_url = document.select(".thumb > img:nth-child(1)").attr("src").substringBeforeLast("?")
         return manga
     }
 
