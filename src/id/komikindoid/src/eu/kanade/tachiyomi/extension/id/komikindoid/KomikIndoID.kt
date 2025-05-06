@@ -30,7 +30,7 @@ class KomikIndoID : ParsedHttpSource() {
     }
 
     override fun latestUpdatesRequest(page: Int): Request {
-        return GET("$baseUrl/daftar-manga/page/$page/?order=update", headers)
+        return GET("$baseUrl/daftar-manga/page/$page/?format=1&order=update", headers)
     }
 
     override fun popularMangaSelector() = "div.animepost"
