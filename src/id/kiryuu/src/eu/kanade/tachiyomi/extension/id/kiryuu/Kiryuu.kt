@@ -8,12 +8,14 @@ import eu.kanade.tachiyomi.network.interceptor.rateLimit
 import okhttp3.MediaType.Companion.toMediaType
 import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.model.Page
+import eu.kanade.tachiyomi.source.model.SManga
 import okhttp3.OkHttpClient
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.jsoup.nodes.Document
+import org.jsoup.nodes.Element
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.text.SimpleDateFormat
