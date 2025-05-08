@@ -37,25 +37,22 @@ class KomikCast : MangaThemesia(
     private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
 
     private fun getResizeServiceUrlForPages(): String {
-    return preferences.getString("resize_service_url_page", "https://images.weserv.nl/?url=") ?: "https://images.weserv.nl/?url="
-}
+    return preferences.getString("resize_service_url_page", "") ?: ""
+    }
 
     private fun getResizeServiceUrlForThumbnails(): String {
-    return preferences.getString("resize_service_url_thumbnail", "https://resize.sardo.work/?width=300&quality=75&imageUrl=")
-        ?: "https://resize.sardo.work/?width=300&quality=75&imageUrl="
-}
+    return preferences.getString("resize_service_url_thumbnail", "") ?: ""
+    }
 
     override var baseUrl = preferences.getString(BASE_URL_PREF, "komik")!!
 
     override val client = super.client.newBuilder()
-        .addInterceptor { chain ->
-            val original = chain.request()
-            val requestBuilder = original.newBuilder()
-                .header("User-Agent", getPrefCustomUA())
-            chain.proceed(requestBuilder.build())
-        }
-        .rateLimit(1)
-        .build()
+    .addInterceptor { chain ->
+        val original = chain.request()
+        chain.proceed(original)
+    }
+    .rateLimit(1)
+    .build()
 
     override fun headersBuilder(): Headers.Builder = super.headersBuilder()
         .add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9")
@@ -282,20 +279,19 @@ class KomikCast : MangaThemesia(
         key = "resize_service_url_page"
         title = "Resize Service URL (Pages)"
         summary = "Masukkan URL layanan resize gambar untuk halaman."
-        setDefaultValue("https://images.weserv.nl/?url=")
-        dialogTitle = "Resize Service URL (Pages)"
-        dialogMessage = "Masukkan URL layanan resize gambar untuk halaman. (default: https://images.weserv.nl/?url=)"
+        setDefaultValue("")
+        dialogMessage = "Layanan"
     }
     screen.addPreference(pageListResizeServicePref)
 
     // Preference untuk layanan resize gambar untuk searchManga dan mangaDetails
     val resizeThumbnailServicePref = EditTextPreference(screen.context).apply {
     key = "resize_service_url_thumbnail" // Nama kunci baru
-    title = "Resize Service URL (Thumbnail)"
-    summary = "Masukkan URL layanan resize untuk thumbnail (pencarian dan detail manga)."
-    setDefaultValue("https://resize.sardo.work/?width=300&quality=75&imageUrl=")
-    dialogTitle = "Resize Service URL (Thumbnail)"
-    dialogMessage = "Masukkan URL layanan resize untuk thumbnail. (default: https://resize.sardo.work/?width=300&quality=75&imageUrl=)"
+    title = "Thumbnail"
+    summary = ""
+    setDefaultValue("")
+    dialogTitle = "Thumbnail"
+    dialogMessage = "Layanan"
 }
 screen.addPreference(resizeThumbnailServicePref)
 
