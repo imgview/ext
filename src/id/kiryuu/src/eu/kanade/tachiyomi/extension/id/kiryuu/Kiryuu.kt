@@ -7,6 +7,7 @@ import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.network.interceptor.rateLimit
 import okhttp3.MediaType.Companion.toMediaType
 import eu.kanade.tachiyomi.source.ConfigurableSource
+import eu.kanade.tachiyomi.source.model.Page
 import okhttp3.OkHttpClient
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.Serializable
