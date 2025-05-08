@@ -171,7 +171,7 @@ class KomikCast : MangaThemesia(
     }
 
     override fun pageListParse(document: Document): List<Page> {
-    val resizeServiceUrl = getResizeServiceUrl() // Mendapatkan URL layanan resize
+    val resizeServiceUrl = getResizeServiceUrlForPages()
 
     return document.select("div#chapter_body .main-reading-area img.size-full")
         .distinctBy { img -> img.imgAttr() } // Menghapus duplikat berdasarkan atribut gambar
