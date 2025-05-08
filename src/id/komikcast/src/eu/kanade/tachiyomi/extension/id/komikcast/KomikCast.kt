@@ -1,29 +1,60 @@
 package eu.kanade.tachiyomi.extension.id.komikcast
 
+import android.app.Application
 import eu.kanade.tachiyomi.multisrc.mangathemesia.MangaThemesia
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.interceptor.rateLimit
 import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.Page
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
+import androidx.preference.EditTextPreference
+import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import okhttp3.Headers
+import eu.kanade.tachiyomi.source.ConfigurableSource
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
+import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
-class KomikCast : MangaThemesia("Komik Cast", "https://komikcast02.com", "id", "/daftar-komik") {
+class KomikCast : MangaThemesia(
+    "Komik Cast",
+    "https://komikcast.cz",
+    "id",
+    "/daftar-komik",
+    dateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale("id"))
+), ConfigurableSource {
 
-    // Formerly "Komik Cast (WP Manga Stream)"
-    override val id = 972717448578983812
+    private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
 
-    override val client: OkHttpClient = super.client.newBuilder()
-        .rateLimit(3)
+    private fun getResizeServiceUrlForPages(): String {
+    return preferences.getString("resize_service_url_page", "https://images.weserv.nl/?url=") ?: "https://images.weserv.nl/?url="
+}
+
+    private fun getResizeServiceUrlForThumbnails(): String {
+    return preferences.getString("resize_service_url_thumbnail", "https://resize.sardo.work/?width=300&quality=75&imageUrl=")
+        ?: "https://resize.sardo.work/?width=300&quality=75&imageUrl="
+}
+
+    override var baseUrl = preferences.getString(BASE_URL_PREF, "komik")!!
+
+    override val client = super.client.newBuilder()
+        .addInterceptor { chain ->
+            val original = chain.request()
+            val requestBuilder = original.newBuilder()
+                .header("User-Agent", getPrefCustomUA())
+            chain.proceed(requestBuilder.build())
+        }
+        .rateLimit(1)
         .build()
 
     override fun headersBuilder(): Headers.Builder = super.headersBuilder()
@@ -51,8 +82,11 @@ class KomikCast : MangaThemesia("Komik Cast", "https://komikcast02.com", "id", "
     override fun searchMangaSelector() = "div.list-update_item"
 
     override fun searchMangaFromElement(element: Element) = super.searchMangaFromElement(element).apply {
-        title = element.selectFirst("h3.title")!!.ownText()
-    }
+    val resizeServiceUrl = getResizeServiceUrlForThumbnails() // Ambil URL layanan resize untuk thumbnail
+    val originalThumbnailUrl = element.select("img").imgAttr()
+    thumbnail_url = "$resizeServiceUrl$originalThumbnailUrl"
+    title = element.selectFirst("h3.title")!!.ownText()
+}
 
     override val seriesDetailsSelector = "div.komik_info:has(.komik_info-content)"
     override val seriesTitleSelector = "h1.komik_info-content-body-title"
@@ -63,35 +97,37 @@ class KomikCast : MangaThemesia("Komik Cast", "https://komikcast02.com", "id", "
     override val seriesStatusSelector = ".komik_info-content-info:contains(Status)"
 
     override fun mangaDetailsParse(document: Document) = SManga.create().apply {
-        document.selectFirst(seriesDetailsSelector)?.let { seriesDetails ->
-            title = seriesDetails.selectFirst(seriesTitleSelector)?.text()
-                ?.replace("bahasa indonesia", "", ignoreCase = true)?.trim().orEmpty()
-            artist = seriesDetails.selectFirst(seriesArtistSelector)?.ownText().removeEmptyPlaceholder()
-            author = seriesDetails.selectFirst(seriesAuthorSelector)?.ownText().removeEmptyPlaceholder()
-            description = seriesDetails.select(seriesDescriptionSelector).joinToString("\n") { it.text() }.trim()
-            // Add alternative name to manga description
-            val altName = seriesDetails.selectFirst(seriesAltNameSelector)?.ownText().takeIf { it.isNullOrBlank().not() }
-            altName?.let {
-                description = "$description\n\n$altNamePrefix$altName".trim()
-            }
-            val genres = seriesDetails.select(seriesGenreSelector).map { it.text() }.toMutableList()
-            // Add series type (manga/manhwa/manhua/other) to genre
-            seriesDetails.selectFirst(seriesTypeSelector)?.ownText().takeIf { it.isNullOrBlank().not() }?.let { genres.add(it) }
-            genre = genres.map { genre ->
-                genre.lowercase(Locale.forLanguageTag(lang)).replaceFirstChar { char ->
-                    if (char.isLowerCase()) {
-                        char.titlecase(Locale.forLanguageTag(lang))
-                    } else {
-                        char.toString()
-                    }
+    val resizeServiceUrl = getResizeServiceUrlForThumbnails() // Ambil URL layanan resize untuk thumbnail
+    document.selectFirst(seriesDetailsSelector)?.let { seriesDetails ->
+        title = seriesDetails.selectFirst(seriesTitleSelector)?.text()
+            ?.replace("bahasa indonesia", "", ignoreCase = true)?.trim().orEmpty()
+        artist = seriesDetails.selectFirst(seriesArtistSelector)?.ownText().removeEmptyPlaceholder()
+        author = seriesDetails.selectFirst(seriesAuthorSelector)?.ownText().removeEmptyPlaceholder()
+        description = seriesDetails.select(seriesDescriptionSelector).joinToString("\n") { it.text() }.trim()
+
+        val altName = seriesDetails.selectFirst(seriesAltNameSelector)?.ownText().takeIf { it.isNullOrBlank().not() }
+        altName?.let {
+            description = "$description\n\n$altNamePrefix$altName".trim()
+        }
+
+        val genres = seriesDetails.select(seriesGenreSelector).map { it.text() }.toMutableList()
+        seriesDetails.selectFirst(seriesTypeSelector)?.ownText().takeIf { it.isNullOrBlank().not() }?.let { genres.add(it) }
+        genre = genres.map { genre ->
+            genre.lowercase(Locale.forLanguageTag(lang)).replaceFirstChar { char ->
+                if (char.isLowerCase()) {
+                    char.titlecase(Locale.forLanguageTag(lang))
+                } else {
+                    char.toString()
                 }
             }
-                .joinToString { it.trim() }
+        }.joinToString { it.trim() }
 
-            status = seriesDetails.selectFirst(seriesStatusSelector)?.text().parseStatus()
-            thumbnail_url = seriesDetails.select(seriesThumbnailSelector).imgAttr()
-        }
+        status = seriesDetails.selectFirst(seriesStatusSelector)?.text().parseStatus()
+
+        val originalThumbnailUrl = seriesDetails.select(seriesThumbnailSelector).imgAttr()
+        thumbnail_url = "$resizeServiceUrl$originalThumbnailUrl"
     }
+}
 
     override fun chapterListSelector() = "div.komik_info-chapters li"
 
@@ -107,22 +143,22 @@ class KomikCast : MangaThemesia("Komik Cast", "https://komikcast02.com", "id", "
             val value = date.split(' ')[0].toInt()
             when {
                 "min" in date -> Calendar.getInstance().apply {
-                    add(Calendar.MINUTE, -value)
+                    add(Calendar.MINUTE, value * -1)
                 }.timeInMillis
                 "hour" in date -> Calendar.getInstance().apply {
-                    add(Calendar.HOUR_OF_DAY, -value)
+                    add(Calendar.HOUR_OF_DAY, value * -1)
                 }.timeInMillis
                 "day" in date -> Calendar.getInstance().apply {
-                    add(Calendar.DATE, -value)
+                    add(Calendar.DATE, value * -1)
                 }.timeInMillis
                 "week" in date -> Calendar.getInstance().apply {
-                    add(Calendar.DATE, -value * 7)
+                    add(Calendar.DATE, value * 7 * -1)
                 }.timeInMillis
                 "month" in date -> Calendar.getInstance().apply {
-                    add(Calendar.MONTH, -value)
+                    add(Calendar.MONTH, value * -1)
                 }.timeInMillis
                 "year" in date -> Calendar.getInstance().apply {
-                    add(Calendar.YEAR, -value)
+                    add(Calendar.YEAR, value * -1)
                 }.timeInMillis
                 else -> {
                     0L
@@ -138,10 +174,15 @@ class KomikCast : MangaThemesia("Komik Cast", "https://komikcast02.com", "id", "
     }
 
     override fun pageListParse(document: Document): List<Page> {
-        return document.select("div#chapter_body .main-reading-area img.size-full")
-            .distinctBy { img -> img.imgAttr() }
-            .mapIndexed { i, img -> Page(i, document.location(), img.imgAttr()) }
-    }
+    val resizeServiceUrl = getResizeServiceUrl() // Mendapatkan URL layanan resize
+
+    return document.select("div#chapter_body .main-reading-area img.size-full")
+        .distinctBy { img -> img.imgAttr() } // Menghapus duplikat berdasarkan atribut gambar
+        .mapIndexed { i, img -> 
+            // Menggabungkan resizeServiceUrl dengan URL gambar
+            Page(i, document.location(), "$resizeServiceUrl${img.imgAttr()}")
+        }
+}
 
     override val hasProjectPage: Boolean = true
     override val projectPageString = "/project-list"
@@ -234,4 +275,64 @@ class KomikCast : MangaThemesia("Komik Cast", "https://komikcast02.com", "id", "
         )
         return FilterList(filters)
     }
+
+    override fun setupPreferenceScreen(screen: PreferenceScreen) {
+    // Preference untuk layanan resize gambar untuk pageListParse
+    val pageListResizeServicePref = EditTextPreference(screen.context).apply {
+        key = "resize_service_url_page"
+        title = "Resize Service URL (Pages)"
+        summary = "Masukkan URL layanan resize gambar untuk halaman."
+        setDefaultValue("https://images.weserv.nl/?url=")
+        dialogTitle = "Resize Service URL (Pages)"
+        dialogMessage = "Masukkan URL layanan resize gambar untuk halaman. (default: https://images.weserv.nl/?url=)"
+    }
+    screen.addPreference(pageListResizeServicePref)
+
+    // Preference untuk layanan resize gambar untuk searchManga dan mangaDetails
+    val resizeThumbnailServicePref = EditTextPreference(screen.context).apply {
+    key = "resize_service_url_thumbnail" // Nama kunci baru
+    title = "Resize Service URL (Thumbnail)"
+    summary = "Masukkan URL layanan resize untuk thumbnail (pencarian dan detail manga)."
+    setDefaultValue("https://resize.sardo.work/?width=300&quality=75&imageUrl=")
+    dialogTitle = "Resize Service URL (Thumbnail)"
+    dialogMessage = "Masukkan URL layanan resize untuk thumbnail. (default: https://resize.sardo.work/?width=300&quality=75&imageUrl=)"
+}
+screen.addPreference(resizeThumbnailServicePref)
+
+    // Preference untuk mengubah base URL
+    val baseUrlPref = EditTextPreference(screen.context).apply {
+        key = BASE_URL_PREF
+        title = BASE_URL_PREF_TITLE
+        summary = BASE_URL_PREF_SUMMARY
+        setDefaultValue(baseUrl)
+        dialogTitle = BASE_URL_PREF_TITLE
+        dialogMessage = "Original: $baseUrl"
+
+        setOnPreferenceChangeListener { _, newValue ->
+            val newUrl = newValue as String
+            baseUrl = newUrl
+            preferences.edit().putString(BASE_URL_PREF, newUrl).apply()
+            summary = "Current domain: $newUrl" // Update summary untuk domain yang baru
+            true
+        }
+    }
+    screen.addPreference(baseUrlPref)
+}
+
+    companion object {
+        private const val BASE_URL_PREF_TITLE = "Ubah Domain"
+        private const val BASE_URL_PREF = "overrideBaseUrl"
+        private const val BASE_URL_PREF_SUMMARY = "Update domain untuk ekstensi ini"
+    }
+
+        @Serializable
+    data class TSReader(
+        val sources: List<ReaderImageSource>,
+    )
+
+    @Serializable
+    data class ReaderImageSource(
+        val source: String,
+        val images: List<String>,
+    )
 }
