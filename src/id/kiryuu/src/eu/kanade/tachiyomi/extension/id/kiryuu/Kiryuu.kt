@@ -7,9 +7,8 @@ import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.network.interceptor.rateLimit
 import okhttp3.MediaType.Companion.toMediaType
 import eu.kanade.tachiyomi.source.ConfigurableSource
-import eu.kanade.tachiyomi.source.model.Page
-import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import okhttp3.ResponseBody.Companion.toResponseBody
@@ -33,17 +32,34 @@ class Kiryuu : MangaThemesia(
         return preferences.getString("resize_service_url", null)
     }
 
+    private fun resizeImageUrl(originalUrl: String): String {
+        return "LayananGambar$originalUrl"
+    }
+
     override var baseUrl = preferences.getString(BASE_URL_PREF, super.baseUrl)!!
 
     override val client = super.client.newBuilder()
         .rateLimit(4)
         .build()
 
-    // manga details
+    override fun searchMangaFromElement(element: Element): SManga {
+        return SManga.create().apply {
+            val originalThumbnailUrl = element.select("img").imgAttr()
+            thumbnail_url = resizeImageUrl(originalThumbnailUrl)
+
+            title = element.select("a").attr("title")
+            setUrlWithoutDomain(element.select("a").attr("href"))
+        }
+    }
+
     override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
+        val seriesDetails = document.select(seriesThumbnailSelector)
+        val originalThumbnailUrl = seriesDetails.imgAttr()
+        thumbnail_url = resizeImageUrl(originalThumbnailUrl)
+
         title = document.selectFirst(seriesThumbnailSelector)!!.attr("title")
     }
-    
+
     override fun pageListParse(document: Document): List<Page> {
         val scriptContent = document.selectFirst("script:containsData(ts_reader)")?.data()
             ?: return super.pageListParse(document)
@@ -51,10 +67,8 @@ class Kiryuu : MangaThemesia(
         val tsReader = json.decodeFromString<TSReader>(jsonString)
         val imageUrls = tsReader.sources.firstOrNull()?.images ?: return emptyList()
 
-        // Menggunakan URL resize
-        val resizeServiceUrl = getResizeServiceUrl()
         return imageUrls.mapIndexed { index, imageUrl -> 
-            Page(index, document.location(), "${resizeServiceUrl ?: ""}$imageUrl")
+            Page(index, document.location(), "${getResizeServiceUrl() ?: ""}$imageUrl")
         }
     }
 
