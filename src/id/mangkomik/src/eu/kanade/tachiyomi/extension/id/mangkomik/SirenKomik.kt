@@ -48,10 +48,10 @@ class SirenKomik : MangaThemesia(
 
         // Panggil API dan parsing JSON
         val response = client.newCall(GET(apiUrl, headers)).execute()
-        val json = json.parseToJsonElement(response.body!!.string()).jsonObject
+        val jsonResponse = json.parseToJsonElement(response.body!!.string()).jsonObject
 
         // Ambil properti "content.rendered" yang berisi HTML
-        val contentHtml = json["content"]?.jsonObject?.get("rendered")?.jsonPrimitive?.content
+        val contentHtml = jsonResponse["content"]?.jsonObject?.get("rendered")?.jsonPrimitive?.content
             ?: throw Exception("Tidak dapat menemukan konten.")
 
         // Gunakan Jsoup untuk mengekstrak URL gambar dari HTML
@@ -67,5 +67,6 @@ class SirenKomik : MangaThemesia(
         val postIdRegex = """postId.:(\d+)""".toRegex()
     }
 
-    private val json = Json { ignoreUnknownKeys = true }
+    // Override properti json dari superclass
+    override val json = Json { ignoreUnknownKeys = true }
 }
