@@ -1,7 +1,8 @@
 package eu.kanade.tachiyomi.extension.id.komiku
 
 import eu.kanade.tachiyomi.network.GET
-import eu.kanade.tachiyomi.network.asJsoup
+import org.jsoup.Jsoup
+import okhttp3.Response
 import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.Page
@@ -246,37 +247,37 @@ class Komiku : ParsedHttpSource() {
 
     // manga details
     override fun mangaDetailsParse(document: Document) = SManga.create().apply {
-    // --- kode lama kamu ---
     description = document.select("#Sinopsis > p").text().trim()
     author = document.select("table.inftable td:contains(Pengarang)+td").text()
     genre = document.select("li.genre a").joinToString { it.text() }
     status = parseStatus(document.select("table.inftable tr > td:contains(Status) + td").text())
 
-    // ambil URL halaman detail (pastikan tanpa trailing slash)
-    val detailUrl = document.select("link[rel=canonical]").attr("href")
-        .removeSuffix("/")
+    // URL halaman tanpa slash akhir
+    val detailUrl = document.select("link[rel=canonical]").attr("href").removeSuffix("/")
 
-    // 1) coba ambil cover dari API berwarna
-    val coloredCover = runCatching {
-        // eksekusi GET ke halaman berwarna dan parse Jsoup
-        val coversDoc = client.newCall(GET("$baseUrl/other/berwarna/"))
-            .execute().asJsoup()
-        // cari .bgei yang href-nya sama dengan detailUrl
-        coversDoc.select("div.bgei").firstOrNull { elem ->
-            elem.select("a").attr("href").removeSuffix("/") == detailUrl
-        }
-        // ambil src gambarnya
-        ?.select("img").attr("abs:src")
+    // Coba ambil cover berwarna via API
+    val coloredCover: String? = runCatching<String?> {
+        val coversDoc = client.newCall(GET("$baseUrlApi/other/berwarna/", headers))
+            .execute().use { resp: Response ->
+                Jsoup.parse(resp.body!!.string())
+            }
+        coversDoc.select("div.bgei")
+            .firstOrNull { elem ->
+                elem.select("a").attr("href").removeSuffix("/") == detailUrl
+            }
+            ?.select("img")
+            ?.attr("abs:src")
     }.getOrNull()
 
-    // 2) jika berhasil, pakai; kalau tidak, pakai cover standar
+    // Pakai coloredCover kalau ada, kalau tidak fallback
     thumbnail_url = coloredCover ?: document.select("div.ims > img").attr("abs:src")
 
-    // add series type(manga/manhwa/manhua/other) ke genre
-    val seriesTypeSelector = "tr > td:nth-child(2) b"
-    document.select(seriesTypeSelector).firstOrNull()?.text()?.let {
-        if (it.isNotEmpty() && !genre.contains(it, true)) {
-            genre = if (genre.isEmpty()) it else "$genre, $it"
+    // Tambah series type ke genre dengan aman
+    document.select("tr > td:nth-child(2) b").firstOrNull()?.text()?.let { seriesType ->
+        val currentGenre = genre.orEmpty()
+        if (seriesType.isNotEmpty() && !currentGenre.contains(seriesType, true)) {
+            genre = if (currentGenre.isEmpty()) seriesType
+                    else "$currentGenre, $seriesType"
         }
     }
 }
