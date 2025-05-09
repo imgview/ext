@@ -83,20 +83,23 @@ abstract class ColorlibAnime(
     // Details
 
     override fun mangaDetailsParse(document: Document): SManga {
-        document.select(".anime__details__content").let { element ->
-            return SManga.create().apply {
-                title = element.select("h3").text()
-                author = element.select("h3 + span").text()
-                description = element.select("p").text()
-                thumbnail_url = element.first()?.toThumbnail()
-                status = when (element.select("li:contains(status)").text().substringAfter(" ")) {
-                    "Ongoing" -> SManga.ONGOING
-                    "Complete" -> SManga.COMPLETED
-                    else -> SManga.UNKNOWN
-                }
+    document.select(".anime__details__content").let { element ->
+        return SManga.create().apply {
+            title = element.select("h3").text()
+            author = element.select("h3 + span").text()
+            description = element.select("p").text()
+            thumbnail_url = element.first()?.toThumbnail()
+            status = when (element.select("li:contains(status)").text().substringAfter(" ")) {
+                "Ongoing" -> SManga.ONGOING
+                "Complete" -> SManga.COMPLETED
+                else -> SManga.UNKNOWN
             }
+            // Parsing genre
+            genre = element.select("li:contains(Categorie) a")
+                .joinToString(", ") { it.text() } // Menggabungkan semua genre menjadi string
         }
     }
+}
 
     // Chapters
 
