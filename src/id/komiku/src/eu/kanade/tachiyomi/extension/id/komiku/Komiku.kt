@@ -238,20 +238,23 @@ class Komiku : ParsedHttpSource() {
 
     // manga details
     override fun mangaDetailsParse(document: Document) = SManga.create().apply {
-        description = document.select("#Sinopsis > p").text().trim()
-        author = document.select("table.inftable td:contains(Pengarang)+td").text()
-        genre = document.select("li.genre a").joinToString { it.text() }
-        status = parseStatus(document.select("table.inftable tr > td:contains(Status) + td").text())
-        thumbnail_url = document.select("div.ims > img").attr("abs:src")
+    description = document.select("#Sinopsis > p").text().trim()
+    author = document.select("table.inftable td:contains(Pengarang)+td").text()
+    genre = document.select("li.genre a").joinToString { it.text() }
+    status = parseStatus(document.select("table.inftable tr > td:contains(Status) + td").text())
 
-        // add series type(manga/manhwa/manhua/other) thinggy to genre
-        val seriesTypeSelector = "tr > td:nth-child(2) b"
-        document.select(seriesTypeSelector).firstOrNull()?.text()?.let {
-            if (it.isEmpty().not() && genre!!.contains(it, true).not()) {
-                genre += if (genre!!.isEmpty()) it else ", $it"
-            }
+    // Gunakan cachedCovers untuk mendapatkan URL cover
+    val mangaUrl = document.location() // URL manga yang sedang diproses
+    thumbnail_url = cachedCovers[mangaUrl] ?: document.select("div.ims > img").attr("abs:src")
+
+    // Tambahkan tipe seri ke genre
+    val seriesTypeSelector = "tr > td:nth-child(2) b"
+    document.select(seriesTypeSelector).firstOrNull()?.text()?.let {
+        if (it.isEmpty().not() && genre!!.contains(it, true).not()) {
+            genre += if (genre!!.isEmpty()) it else ", $it"
         }
     }
+}
 
     private fun parseStatus(status: String) = when {
         status.contains("Ongoing") -> SManga.ONGOING
