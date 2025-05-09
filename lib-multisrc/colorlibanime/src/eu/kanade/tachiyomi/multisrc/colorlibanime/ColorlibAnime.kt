@@ -96,7 +96,7 @@ abstract class ColorlibAnime(
             }
             // Parsing genre
             genre = element.select("li:contains(Categorie) a")
-                .joinToString(", ") { it.text() } // Menggabungkan semua genre menjadi string
+                .joinToString(", ") { it.text().trim().removeSuffix(",") }
         }
     }
 }
