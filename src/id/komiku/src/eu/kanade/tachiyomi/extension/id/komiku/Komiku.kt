@@ -41,27 +41,18 @@ class Komiku : ParsedHttpSource() {
         }
     }
 
-    private val coverRegex = Regex("""(/Manga-|/Manhua-|/Manhwa-)""")
-    private val coverUploadRegex = Regex("""/uploads/\d\d\d\d/\d\d/""")
-
     override fun popularMangaFromElement(element: Element): SManga {
     val manga = SManga.create()
 
-    // Ambil URL dan judul dari elemen list
+    // URL & judul standard
     val url = element.select("a:has(h3)").attr("href")
     manga.setUrlWithoutDomain(url)
     manga.title = element.select("h3").text().trim()
 
-    // Request halaman detail dan parse manual dengan Jsoup
-    val detailDoc = client.newCall(GET(url, headers))
-        .execute().use { response ->
-            Jsoup.parse(response.body!!.string())
-        }
-
-    // Ambil cover dari <div class="ims"><img src="...">
-    manga.thumbnail_url = detailDoc
-        .selectFirst("div.ims img")
-        ?.absUrl("src")
+    // Ambil URL thumbnail yang sama dengan detail:
+    // di list popular src biasanya ada query-string, kita strip saja
+    val rawThumb = element.selectFirst("img")!!.absUrl("src")
+    manga.thumbnail_url = rawThumb.substringBefore("?")
 
     return manga
 }
