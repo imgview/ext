@@ -44,17 +44,17 @@ class Komiku : ParsedHttpSource() {
     override fun popularMangaFromElement(element: Element): SManga {
     val manga = SManga.create()
 
-    // 1) Ambil URL & judul dari list
+    // 1) Ambil URL & Judul
     val url = element.select("a:has(h3)").attr("href")
     manga.setUrlWithoutDomain(url)
     manga.title = element.select("h3").text().trim()
 
-    // 2) Fetch halaman detail manual dan parse dengan Jsoup
-    val resp: Response = client.newCall(GET(url, headers)).execute()
-    val detailDoc: Document = Jsoup.parse(resp.body!!.string())
+    // 2) Fetch halaman detail (no explicit Response type)
+    val resp = client.newCall(GET(url, headers)).execute()
+    val detailDoc = Jsoup.parse(resp.body!!.string())
 
-    // 3) Ambil <div class="ims"><img src="...">
-    val imgElem: Element? = detailDoc.select("div.ims img").first()
+    // 3) Ambil cover dari <div class="ims"><img>
+    val imgElem = detailDoc.select("div.ims img").first()
     manga.thumbnail_url = imgElem?.absUrl("src")
 
     return manga
