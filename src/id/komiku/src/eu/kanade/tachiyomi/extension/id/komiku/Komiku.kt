@@ -31,7 +31,7 @@ class Komiku : ParsedHttpSource() {
     override val client: OkHttpClient = network.cloudflareClient
 
     // popular
-    override fun popularMangaSelector() = "div.bge"
+    override fun popularMangaSelector() = "div.bge:lt(10)"
 
     override fun popularMangaRequest(page: Int): Request {
         return if (page == 1) {
