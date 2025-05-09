@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.extension.id.komiku
 
 import eu.kanade.tachiyomi.network.GET
+import eu.kanade.tachiyomi.network.asJsoup
 import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.Page
@@ -44,14 +45,21 @@ class Komiku : ParsedHttpSource() {
     private val coverUploadRegex = Regex("""/uploads/\d\d\d\d/\d\d/""")
 
     override fun popularMangaFromElement(element: Element): SManga {
-    val manga = SManga.create()
+        val manga = SManga.create()
 
-    manga.title = element.select("h3").text().trim()
-    manga.setUrlWithoutDomain(element.select("a:has(h3)").attr("href"))
-    manga.thumbnail_url = element.select("img").attr("abs:src")
+        manga.title = element.select("h3").text().trim()
+        manga.setUrlWithoutDomain(element.select("a:has(h3)").attr("href"))
 
-    return manga
-}
+        // scraped image doesn't make for a good cover; so try to transform it
+        // make it take bad cover instead of null if it contains upload date as those URLs aren't very useful
+        if (element.select("img").attr("abs:src").contains(coverUploadRegex)) {
+            manga.thumbnail_url = element.select("img").attr("abs:src")
+        } else {
+            manga.thumbnail_url = element.select("img").attr("abs:src").substringBeforeLast("?").replace(coverRegex, "/Komik-")
+        }
+
+        return manga
+    }
 
     override fun popularMangaNextPageSelector() = "span[hx-trigger=revealed]"
 
@@ -238,20 +246,37 @@ class Komiku : ParsedHttpSource() {
 
     // manga details
     override fun mangaDetailsParse(document: Document) = SManga.create().apply {
+    // --- kode lama kamu ---
     description = document.select("#Sinopsis > p").text().trim()
     author = document.select("table.inftable td:contains(Pengarang)+td").text()
     genre = document.select("li.genre a").joinToString { it.text() }
     status = parseStatus(document.select("table.inftable tr > td:contains(Status) + td").text())
 
-    // Gunakan cachedCovers untuk mendapatkan URL cover
-    val mangaUrl = document.location() // URL manga yang sedang diproses
-    thumbnail_url = cachedCovers[mangaUrl] ?: document.select("div.ims > img").attr("abs:src")
+    // ambil URL halaman detail (pastikan tanpa trailing slash)
+    val detailUrl = document.select("link[rel=canonical]").attr("href")
+        .removeSuffix("/")
 
-    // Tambahkan tipe seri ke genre
+    // 1) coba ambil cover dari API berwarna
+    val coloredCover = runCatching {
+        // eksekusi GET ke halaman berwarna dan parse Jsoup
+        val coversDoc = client.newCall(GET("$baseUrl/other/berwarna/"))
+            .execute().asJsoup()
+        // cari .bgei yang href-nya sama dengan detailUrl
+        coversDoc.select("div.bgei").firstOrNull { elem ->
+            elem.select("a").attr("href").removeSuffix("/") == detailUrl
+        }
+        // ambil src gambarnya
+        ?.select("img").attr("abs:src")
+    }.getOrNull()
+
+    // 2) jika berhasil, pakai; kalau tidak, pakai cover standar
+    thumbnail_url = coloredCover ?: document.select("div.ims > img").attr("abs:src")
+
+    // add series type(manga/manhwa/manhua/other) ke genre
     val seriesTypeSelector = "tr > td:nth-child(2) b"
     document.select(seriesTypeSelector).firstOrNull()?.text()?.let {
-        if (it.isEmpty().not() && genre!!.contains(it, true).not()) {
-            genre += if (genre!!.isEmpty()) it else ", $it"
+        if (it.isNotEmpty() && !genre.contains(it, true)) {
+            genre = if (genre.isEmpty()) it else "$genre, $it"
         }
     }
 }
@@ -301,18 +326,4 @@ class Komiku : ParsedHttpSource() {
     }
 
     override fun imageUrlParse(document: Document): String = throw UnsupportedOperationException()
-}
-
-private fun fetchCovers(): Map<String, String> {
-    val coversMap = mutableMapOf<String, String>()
-    val response = client.newCall(GET("https://api.komiku.id/other/berwarna/")).execute()
-    val document = response.body?.string()?.let { Jsoup.parse(it) }
-
-    document?.select("div.bge a")?.forEach { element ->
-        val mangaUrl = element.attr("href") // URL manga
-        val coverUrl = element.select("img").attr("abs:src") // URL cover
-        coversMap[mangaUrl] = coverUrl
-    }
-
-    return coversMap
 }
