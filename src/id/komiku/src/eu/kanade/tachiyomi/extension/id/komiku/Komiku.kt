@@ -49,13 +49,23 @@ class Komiku : ParsedHttpSource() {
     manga.setUrlWithoutDomain(url)
     manga.title = element.select("h3").text().trim()
 
-    // 2) Fetch halaman detail (no explicit Response type)
-    val resp = client.newCall(GET(url, headers)).execute()
-    val detailDoc = Jsoup.parse(resp.body!!.string())
+    // 2) Tampilkan placeholder sementara
+    manga.thumbnail_url = null // Tachiyomi akan menampilkan placeholder bawaan
 
-    // 3) Ambil cover dari <div class="ims"><img>
-    val imgElem = detailDoc.select("div.ims img").first()
-    manga.thumbnail_url = imgElem?.absUrl("src")
+    // 3) Jalankan proses pengambilan cover di background
+    // Jangan blokir UI utama
+    Thread {
+        try {
+            val resp = client.newCall(GET(url, headers)).execute()
+            val detailDoc = Jsoup.parse(resp.body!!.string())
+
+            val imgElem = detailDoc.select("div.ims img").first()
+            manga.thumbnail_url = imgElem?.absUrl("src")
+        } catch (e: Exception) {
+            // Log error jika terjadi masalah
+            e.printStackTrace()
+        }
+    }.start()
 
     return manga
 }
