@@ -299,3 +299,17 @@ class Komiku : ParsedHttpSource() {
 
     override fun imageUrlParse(document: Document): String = throw UnsupportedOperationException()
 }
+
+private fun fetchCovers(): Map<String, String> {
+    val coversMap = mutableMapOf<String, String>()
+    val response = client.newCall(GET("https://api.komiku.id/other/berwarna/")).execute()
+    val document = response.body?.string()?.let { Jsoup.parse(it) }
+
+    document?.select("div.bge a")?.forEach { element ->
+        val mangaUrl = element.attr("href") // URL manga
+        val coverUrl = element.select("img").attr("abs:src") // URL cover
+        coversMap[mangaUrl] = coverUrl
+    }
+
+    return coversMap
+}
