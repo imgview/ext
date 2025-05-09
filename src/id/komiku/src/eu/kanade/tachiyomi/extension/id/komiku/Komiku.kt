@@ -1,8 +1,7 @@
 package eu.kanade.tachiyomi.extension.id.komiku
 
 import eu.kanade.tachiyomi.network.GET
-import org.jsoup.Jsoup
-import okhttp3.Response
+import eu.kanade.tachiyomi.network.asJsoup
 import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.Page
@@ -46,21 +45,19 @@ class Komiku : ParsedHttpSource() {
     private val coverUploadRegex = Regex("""/uploads/\d\d\d\d/\d\d/""")
 
     override fun popularMangaFromElement(element: Element): SManga {
-        val manga = SManga.create()
+    val manga = SManga.create()
 
-        manga.title = element.select("h3").text().trim()
-        manga.setUrlWithoutDomain(element.select("a:has(h3)").attr("href"))
+    val mangaUrl = element.select("a:has(h3)").attr("href")
+    manga.title = element.select("h3").text().trim()
+    manga.setUrlWithoutDomain(mangaUrl)
 
-        // scraped image doesn't make for a good cover; so try to transform it
-        // make it take bad cover instead of null if it contains upload date as those URLs aren't very useful
-        if (element.select("img").attr("abs:src").contains(coverUploadRegex)) {
-            manga.thumbnail_url = element.select("img").attr("abs:src")
-        } else {
-            manga.thumbnail_url = element.select("img").attr("abs:src").substringBeforeLast("?").replace(coverRegex, "/Komik-")
-        }
+    // Ambil cover dari halaman detail
+    val detailDoc = client.newCall(GET(mangaUrl, headers)).execute().use { it.asJsoup() }
+    val coverUrl = detailDoc.select("div.ims img").attr("abs:src")
+    manga.thumbnail_url = coverUrl
 
-        return manga
-    }
+    return manga
+}
 
     override fun popularMangaNextPageSelector() = "span[hx-trigger=revealed]"
 
@@ -247,40 +244,20 @@ class Komiku : ParsedHttpSource() {
 
     // manga details
     override fun mangaDetailsParse(document: Document) = SManga.create().apply {
-    description = document.select("#Sinopsis > p").text().trim()
-    author = document.select("table.inftable td:contains(Pengarang)+td").text()
-    genre = document.select("li.genre a").joinToString { it.text() }
-    status = parseStatus(document.select("table.inftable tr > td:contains(Status) + td").text())
+        description = document.select("#Sinopsis > p").text().trim()
+        author = document.select("table.inftable td:contains(Pengarang)+td").text()
+        genre = document.select("li.genre a").joinToString { it.text() }
+        status = parseStatus(document.select("table.inftable tr > td:contains(Status) + td").text())
+        thumbnail_url = document.select("div.ims > img").attr("abs:src")
 
-    // URL halaman tanpa slash akhir
-    val detailUrl = document.select("link[rel=canonical]").attr("href").removeSuffix("/")
-
-    // Coba ambil cover berwarna via API
-    val coloredCover: String? = runCatching<String?> {
-        val coversDoc = client.newCall(GET("$baseUrlApi/other/berwarna/", headers))
-            .execute().use { resp: Response ->
-                Jsoup.parse(resp.body!!.string())
+        // add series type(manga/manhwa/manhua/other) thinggy to genre
+        val seriesTypeSelector = "tr > td:nth-child(2) b"
+        document.select(seriesTypeSelector).firstOrNull()?.text()?.let {
+            if (it.isEmpty().not() && genre!!.contains(it, true).not()) {
+                genre += if (genre!!.isEmpty()) it else ", $it"
             }
-        coversDoc.select("div.bgei")
-            .firstOrNull { elem ->
-                elem.select("a").attr("href").removeSuffix("/") == detailUrl
-            }
-            ?.select("img")
-            ?.attr("abs:src")
-    }.getOrNull()
-
-    // Pakai coloredCover kalau ada, kalau tidak fallback
-    thumbnail_url = coloredCover ?: document.select("div.ims > img").attr("abs:src")
-
-    // Tambah series type ke genre dengan aman
-    document.select("tr > td:nth-child(2) b").firstOrNull()?.text()?.let { seriesType ->
-        val currentGenre = genre.orEmpty()
-        if (seriesType.isNotEmpty() && !currentGenre.contains(seriesType, true)) {
-            genre = if (currentGenre.isEmpty()) seriesType
-                    else "$currentGenre, $seriesType"
         }
     }
-}
 
     private fun parseStatus(status: String) = when {
         status.contains("Ongoing") -> SManga.ONGOING
