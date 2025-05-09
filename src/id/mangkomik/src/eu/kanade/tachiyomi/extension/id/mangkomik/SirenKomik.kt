@@ -37,23 +37,28 @@ class SirenKomik : MangaThemesia(
     }
 
     override fun pageListParse(document: Document): List<Page> {
-        val postId = document.select("script").map(Element::data)
-            .firstOrNull(postIdRegex::containsMatchIn)
-            ?.let { postIdRegex.find(it)?.groups?.get(1)?.value }
-            ?: throw IOException("Post ID not found")
+    // Ambil post ID dari URL halaman
+    val postId = document.location().substringAfter("posts/").substringBefore("/")
 
-        val pageUrl = "$baseUrl/wp-json/extras/v1/get-img-json".toHttpUrl().newBuilder()
-            .addQueryParameter("post_id", postId)
-            .build()
+    // Bangun URL API untuk mengambil data JSON
+    val apiUrl = "$baseUrl/wp-json/wp/v2/posts/$postId"
 
-        val dto = client.newCall(GET(pageUrl, headers)).execute().use {
-            json.decodeFromStream<SirenKomikDto>(it.body.byteStream())
-        }
+    // Panggil API dan parsing JSON
+    val response = client.newCall(GET(apiUrl, headers)).execute()
+    val json = json.parseToJsonElement(response.body!!.string()).jsonObject
 
-        return dto.pages.mapIndexed { index, imageUrl ->
-            Page(index, document.location(), imageUrl)
-        }
+    // Ambil properti "content.rendered" yang berisi HTML
+    val contentHtml = json["content"]?.jsonObject?.get("rendered")?.jsonPrimitive?.content
+        ?: throw Exception("Tidak dapat menemukan konten.")
+
+    // Gunakan Jsoup untuk mengekstrak URL gambar dari HTML
+    val imageUrls = Jsoup.parse(contentHtml).select("img[src]").map { it.absUrl("src") }
+
+    // Konstruksi daftar halaman
+    return imageUrls.mapIndexed { index, url ->
+        Page(index, "", url)
     }
+}
 
     companion object {
         val postIdRegex = """postId.:(\d+)""".toRegex()
