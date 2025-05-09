@@ -4,8 +4,11 @@ import eu.kanade.tachiyomi.multisrc.mangathemesia.MangaThemesia
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
-import kotlinx.serialization.json.decodeFromStream
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import java.io.IOException
@@ -37,30 +40,32 @@ class SirenKomik : MangaThemesia(
     }
 
     override fun pageListParse(document: Document): List<Page> {
-    // Ambil post ID dari URL halaman
-    val postId = document.location().substringAfter("posts/").substringBefore("/")
+        // Ambil post ID dari URL halaman
+        val postId = document.location().substringAfter("posts/").substringBefore("/")
 
-    // Bangun URL API untuk mengambil data JSON
-    val apiUrl = "$baseUrl/wp-json/wp/v2/posts/$postId"
+        // Bangun URL API untuk mengambil data JSON
+        val apiUrl = "$baseUrl/wp-json/wp/v2/posts/$postId"
 
-    // Panggil API dan parsing JSON
-    val response = client.newCall(GET(apiUrl, headers)).execute()
-    val json = json.parseToJsonElement(response.body!!.string()).jsonObject
+        // Panggil API dan parsing JSON
+        val response = client.newCall(GET(apiUrl, headers)).execute()
+        val json = json.parseToJsonElement(response.body!!.string()).jsonObject
 
-    // Ambil properti "content.rendered" yang berisi HTML
-    val contentHtml = json["content"]?.jsonObject?.get("rendered")?.jsonPrimitive?.content
-        ?: throw Exception("Tidak dapat menemukan konten.")
+        // Ambil properti "content.rendered" yang berisi HTML
+        val contentHtml = json["content"]?.jsonObject?.get("rendered")?.jsonPrimitive?.content
+            ?: throw Exception("Tidak dapat menemukan konten.")
 
-    // Gunakan Jsoup untuk mengekstrak URL gambar dari HTML
-    val imageUrls = Jsoup.parse(contentHtml).select("img[src]").map { it.absUrl("src") }
+        // Gunakan Jsoup untuk mengekstrak URL gambar dari HTML
+        val imageUrls = Jsoup.parse(contentHtml).select("img[src]").map { it.absUrl("src") }
 
-    // Konstruksi daftar halaman
-    return imageUrls.mapIndexed { index, url ->
-        Page(index, "", url)
+        // Konstruksi daftar halaman
+        return imageUrls.mapIndexed { index, url ->
+            Page(index, "", url)
+        }
     }
-}
 
     companion object {
         val postIdRegex = """postId.:(\d+)""".toRegex()
     }
+
+    private val json = Json { ignoreUnknownKeys = true }
 }
