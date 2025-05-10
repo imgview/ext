@@ -75,9 +75,8 @@ class KomikCast : MangaThemesia(
     override fun latestUpdatesParse(response: Response): MangasPage {
     val original = super.latestUpdatesParse(response)
     val filtered = original.mangas.filter { manga ->
-        manga.genre
-            .orEmpty()                                     // jika null, jadi ""
-            .split(",")                                   
+        manga.genre.orEmpty()
+            .split(",")
             .map { it.trim().lowercase(Locale.getDefault()) }
             .any { it == "manhwa" || it == "manhua" }
     }
