@@ -8,6 +8,7 @@ import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.Page
 import kotlinx.serialization.Serializable
+import okhttp3.Response
 import kotlinx.serialization.decodeFromString
 import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceScreen
@@ -67,30 +68,36 @@ class KomikCast : MangaThemesia(
         return GET(page.imageUrl!!, newHeaders)
     }
 
-    override fun popularMangaRequest(page: Int) = searchMangaRequest(page, "orderby", "popular")
-override fun latestUpdatesRequest(page: Int) = searchMangaRequest(page, "sortby", "update")
+    override fun popularMangaRequest(page: Int) = customPageRequest(page, "orderby", "popular")
+    override fun latestUpdatesRequest(page: Int) = customPageRequest(page, "sortby", "update")
+    
+    override fun latestUpdatesParse(response: okhttp3.Response): MangasPage {
+    // Panggil parser bawaan untuk dapat MangasPage
+    val originalPage = super.latestUpdatesParse(response)
 
-// Menghapus customPageRequest karena tidak diperlukan lagi
-private fun searchMangaRequest(page: Int, filterKey: String, filterValue: String): Request {
-    val pagePath = if (page > 1) "page/$page/" else ""
-    val url = "$baseUrl$mangaUrlDirectory/$pagePath?$filterKey=$filterValue"
-    return GET(url, headers)
+    // Filter hanya yang genre-nya mengandung "manhwa" atau "manhua"
+    val filtered = originalPage.mangas.filter { manga ->
+        manga.genre.split(",")
+            .map { it.trim().lowercase(Locale.getDefault()) }
+            .any { it == "manhwa" || it == "manhua" }
+    }
+
+    return MangasPage(filtered, originalPage.hasNextPage)
 }
+
+    private fun customPageRequest(page: Int, filterKey: String, filterValue: String): Request {
+        val pagePath = if (page > 1) "page/$page/" else ""
+
+        return GET("$baseUrl$mangaUrlDirectory/$pagePath?$filterKey=$filterValue", headers)
+    }
+
+    override fun searchMangaSelector() = "div.list-update_item"
 
     override fun searchMangaFromElement(element: Element) = super.searchMangaFromElement(element).apply {
     val resizeServiceUrl = getResizeServiceUrlForThumbnails() // Ambil URL layanan resize untuk thumbnail
     val originalThumbnailUrl = element.select("img").imgAttr()
     thumbnail_url = "$resizeServiceUrl$originalThumbnailUrl"
     title = element.selectFirst("h3.title")!!.ownText()
-    
-    // Ambil tipe manga dari elemen span dengan kelas 'type manhua-bg' atau 'type manhwa-bg'
-    val type = element.selectFirst("span.type")?.text()?.lowercase() ?: ""
-    if (type !in listOf("manhwa", "manhua")) {
-        // Kosongkan data jika bukan manhwa/manhua
-        title = ""
-        url = ""
-        thumbnail_url = ""
-    }
 }
 
     override val seriesDetailsSelector = "div.komik_info:has(.komik_info-content)"
@@ -102,7 +109,7 @@ private fun searchMangaRequest(page: Int, filterKey: String, filterValue: String
     override val seriesStatusSelector = ".komik_info-content-info:contains(Status)"
 
     override fun mangaDetailsParse(document: Document) = SManga.create().apply {
-    val resizeServiceUrl = getResizeServiceUrlForThumbnails()
+    val resizeServiceUrl = getResizeServiceUrlForThumbnails() // Ambil URL layanan resize untuk thumbnail
     document.selectFirst(seriesDetailsSelector)?.let { seriesDetails ->
         title = seriesDetails.selectFirst(seriesTitleSelector)?.text()
             ?.replace("bahasa indonesia", "", ignoreCase = true)?.trim().orEmpty()
@@ -110,15 +117,23 @@ private fun searchMangaRequest(page: Int, filterKey: String, filterValue: String
         author = seriesDetails.selectFirst(seriesAuthorSelector)?.ownText().removeEmptyPlaceholder()
         description = seriesDetails.select(seriesDescriptionSelector).joinToString("\n") { it.text() }.trim()
 
-        val genres = seriesDetails.select(seriesGenreSelector).map { it.text().lowercase() }
-        val type = seriesDetails.selectFirst(seriesTypeSelector)?.ownText()?.lowercase() ?: ""
-        
-        // Filter hanya manhwa dan manhua
-        if (!genres.contains("manhwa") && !genres.contains("manhua") && type !in listOf("manhwa", "manhua")) {
-            throw Exception("Hanya Manhwa dan Manhua yang ditampilkan.")
+        val altName = seriesDetails.selectFirst(seriesAltNameSelector)?.ownText().takeIf { it.isNullOrBlank().not() }
+        altName?.let {
+            description = "$description\n\n$altNamePrefix$altName".trim()
         }
 
-        genre = genres.joinToString { it.trim().replaceFirstChar { char -> char.uppercase() } }
+        val genres = seriesDetails.select(seriesGenreSelector).map { it.text() }.toMutableList()
+        seriesDetails.selectFirst(seriesTypeSelector)?.ownText().takeIf { it.isNullOrBlank().not() }?.let { genres.add(it) }
+        genre = genres.map { genre ->
+            genre.lowercase(Locale.forLanguageTag(lang)).replaceFirstChar { char ->
+                if (char.isLowerCase()) {
+                    char.titlecase(Locale.forLanguageTag(lang))
+                } else {
+                    char.toString()
+                }
+            }
+        }.joinToString { it.trim() }
+
         status = seriesDetails.selectFirst(seriesStatusSelector)?.text().parseStatus()
 
         val originalThumbnailUrl = seriesDetails.select(seriesThumbnailSelector).imgAttr()
@@ -185,46 +200,46 @@ private fun searchMangaRequest(page: Int, filterKey: String, filterValue: String
     override val projectPageString = "/project-list"
 
     override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
-    val url = baseUrl.toHttpUrl().newBuilder()
+        val url = baseUrl.toHttpUrl().newBuilder()
 
-    if (query.isNotEmpty()) {
-        url.addPathSegments("page/$page/").addQueryParameter("s", query)
+        if (query.isNotEmpty()) {
+            url.addPathSegments("page/$page/").addQueryParameter("s", query)
+            return GET(url.build(), headers)
+        }
+
+        url.addPathSegment(mangaUrlDirectory.substring(1))
+            .addPathSegments("page/$page/")
+
+        filters.forEach { filter ->
+            when (filter) {
+                is StatusFilter -> {
+                    url.addQueryParameter("status", filter.selectedValue())
+                }
+                is TypeFilter -> {
+                    url.addQueryParameter("type", filter.selectedValue())
+                }
+                is OrderByFilter -> {
+                    url.addQueryParameter("orderby", filter.selectedValue())
+                }
+                is GenreListFilter -> {
+                    filter.state
+                        .filter { it.state != Filter.TriState.STATE_IGNORE }
+                        .forEach {
+                            val value = if (it.state == Filter.TriState.STATE_EXCLUDE) "-${it.value}" else it.value
+                            url.addQueryParameter("genre[]", value)
+                        }
+                }
+                // if site has project page, default value "hasProjectPage" = false
+                is ProjectFilter -> {
+                    if (filter.selectedValue() == "project-filter-on") {
+                        url.setPathSegment(0, projectPageString.substring(1))
+                    }
+                }
+                else -> { /* Do Nothing */ }
+            }
+        }
         return GET(url.build(), headers)
     }
-
-    url.addPathSegment(mangaUrlDirectory.substring(1))
-        .addPathSegments("page/$page/")
-
-    // Tambahkan filter tipe hanya untuk Manhwa dan Manhua
-    url.addQueryParameter("type", "manhwa")
-    url.addQueryParameter("type", "manhua")
-
-    filters.forEach { filter ->
-        when (filter) {
-            is StatusFilter -> {
-                url.addQueryParameter("status", filter.selectedValue())
-            }
-            is OrderByFilter -> {
-                url.addQueryParameter("orderby", filter.selectedValue())
-            }
-            is GenreListFilter -> {
-                filter.state
-                    .filter { it.state != Filter.TriState.STATE_IGNORE }
-                    .forEach {
-                        val value = if (it.state == Filter.TriState.STATE_EXCLUDE) "-${it.value}" else it.value
-                        url.addQueryParameter("genre[]", value)
-                    }
-            }
-            is ProjectFilter -> {
-                if (filter.selectedValue() == "project-filter-on") {
-                    url.setPathSegment(0, projectPageString.substring(1))
-                }
-            }
-            else -> { /* Do Nothing */ }
-        }
-    }
-    return GET(url.build(), headers)
-}
 
     private class StatusFilter : SelectFilter(
         "Status",
