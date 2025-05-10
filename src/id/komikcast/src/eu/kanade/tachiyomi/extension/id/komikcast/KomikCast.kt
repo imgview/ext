@@ -76,13 +76,20 @@ class KomikCast : MangaThemesia(
         return GET("$baseUrl$mangaUrlDirectory/$pagePath?$filterKey=$filterValue", headers)
     }
 
-    override fun searchMangaSelector() = "div.list-update_item"
-
     override fun searchMangaFromElement(element: Element) = super.searchMangaFromElement(element).apply {
     val resizeServiceUrl = getResizeServiceUrlForThumbnails() // Ambil URL layanan resize untuk thumbnail
     val originalThumbnailUrl = element.select("img").imgAttr()
     thumbnail_url = "$resizeServiceUrl$originalThumbnailUrl"
     title = element.selectFirst("h3.title")!!.ownText()
+    
+    // Tambahkan filter berdasarkan tipe
+    val type = element.selectFirst("span.manga-type")?.text()?.lowercase() ?: ""
+    if (type !in listOf("manhwa", "manhua")) {
+        // Kosongkan data jika bukan manhwa/manhua
+        title = ""
+        url = ""
+        thumbnail_url = ""
+    }
 }
 
     override val seriesDetailsSelector = "div.komik_info:has(.komik_info-content)"
@@ -94,7 +101,7 @@ class KomikCast : MangaThemesia(
     override val seriesStatusSelector = ".komik_info-content-info:contains(Status)"
 
     override fun mangaDetailsParse(document: Document) = SManga.create().apply {
-    val resizeServiceUrl = getResizeServiceUrlForThumbnails() // Ambil URL layanan resize untuk thumbnail
+    val resizeServiceUrl = getResizeServiceUrlForThumbnails()
     document.selectFirst(seriesDetailsSelector)?.let { seriesDetails ->
         title = seriesDetails.selectFirst(seriesTitleSelector)?.text()
             ?.replace("bahasa indonesia", "", ignoreCase = true)?.trim().orEmpty()
@@ -102,23 +109,15 @@ class KomikCast : MangaThemesia(
         author = seriesDetails.selectFirst(seriesAuthorSelector)?.ownText().removeEmptyPlaceholder()
         description = seriesDetails.select(seriesDescriptionSelector).joinToString("\n") { it.text() }.trim()
 
-        val altName = seriesDetails.selectFirst(seriesAltNameSelector)?.ownText().takeIf { it.isNullOrBlank().not() }
-        altName?.let {
-            description = "$description\n\n$altNamePrefix$altName".trim()
+        val genres = seriesDetails.select(seriesGenreSelector).map { it.text().lowercase() }
+        val type = seriesDetails.selectFirst(seriesTypeSelector)?.ownText()?.lowercase() ?: ""
+        
+        // Filter hanya manhwa dan manhua
+        if (!genres.contains("manhwa") && !genres.contains("manhua") && type !in listOf("manhwa", "manhua")) {
+            throw Exception("Hanya Manhwa dan Manhua yang ditampilkan.")
         }
 
-        val genres = seriesDetails.select(seriesGenreSelector).map { it.text() }.toMutableList()
-        seriesDetails.selectFirst(seriesTypeSelector)?.ownText().takeIf { it.isNullOrBlank().not() }?.let { genres.add(it) }
-        genre = genres.map { genre ->
-            genre.lowercase(Locale.forLanguageTag(lang)).replaceFirstChar { char ->
-                if (char.isLowerCase()) {
-                    char.titlecase(Locale.forLanguageTag(lang))
-                } else {
-                    char.toString()
-                }
-            }
-        }.joinToString { it.trim() }
-
+        genre = genres.joinToString { it.trim().replaceFirstChar { char -> char.uppercase() } }
         status = seriesDetails.selectFirst(seriesStatusSelector)?.text().parseStatus()
 
         val originalThumbnailUrl = seriesDetails.select(seriesThumbnailSelector).imgAttr()
