@@ -3,10 +3,10 @@ package eu.kanade.tachiyomi.extension.id.komikcast
 import android.app.Application
 import eu.kanade.tachiyomi.multisrc.mangathemesia.MangaThemesia
 import eu.kanade.tachiyomi.network.GET
-import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.network.interceptor.rateLimit
 import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
+import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.model.Page
 import kotlinx.serialization.Serializable
 import okhttp3.Response
@@ -72,18 +72,16 @@ class KomikCast : MangaThemesia(
     override fun popularMangaRequest(page: Int) = customPageRequest(page, "orderby", "popular")
     override fun latestUpdatesRequest(page: Int) = customPageRequest(page, "sortby", "update")
     
-    override fun latestUpdatesParse(response: okhttp3.Response): MangasPage {
-    // Panggil parser bawaan untuk dapat MangasPage
-    val originalPage = super.latestUpdatesParse(response)
-
-    // Filter hanya yang genre-nya mengandung "manhwa" atau "manhua"
-    val filtered = originalPage.mangas.filter { manga ->
-        manga.genre.split(",")
+    override fun latestUpdatesParse(response: Response): MangasPage {
+    val original = super.latestUpdatesParse(response)
+    val filtered = original.mangas.filter { manga ->
+        manga.genre
+            .orEmpty()                                     // jika null, jadi ""
+            .split(",")                                   
             .map { it.trim().lowercase(Locale.getDefault()) }
             .any { it == "manhwa" || it == "manhua" }
     }
-
-    return MangasPage(filtered, originalPage.hasNextPage)
+    return MangasPage(filtered, original.hasNextPage)
 }
 
     private fun customPageRequest(page: Int, filterKey: String, filterValue: String): Request {
