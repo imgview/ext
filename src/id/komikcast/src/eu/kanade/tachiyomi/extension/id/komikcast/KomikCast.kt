@@ -6,10 +6,8 @@ import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.interceptor.rateLimit
 import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
-import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.model.Page
 import kotlinx.serialization.Serializable
-import okhttp3.Response
 import kotlinx.serialization.decodeFromString
 import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceScreen
@@ -71,17 +69,6 @@ class KomikCast : MangaThemesia(
 
     override fun popularMangaRequest(page: Int) = customPageRequest(page, "orderby", "popular")
     override fun latestUpdatesRequest(page: Int) = customPageRequest(page, "sortby", "update")
-    
-    override fun latestUpdatesParse(response: Response): MangasPage {
-    val original = super.latestUpdatesParse(response)
-    val filtered = original.mangas.filter { manga ->
-        manga.genre.orEmpty()
-            .split(",")
-            .map { it.trim().lowercase(Locale.getDefault()) }
-            .any { it == "manhwa" || it == "manhua" }
-    }
-    return MangasPage(filtered, original.hasNextPage)
-}
 
     private fun customPageRequest(page: Int, filterKey: String, filterValue: String): Request {
         val pagePath = if (page > 1) "page/$page/" else ""
