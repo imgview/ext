@@ -35,6 +35,14 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
 
     private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0)
     override var baseUrl: String = preferences.getString(BASE_URL_PREF, "https://kiryuu01.com")!!
+    
+    private fun getResizeServiceUrl(): String? {
+        return preferences.getString("resize_service_url", null)
+    }
+
+    private fun resizeImageUrl(originalUrl: String): String {
+        return "LayananGambar$originalUrl"
+    }
 
     // Requests
     override fun popularMangaRequest(page: Int): Request =
@@ -61,7 +69,7 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     override fun latestUpdatesFromElement(element: Element): SManga = element.toSManga()
     override fun searchMangaFromElement(element: Element): SManga = element.toSManga()
 
-    override fun popularMangaNextPageSelector(): String = "a.next.page-numbers"
+    override fun popularMangaNextPageSelector(): String = ".hpage a.r"
     override fun latestUpdatesNextPageSelector(): String = popularMangaNextPageSelector()
     override fun searchMangaNextPageSelector(): String = popularMangaNextPageSelector()
 
@@ -92,19 +100,38 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         return manga
     }
 
-    override fun chapterListSelector(): String = "div#chapterlist ul > li"
+    override fun chapterListSelector() = "div.bxcl li, div.cl li, #chapterlist li, ul li:has(div.chbox):has(div.eph-num)"
 
     override fun chapterFromElement(element: Element): SChapter {
-        val urlElem = element.selectFirst("a")!!
-        val chapter = SChapter.create()
-        chapter.setUrlWithoutDomain(urlElem.attr("href"))
-        chapter.name = urlElem.text()
-        return chapter
+    val urlElem = element.selectFirst("a")!!
+    val chapter = SChapter.create()
+    chapter.setUrlWithoutDomain(urlElem.attr("href"))
+    chapter.name = urlElem.text()
+
+    // --- Mulai penambahan stempel waktu ---
+    element.selectFirst("span.chapterdate")?.text()?.let { dateStr ->
+        // Format tanggal seperti "Mei 11, 2025"
+        val parser = SimpleDateFormat("MMMM d, yyyy", Locale("id"))
+        chapter.date_upload = try {
+            parser.parse(dateStr)?.time ?: 0L
+        } catch (e: Exception) {
+            0L
+        }
     }
+    // --- Selesai penambahan stempel waktu ---
+
+    return chapter
+}
 
     override fun pageListParse(document: Document): List<Page> {
-        return document.select("div#readerarea img").mapIndexed { i, img ->
-            Page(i, "", img.attr("abs:src"))
+        val scriptContent = document.selectFirst("script:containsData(ts_reader)")?.data()
+            ?: return super.pageListParse(document)
+        val jsonString = scriptContent.substringAfter("ts_reader.run(").substringBefore(");")
+        val tsReader = json.decodeFromString<TSReader>(jsonString)
+        val imageUrls = tsReader.sources.firstOrNull()?.images ?: return emptyList()
+
+        return imageUrls.mapIndexed { index, imageUrl -> 
+            Page(index, document.location(), "${getResizeServiceUrl() ?: ""}$imageUrl")
         }
     }
 
@@ -116,20 +143,33 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     override fun getFilterList(): FilterList = FilterList(Filter.Header("No filters"))
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
-        val basePref = EditTextPreference(screen.context).apply {
+        val resizeServicePref = EditTextPreference(screen.context).apply {
+            key = "resize_service_url"
+            title = "Resize Service URL"
+            summary = "Masukkan URL layanan resize gambar."
+            setDefaultValue(null)
+            dialogTitle = "Resize Service URL"
+        }
+        screen.addPreference(resizeServicePref)
+
+        // Preference untuk mengubah base URL
+        val baseUrlPref = EditTextPreference(screen.context).apply {
             key = BASE_URL_PREF
             title = BASE_URL_PREF_TITLE
             summary = BASE_URL_PREF_SUMMARY
             setDefaultValue(baseUrl)
+            dialogTitle = BASE_URL_PREF_TITLE
             dialogMessage = "Original: $baseUrl"
-            setOnPreferenceChangeListener { _, newVal ->
-                baseUrl = newVal as String
-                preferences.edit().putString(BASE_URL_PREF, baseUrl).apply()
-                summary = "Current baseUrl: $baseUrl"
+
+            setOnPreferenceChangeListener { _, newValue ->
+                val newUrl = newValue as String
+                baseUrl = newUrl
+                preferences.edit().putString(BASE_URL_PREF, newUrl).apply()
+                summary = "Current domain: $newUrl" // Update summary untuk domain yang baru
                 true
             }
         }
-        screen.addPreference(basePref)
+        screen.addPreference(baseUrlPref)
     }
 
     private fun Element.toSManga(): SManga {
