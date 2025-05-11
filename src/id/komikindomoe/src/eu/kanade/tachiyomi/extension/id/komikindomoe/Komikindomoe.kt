@@ -42,7 +42,6 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     private fun getResizeServiceUrl(): String? =
         preferences.getString("resize_service_url", null)
 
-    // JSON parser for ts_reader
     private val jsonParser = Json { ignoreUnknownKeys = true }
 
     @Serializable
@@ -96,7 +95,7 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         return MangasPage(mangas, hasNext)
     }
 
-    // Details, chapters
+    // Details
     override fun mangaDetailsParse(document: Document): SManga {
         val manga = SManga.create()
         val info = document.select("div.postbody").first()!!
@@ -119,7 +118,6 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         chapter.setUrlWithoutDomain(urlElem.attr("href"))
         chapter.name = urlElem.text()
 
-        // Tambahkan stempel waktu dari span.chapterdate
         element.selectFirst("span.chapterdate")?.text()?.let { dateStr ->
             val parser = SimpleDateFormat("MMMM d, yyyy", Locale("id"))
             chapter.date_upload = try {
@@ -132,7 +130,7 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         return chapter
     }
 
-    // Pages
+    // Pages: override both versions
     override fun pageListParse(response: Response): List<Page> {
         val document = response.asJsoup()
         val script = document.selectFirst("script:containsData(ts_reader)")?.data()
@@ -144,6 +142,11 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         return imageUrls.mapIndexed { index, imageUrl ->
             Page(index, document.location(), "${getResizeServiceUrl() ?: ""}$imageUrl")
         }
+    }
+
+    override fun pageListParse(document: Document): List<Page> {
+        // fallback to default behavior for simple image lists
+        return super.pageListParse(document)
     }
 
     override fun imageUrlParse(document: Document): String =
