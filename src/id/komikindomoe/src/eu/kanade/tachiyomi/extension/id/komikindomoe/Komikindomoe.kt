@@ -1,4 +1,4 @@
-package eu.kanade.tachiyomi.extension.id.komikindomoe
+package eu.kanade.tachiyomi.extension.id.kiryuu
 
 import android.app.Application
 import androidx.preference.EditTextPreference
@@ -14,6 +14,9 @@ import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.online.ParsedHttpSource
 import eu.kanade.tachiyomi.util.asJsoup
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -25,7 +28,7 @@ import uy.kohesive.injekt.api.get
 import java.text.SimpleDateFormat
 import java.util.Locale
 
-class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
+class Kiryuu : ParsedHttpSource(), ConfigurableSource {
     override val name = "Kiryuu01.com"
     override val lang = "id"
     override val supportsLatest = true
@@ -35,13 +38,21 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
 
     private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0)
     override var baseUrl: String = preferences.getString(BASE_URL_PREF, "https://kiryuu01.com")!!
-    
-    private fun getResizeServiceUrl(): String? {
-        return preferences.getString("resize_service_url", null)
-    }
 
-    private fun resizeImageUrl(originalUrl: String): String {
-        return "LayananGambar$originalUrl"
+    private fun getResizeServiceUrl(): String? =
+        preferences.getString("resize_service_url", null)
+
+    // JSON parser for ts_reader
+    private val jsonParser = Json { ignoreUnknownKeys = true }
+
+    @Serializable
+    private data class TSReader(
+        val sources: List<Source> = emptyList()
+    ) {
+        @Serializable
+        data class Source(
+            val images: List<String> = emptyList()
+        )
     }
 
     // Requests
@@ -85,7 +96,7 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         return MangasPage(mangas, hasNext)
     }
 
-    // Details, chapters, pages
+    // Details, chapters
     override fun mangaDetailsParse(document: Document): SManga {
         val manga = SManga.create()
         val info = document.select("div.postbody").first()!!
@@ -103,39 +114,40 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     override fun chapterListSelector() = "div.bxcl li, div.cl li, #chapterlist li, ul li:has(div.chbox):has(div.eph-num)"
 
     override fun chapterFromElement(element: Element): SChapter {
-    val urlElem = element.selectFirst("a")!!
-    val chapter = SChapter.create()
-    chapter.setUrlWithoutDomain(urlElem.attr("href"))
-    chapter.name = urlElem.text()
+        val urlElem = element.selectFirst("a")!!
+        val chapter = SChapter.create()
+        chapter.setUrlWithoutDomain(urlElem.attr("href"))
+        chapter.name = urlElem.text()
 
-    // --- Mulai penambahan stempel waktu ---
-    element.selectFirst("span.chapterdate")?.text()?.let { dateStr ->
-        // Format tanggal seperti "Mei 11, 2025"
-        val parser = SimpleDateFormat("MMMM d, yyyy", Locale("id"))
-        chapter.date_upload = try {
-            parser.parse(dateStr)?.time ?: 0L
-        } catch (e: Exception) {
-            0L
+        // Tambahkan stempel waktu dari span.chapterdate
+        element.selectFirst("span.chapterdate")?.text()?.let { dateStr ->
+            val parser = SimpleDateFormat("MMMM d, yyyy", Locale("id"))
+            chapter.date_upload = try {
+                parser.parse(dateStr)?.time ?: 0L
+            } catch (_: Exception) {
+                0L
+            }
         }
+
+        return chapter
     }
-    // --- Selesai penambahan stempel waktu ---
 
-    return chapter
-}
-
-    override fun pageListParse(document: Document): List<Page> {
-        val scriptContent = document.selectFirst("script:containsData(ts_reader)")?.data()
-            ?: return super.pageListParse(document)
-        val jsonString = scriptContent.substringAfter("ts_reader.run(").substringBefore(");")
-        val tsReader = json.decodeFromString<TSReader>(jsonString)
+    // Pages
+    override fun pageListParse(response: Response): List<Page> {
+        val document = response.asJsoup()
+        val script = document.selectFirst("script:containsData(ts_reader)")?.data()
+            ?: return super.pageListParse(response)
+        val jsonString = script.substringAfter("ts_reader.run(").substringBefore(");")
+        val tsReader = jsonParser.decodeFromString<TSReader>(jsonString)
         val imageUrls = tsReader.sources.firstOrNull()?.images ?: return emptyList()
 
-        return imageUrls.mapIndexed { index, imageUrl -> 
+        return imageUrls.mapIndexed { index, imageUrl ->
             Page(index, document.location(), "${getResizeServiceUrl() ?: ""}$imageUrl")
         }
     }
 
-    override fun imageUrlParse(document: Document): String = throw UnsupportedOperationException()
+    override fun imageUrlParse(document: Document): String =
+        throw UnsupportedOperationException()
 
     override fun imageRequest(page: Page): Request =
         GET(page.imageUrl!!, headersBuilder().set("Referer", baseUrl).build())
@@ -152,7 +164,6 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         }
         screen.addPreference(resizeServicePref)
 
-        // Preference untuk mengubah base URL
         val baseUrlPref = EditTextPreference(screen.context).apply {
             key = BASE_URL_PREF
             title = BASE_URL_PREF_TITLE
@@ -165,7 +176,7 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
                 val newUrl = newValue as String
                 baseUrl = newUrl
                 preferences.edit().putString(BASE_URL_PREF, newUrl).apply()
-                summary = "Current domain: $newUrl" // Update summary untuk domain yang baru
+                summary = "Current domain: $newUrl"
                 true
             }
         }
