@@ -1,0 +1,7 @@
+ext {
+    extName = 'Komikindo.moe'
+    extClass = '.Komikindomoe'
+    extVersionCode = 1
+}
+
+apply from: "$rootDir/common.gradle"
