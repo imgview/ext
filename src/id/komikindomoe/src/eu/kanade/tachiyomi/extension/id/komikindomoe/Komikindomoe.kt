@@ -28,26 +28,18 @@ import java.util.Locale
 
 class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     override val name = "Komikcast02.com"
-
     private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
-
-    override var baseUrl: String = preferences.getString(BASE_URL_PREF, "https://komikindo.moe")!!
-
+    override var baseUrl: String = preferences.getString(BASE_URL_PREF, "https://komikcast02.com")!!
     override val lang = "id"
     override val supportsLatest = true
     private val dateFormat: SimpleDateFormat = SimpleDateFormat("MMM d, yyyy", Locale.US)
-
     override val client: OkHttpClient = network.cloudflareClient.newBuilder()
         .rateLimit(12, 3)
         .build()
 
-    private fun getResizeServiceUrl(): String? {
-        return preferences.getString("resize_service_url", null)
-    }
+    private fun getResizeServiceUrl(): String? = preferences.getString("resize_service_url", null)
 
-    override fun popularMangaRequest(page: Int): Request {
-        return GET("$baseUrl/page/$page", headers)
-    }
+    override fun popularMangaRequest(page: Int): Request = GET("$baseUrl/page/$page", headers)
 
     override fun latestUpdatesRequest(page: Int): Request {
         val url = "$baseUrl/daftar-komik/?orderby=update&page=$page"
@@ -55,16 +47,14 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         return GET(url, headers)
     }
 
-    private fun resizeImage(imageUrl: String, width: Int, height: Int): String {
-        return "https://resize.sardo.work/?width=$width&height=$height&imageUrl=$imageUrl"
-    }
+    private fun resizeImage(imageUrl: String, width: Int, height: Int): String =
+        "https://resize.sardo.work/?width=$width&height=$height&imageUrl=$imageUrl"
 
-    override fun popularMangaSelector() = "div.listupd div.utao div.uta"
-    override fun latestUpdatesSelector() = "div.list-update_item"
+    override fun popularMangaSelector(): String = "div.listupd div.utao div.uta"
+    override fun latestUpdatesSelector(): String = "div.list-update_item"
+    override fun searchMangaSelector(): String = "div.bsx"
 
     override fun popularMangaFromElement(element: Element): SManga = searchMangaFromElement(element)
-
-    // Stub override untuk memenuhi kontrak abstract class
     override fun latestUpdatesFromElement(element: Element): SManga = searchMangaFromElement(element)
 
     override fun latestUpdatesParse(response: Response): MangasPage {
@@ -72,9 +62,7 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         val mangas = document.select(latestUpdatesSelector())
             .mapNotNull { element ->
                 val type = element.selectFirst("span.type")?.text()?.trim() ?: return@mapNotNull null
-                // Hanya ambil Manhua atau Manhwa
                 if (!type.equals("Manhua", true) && !type.equals("Manhwa", true)) return@mapNotNull null
-
                 SManga.create().apply {
                     setUrlWithoutDomain(element.selectFirst("a")!!.attr("href"))
                     title = element.selectFirst("h3.title")!!.text()
@@ -89,12 +77,8 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         val manga = SManga.create()
         manga.setUrlWithoutDomain(element.select("a").attr("href"))
         manga.title = element.select("div.tt, h3").text()
-        val originalImageUrl = element.selectFirst("img.ts-post-image")?.attr("src") ?: ""
-        val replacedImageUrl = originalImageUrl.replace(
-            "https://cdn.statically.io/img/komikindo.moe/img",
-            "https://ikiru.one/wp-content/uploads"
-        )
-        manga.thumbnail_url = resizeImage(replacedImageUrl, 50, 50)
+        val originalImageUrl = element.selectFirst("img.ts-post-image")?.attr("abs:src") ?: ""
+        manga.thumbnail_url = resizeImage(originalImageUrl, 50, 50)
         return manga
     }
 
@@ -103,9 +87,9 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         return GET(url, headers)
     }
 
-    override fun popularMangaNextPageSelector() = "div.hpage a.r"
-    override fun latestUpdatesNextPageSelector() = popularMangaNextPageSelector()
-    override fun searchMangaNextPageSelector() = "a.next.page-numbers"
+    override fun popularMangaNextPageSelector(): String = "div.hpage a.r"
+    override fun latestUpdatesNextPageSelector(): String = popularMangaNextPageSelector()
+    override fun searchMangaNextPageSelector(): String = "a.next.page-numbers"
 
     override fun mangaDetailsParse(document: Document): SManga {
         val manga = SManga.create()
@@ -117,78 +101,74 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         manga.artist = infoElement.select("b:contains(Artist) + span").text()
 
         val genres = mutableListOf<String>()
-        val typeManga = mutableListOf<String>()
+        val types = mutableListOf<String>()
         infoElement.select("span.mgen a").forEach { genres.add(it.text()) }
-        infoElement.select(".imptdt a").forEach { typeManga.add(it.text()) }
-        manga.genre = (genres + typeManga).joinToString(", ")
+        infoElement.select(".imptdt a").forEach { types.add(it.text()) }
+        manga.genre = (genres + types).joinToString(", ")
 
         manga.status = parseStatus(infoElement.select(".imptdt i").text())
         manga.description = descElement.select("p").text()
 
-        val altName = document.selectFirst("b:contains(Alternative Titles) + span")?.text()
-        if (altName != null) manga.description += "\n\nAlternative Name: $altName"
+        document.selectFirst("b:contains(Alternative Titles) + span")?.text()?.let {
+            manga.description += "\n\nAlternative Name: $it"
+        }
 
-        val originalThumb = document.selectFirst("div.thumb img")?.attr("src") ?: ""
-        val replacedThumb = originalThumb.replace(
-            "https://cdn.statically.io/img/komikindo.moe/img",
-            "https://ikiru.one/wp-content/uploads"
-        )
-        manga.thumbnail_url = resizeImage(replacedThumb, 110, 150)
+        val thumbUrl = document.selectFirst("div.thumb img")?.attr("src") ?: ""
+        manga.thumbnail_url = resizeImage(thumbUrl, 110, 150)
         return manga
     }
 
-    private fun parseStatus(element: String): Int = when {
-        element.lowercase().contains("ongoing") -> SManga.ONGOING
-        element.lowercase().contains("completed") -> SManga.COMPLETED
+    private fun parseStatus(text: String): Int = when {
+        text.contains("ongoing", true) -> SManga.ONGOING
+        text.contains("completed", true) -> SManga.COMPLETED
         else -> SManga.UNKNOWN
     }
 
-    override fun chapterListSelector() = "div#chapterlist ul > li"
+    override fun chapterListSelector(): String = "div#chapterlist ul > li"
 
     override fun chapterFromElement(element: Element): SChapter {
         val urlElement = element.select("div.eph-num a").first()!!
-        val chapter = SChapter.create()
-        chapter.setUrlWithoutDomain(urlElement.attr("href"))
-        chapter.name = urlElement.select("span.chapternum").text()
-        chapter.date_upload = element.select("span.chapterdate").text().let { parseChapterDate(it) }
-        return chapter
+        return SChapter.create().apply {
+            setUrlWithoutDomain(urlElement.attr("href"))
+            name = urlElement.select("span.chapternum").text()
+            date_upload = element.select("span.chapterdate").text().let { parseChapterDate(it) }
+        }
     }
 
     private fun parseChapterDate(date: String): Long = try {
         dateFormat.parse(date)?.time ?: 0L
-    } catch (e: Exception) {
+    } catch (_: Exception) {
         0L
     }
 
     override fun prepareNewChapter(chapter: SChapter, manga: SManga) {
-        val basic = Regex("""Chapter\s([0-9]+)""")
-        if (basic.containsMatchIn(chapter.name)) {
-            chapter.chapter_number = basic.find(chapter.name)?.groups?.get(1)?.value?.toFloat() ?: 0f
-        }
+        Regex("""Chapter\s([0-9]+)""")
+            .find(chapter.name)
+            ?.groups?.get(1)?.value
+            ?.toFloatOrNull()
+            ?.let { chapter.chapter_number = it }
     }
 
     override fun pageListParse(document: Document): List<Page> {
-        val resizeServiceUrl = getResizeServiceUrl()
-        return document.select("div#readerarea img").mapIndexed { i, element ->
-            val imageUrl = element.imgAttr()
-            val finalImageUrl = resizeServiceUrl?.let { "$it$imageUrl" } ?: imageUrl
-            Page(i, "", finalImageUrl)
+        val urlPrefix = getResizeServiceUrl()
+        return document.select("div#readerarea img").mapIndexed { i, img ->
+            val src = img.attr("abs:src")
+            Page(i, "", urlPrefix?.let { "$it$src" } ?: src)
         }
     }
 
     override fun imageUrlParse(document: Document): String = throw UnsupportedOperationException()
 
-    override fun imageRequest(page: Page): Request {
-        val newHeaders = headersBuilder()
+    override fun imageRequest(page: Page): Request = GET(
+        page.imageUrl!!,
+        headersBuilder()
             .set("Accept", "image/avif,image/webp,image/png,image/jpeg,*/*")
             .set("Referer", page.url)
             .build()
+    )
 
-        return GET(page.imageUrl!!, newHeaders)
-    }
-
-    override fun getFilterList() = FilterList(
-        Filter.Header("Filter sengaja kosong, di web mereka gak ada filter juga"),
+    override fun getFilterList(): FilterList = FilterList(
+        Filter.Header("No filters available on site"),
         Filter.Separator()
     )
 
@@ -200,35 +180,32 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     }
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
-        val resizeServicePref = EditTextPreference(screen.context).apply {
-            key = "resize_service_url"
-            title = "Resize Service URL"
-            summary = "Masukkan URL Resize"
-            setDefaultValue("")
-            dialogTitle = "Resize Service URL"
+        screen.apply {
+            addPreference(
+                EditTextPreference(context).apply {
+                    key = "resize_service_url"
+                    title = "Resize Service URL"
+                    summary = "Masukkan URL Resize"
+                    setDefaultValue("")
+                }
+            )
+            addPreference(
+                EditTextPreference(context).apply {
+                    key = BASE_URL_PREF
+                    title = BASE_URL_PREF_TITLE
+                    summary = BASE_URL_PREF_SUMMARY
+                    setDefaultValue(baseUrl)
+                    dialogMessage = "Original: $baseUrl"
+                    setOnPreferenceChangeListener { _, newValue ->
+                        baseUrl = newValue as String
+                        preferences.edit().putString(BASE_URL_PREF, newValue).apply()
+                        summary = "Current domain: $baseUrl"
+                        true
+                    }
+                }
+            )
         }
-        screen.addPreference(resizeServicePref)
-
-        val baseUrlPref = EditTextPreference(screen.context).apply {
-            key = BASE_URL_PREF
-            title = BASE_URL_PREF_TITLE
-            summary = BASE_URL_PREF_SUMMARY
-            setDefaultValue(baseUrl)
-            dialogTitle = BASE_URL_PREF_TITLE
-            dialogMessage = "Original: $baseUrl"
-
-            setOnPreferenceChangeListener { _, newValue ->
-                val newUrl = newValue as String
-                baseUrl = newUrl
-                preferences.edit().putString(BASE_URL_PREF, newUrl).apply()
-                summary = "Current domain: $newUrl"
-                true
-            }
-        }
-        screen.addPreference(baseUrlPref)
     }
-
-    private fun Elements.imgAttr(): String = this.first()!!.imgAttr()
 
     companion object {
         private const val BASE_URL_PREF_TITLE = "Ubah Domain"
