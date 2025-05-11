@@ -97,18 +97,37 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
 
     // Details
     override fun mangaDetailsParse(document: Document): SManga {
-        val manga = SManga.create()
-        val info = document.select("div.postbody").first()!!
-        manga.title = document.selectFirst("div.postbody h1")!!.text()
-        manga.author = info.select("b:contains(Author) + span").text()
-        manga.artist = info.select("b:contains(Artist) + span").text()
-        val genres = info.select("div.genres a").eachText()
-        manga.genre = genres.joinToString(", ")
-        manga.status = SManga.UNKNOWN
-        manga.description = document.selectFirst("div.description")!!.text()
-        manga.thumbnail_url = document.selectFirst("div.thumb img")!!.attr("abs:src")
-        return manga
+    val manga = SManga.create()
+    val info = document.selectFirst("div.postbody")!!
+
+    // Title
+    manga.title = info.selectFirst("h1")!!.text()
+
+    // Thumbnail
+    manga.thumbnail_url = info.selectFirst("div.thumb img")!!.attr("abs:src")
+
+    // Author & Artist
+    manga.author = info.selectFirst("b:contains(Author) + span")?.text().orEmpty()
+    manga.artist = info.selectFirst("b:contains(Artist) + span")?.text().orEmpty()
+
+    // Status
+    val statusText = info.selectFirst("b:contains(Status) + span")?.text().orEmpty()
+    manga.status = when {
+        statusText.contains("Ongoing", ignoreCase = true)   -> SManga.ONGOING
+        statusText.contains("Completed", ignoreCase = true) -> SManga.COMPLETED
+        else                                               -> SManga.UNKNOWN
     }
+
+    // Genres
+    manga.genre = info.select("b:contains(Genre) + span a")
+        .eachText()
+        .joinToString(", ")
+
+    // Description
+    manga.description = info.selectFirst("div.description")?.text().orEmpty()
+
+    return manga
+}
 
     override fun chapterListSelector() = "div.bxcl li, div.cl li, #chapterlist li, ul li:has(div.chbox):has(div.eph-num)"
 
