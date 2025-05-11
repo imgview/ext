@@ -14,6 +14,8 @@ import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.ParsedHttpSource
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
+import okhttp3.Response
+import eu.kanade.tachiyomi.network.asJsoup
 import okhttp3.Request
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
@@ -24,7 +26,7 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 
 class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
-    override val name = "Komikindo.moe"
+    override val name = "Komikcast02.com"
 
     private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
 
@@ -47,19 +49,39 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     }
 
     override fun latestUpdatesRequest(page: Int): Request {
-        return GET("$baseUrl/page/$page", headers)
-    }
+    val url = "$baseUrl/daftar-komik/?orderby=update&page=$page"
+        .toHttpUrl().newBuilder().build()
+    return GET(url, headers)
+}
 
     private fun resizeImage(imageUrl: String, width: Int, height: Int): String {
     return "https://resize.sardo.work/?width=$width&height=$height&imageUrl=$imageUrl"
 }
 
     override fun popularMangaSelector() = "div.listupd div.utao div.uta"
-    override fun latestUpdatesSelector() = popularMangaSelector()
-    override fun searchMangaSelector() = "div.bsx"
+    override fun latestUpdatesSelector() = "div.list-update_item"
 
     override fun popularMangaFromElement(element: Element): SManga = searchMangaFromElement(element)
-    override fun latestUpdatesFromElement(element: Element): SManga = searchMangaFromElement(element)
+    override fun latestUpdatesParse(response: Response): List<SManga> {
+    val document = response.asJsoup()
+    return document.select(latestUpdatesSelector())
+        .mapNotNull { element ->
+            val type = element.selectFirst("span.type")?.text()?.trim() ?: return@mapNotNull null
+            // Hanya ambil Manhua atau Manhwa
+            if (!type.equals("Manhua", true) && !type.equals("Manhwa", true)) return@mapNotNull null
+
+            // parsing SManga
+            val link = element.selectFirst("a")!!.attr("href")
+            val title = element.selectFirst("h3.title")!!.text()
+            val thumb = element.selectFirst("img.ts-post-image")!!.attr("abs:src")
+
+            SManga.create().apply {
+                setUrlWithoutDomain(link)
+                this.title = title
+                thumbnail_url = thumb
+            }
+        }
+}
 
     override fun searchMangaFromElement(element: Element): SManga {
     val manga = SManga.create()
