@@ -18,74 +18,65 @@ import java.util.Calendar
 import java.util.Locale
 
 class Komiku : ParsedHttpSource() {
+
+    // 1. Basic info
     override val name = "Komiku"
-
     override val baseUrl = "https://komiku.id"
-
-    private val baseUrlApi = "https://api.komiku.id"
-
     override val lang = "id"
-
     override val supportsLatest = true
-
     override val client: OkHttpClient = network.cloudflareClient
 
-    // popular
+    // 2. API config
+    private val baseUrlApi = "https://api.komiku.id"
+    private val section = "hot"     // cukup ubah ini ke "berwarna" atau apa pun
+    private fun pagePath(page: Int) = if (page == 1) "" else "page/$page/"
+
+    // 3. Popular
     override fun popularMangaSelector() = "div.bge:lt(10)"
 
-    override fun popularMangaRequest(page: Int): Request {
-        return if (page == 1) {
-            GET("$baseUrlApi/other/hot/?orderby=meta_value_num", headers)
-        } else {
-            GET("$baseUrlApi/other/hot/page/$page/?orderby=meta_value_num", headers)
-        }
-    }
+    override fun popularMangaRequest(page: Int): Request =
+        GET(
+            "$baseUrlApi/other/$section/${pagePath(page)}?orderby=meta_value_num",
+            headers
+        )
 
     override fun popularMangaFromElement(element: Element): SManga {
-    val manga = SManga.create()
+        val manga = SManga.create()
+        val url = element.select("a:has(h3)").attr("href")
+        manga.setUrlWithoutDomain(url)
+        manga.title = element.select("h3").text().trim()
+        manga.thumbnail_url = null
 
-    // 1) Ambil URL & Judul
-    val url = element.select("a:has(h3)").attr("href")
-    manga.setUrlWithoutDomain(url)
-    manga.title = element.select("h3").text().trim()
+        // Ambil cover di background
+        Thread {
+            try {
+                val resp = client.newCall(GET(url, headers)).execute()
+                val doc = Jsoup.parse(resp.body!!.string())
+                manga.thumbnail_url = doc.selectFirst("div.ims img")?.absUrl("src")
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }.start()
 
-    // 2) Tampilkan placeholder sementara
-    manga.thumbnail_url = null // Tachiyomi akan menampilkan placeholder bawaan
-
-    // 3) Jalankan proses pengambilan cover di background
-    // Jangan blokir UI utama
-    Thread {
-        try {
-            val resp = client.newCall(GET(url, headers)).execute()
-            val detailDoc = Jsoup.parse(resp.body!!.string())
-
-            val imgElem = detailDoc.select("div.ims img").first()
-            manga.thumbnail_url = imgElem?.absUrl("src")
-        } catch (e: Exception) {
-            // Log error jika terjadi masalah
-            e.printStackTrace()
-        }
-    }.start()
-
-    return manga
-}
+        return manga
+    }
 
     override fun popularMangaNextPageSelector() = "span[hx-trigger=revealed]"
 
-    // latest
+    // 4. Latest updates
     override fun latestUpdatesSelector() = popularMangaSelector()
 
-    override fun latestUpdatesRequest(page: Int): Request {
-        return if (page == 1) {
-            GET("$baseUrlApi/other/hot/?orderby=modified&category_name=", headers)
-        } else {
-            GET("$baseUrlApi/other/hot/page/$page/?orderby=modified&category_name=", headers)
-        }
-    }
+    override fun latestUpdatesRequest(page: Int): Request =
+        GET(
+            "$baseUrlApi/other/$section/${pagePath(page)}?orderby=modified&category_name=",
+            headers
+        )
 
-    override fun latestUpdatesFromElement(element: Element) = popularMangaFromElement(element)
+    override fun latestUpdatesFromElement(element: Element) =
+        popularMangaFromElement(element)
 
-    override fun latestUpdatesNextPageSelector() = popularMangaNextPageSelector()
+    override fun latestUpdatesNextPageSelector() =
+        popularMangaNextPageSelector()
 
     // search
     override fun searchMangaSelector() = popularMangaSelector()
