@@ -8,15 +8,16 @@ import eu.kanade.tachiyomi.network.interceptor.rateLimit
 import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
+import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.ParsedHttpSource
+import eu.kanade.tachiyomi.util.asJsoup
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
-import okhttp3.Response
-import eu.kanade.tachiyomi.network.asJsoup
 import okhttp3.Request
+import okhttp3.Response
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.select.Elements
@@ -49,55 +50,53 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     }
 
     override fun latestUpdatesRequest(page: Int): Request {
-    val url = "$baseUrl/daftar-komik/?orderby=update&page=$page"
-        .toHttpUrl().newBuilder().build()
-    return GET(url, headers)
-}
+        val url = "$baseUrl/daftar-komik/?orderby=update&page=$page"
+            .toHttpUrl().newBuilder().build()
+        return GET(url, headers)
+    }
 
     private fun resizeImage(imageUrl: String, width: Int, height: Int): String {
-    return "https://resize.sardo.work/?width=$width&height=$height&imageUrl=$imageUrl"
-}
+        return "https://resize.sardo.work/?width=$width&height=$height&imageUrl=$imageUrl"
+    }
 
     override fun popularMangaSelector() = "div.listupd div.utao div.uta"
     override fun latestUpdatesSelector() = "div.list-update_item"
 
     override fun popularMangaFromElement(element: Element): SManga = searchMangaFromElement(element)
-    override fun latestUpdatesParse(response: Response): List<SManga> {
-    val document = response.asJsoup()
-    return document.select(latestUpdatesSelector())
-        .mapNotNull { element ->
-            val type = element.selectFirst("span.type")?.text()?.trim() ?: return@mapNotNull null
-            // Hanya ambil Manhua atau Manhwa
-            if (!type.equals("Manhua", true) && !type.equals("Manhwa", true)) return@mapNotNull null
 
-            // parsing SManga
-            val link = element.selectFirst("a")!!.attr("href")
-            val title = element.selectFirst("h3.title")!!.text()
-            val thumb = element.selectFirst("img.ts-post-image")!!.attr("abs:src")
+    // Stub override untuk memenuhi kontrak abstract class
+    override fun latestUpdatesFromElement(element: Element): SManga = searchMangaFromElement(element)
 
-            SManga.create().apply {
-                setUrlWithoutDomain(link)
-                this.title = title
-                thumbnail_url = thumb
+    override fun latestUpdatesParse(response: Response): MangasPage {
+        val document = response.asJsoup()
+        val mangas = document.select(latestUpdatesSelector())
+            .mapNotNull { element ->
+                val type = element.selectFirst("span.type")?.text()?.trim() ?: return@mapNotNull null
+                // Hanya ambil Manhua atau Manhwa
+                if (!type.equals("Manhua", true) && !type.equals("Manhwa", true)) return@mapNotNull null
+
+                SManga.create().apply {
+                    setUrlWithoutDomain(element.selectFirst("a")!!.attr("href"))
+                    title = element.selectFirst("h3.title")!!.text()
+                    thumbnail_url = element.selectFirst("img.ts-post-image")!!.attr("abs:src")
+                }
             }
-        }
-}
+        val hasNext = document.select(latestUpdatesNextPageSelector()).first() != null
+        return MangasPage(mangas, hasNext)
+    }
 
     override fun searchMangaFromElement(element: Element): SManga {
-    val manga = SManga.create()
-    manga.setUrlWithoutDomain(element.select("a").attr("href")) // URL manga
-    manga.title = element.select("div.tt, h3").text() // Judul manga
-
-    // Mengatur thumbnail dengan penggantian URL dan resize
-    val originalImageUrl = element.selectFirst("img.ts-post-image")?.attr("src") ?: ""
-    val replacedImageUrl = originalImageUrl.replace(
-        "https://cdn.statically.io/img/komikindo.moe/img",
-        "https://ikiru.one/wp-content/uploads"
-    )
-    manga.thumbnail_url = resizeImage(replacedImageUrl, 50, 50)
-
-    return manga
-}
+        val manga = SManga.create()
+        manga.setUrlWithoutDomain(element.select("a").attr("href"))
+        manga.title = element.select("div.tt, h3").text()
+        val originalImageUrl = element.selectFirst("img.ts-post-image")?.attr("src") ?: ""
+        val replacedImageUrl = originalImageUrl.replace(
+            "https://cdn.statically.io/img/komikindo.moe/img",
+            "https://ikiru.one/wp-content/uploads"
+        )
+        manga.thumbnail_url = resizeImage(replacedImageUrl, 50, 50)
+        return manga
+    }
 
     override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
         val url = "$baseUrl/?s=$query&page=$page".toHttpUrl().newBuilder().build()
@@ -109,40 +108,34 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     override fun searchMangaNextPageSelector() = "a.next.page-numbers"
 
     override fun mangaDetailsParse(document: Document): SManga {
-    val manga = SManga.create()
-    val infoElement = document.select("div.wd-full, div.postbody").first()!!
-    val descElement = document.select("div.entry-content.entry-content-single").first()!!
+        val manga = SManga.create()
+        val infoElement = document.select("div.wd-full, div.postbody").first()!!
+        val descElement = document.select("div.entry-content.entry-content-single").first()!!
 
-    manga.title = document.select("div.thumb img").attr("title") // Judul manga
-    manga.author = infoElement.select("b:contains(Author) + span").text() // Penulis
-    manga.artist = infoElement.select("b:contains(Artist) + span").text() // Ilustrator
+        manga.title = document.select("div.thumb img").attr("title")
+        manga.author = infoElement.select("b:contains(Author) + span").text()
+        manga.artist = infoElement.select("b:contains(Artist) + span").text()
 
-    // Menambahkan genre dan tipe manga
-    val genres = mutableListOf<String>()
-    val typeManga = mutableListOf<String>()
-    infoElement.select("span.mgen a").forEach { genres.add(it.text()) }
-    infoElement.select(".imptdt a").forEach { typeManga.add(it.text()) }
-    manga.genre = (genres + typeManga).joinToString(", ")
+        val genres = mutableListOf<String>()
+        val typeManga = mutableListOf<String>()
+        infoElement.select("span.mgen a").forEach { genres.add(it.text()) }
+        infoElement.select(".imptdt a").forEach { typeManga.add(it.text()) }
+        manga.genre = (genres + typeManga).joinToString(", ")
 
-    manga.status = parseStatus(infoElement.select(".imptdt i").text()) // Status manga
-    manga.description = descElement.select("p").text() // Deskripsi
+        manga.status = parseStatus(infoElement.select(".imptdt i").text())
+        manga.description = descElement.select("p").text()
 
-    // Menambahkan nama alternatif jika ada
-    val altName = document.selectFirst("b:contains(Alternative Titles) + span")?.text()
-    if (altName != null) {
-        manga.description += "\n\nAlternative Name: $altName"
+        val altName = document.selectFirst("b:contains(Alternative Titles) + span")?.text()
+        if (altName != null) manga.description += "\n\nAlternative Name: $altName"
+
+        val originalThumb = document.selectFirst("div.thumb img")?.attr("src") ?: ""
+        val replacedThumb = originalThumb.replace(
+            "https://cdn.statically.io/img/komikindo.moe/img",
+            "https://ikiru.one/wp-content/uploads"
+        )
+        manga.thumbnail_url = resizeImage(replacedThumb, 110, 150)
+        return manga
     }
-
-    // Mengatur thumbnail dengan penggantian URL dan resize
-    val originalImageUrl = document.selectFirst("div.thumb img")?.attr("src") ?: ""
-    val replacedImageUrl = originalImageUrl.replace(
-        "https://cdn.statically.io/img/komikindo.moe/img",
-        "https://ikiru.one/wp-content/uploads"
-    )
-    manga.thumbnail_url = resizeImage(replacedImageUrl, 110, 150)
-
-    return manga
-}
 
     private fun parseStatus(element: String): Int = when {
         element.lowercase().contains("ongoing") -> SManga.ONGOING
@@ -157,16 +150,14 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         val chapter = SChapter.create()
         chapter.setUrlWithoutDomain(urlElement.attr("href"))
         chapter.name = urlElement.select("span.chapternum").text()
-        chapter.date_upload = element.select("span.chapterdate").text()?.let { parseChapterDate(it) } ?: 0L
+        chapter.date_upload = element.select("span.chapterdate").text().let { parseChapterDate(it) }
         return chapter
     }
 
-    private fun parseChapterDate(date: String): Long {
-        return try {
-            dateFormat.parse(date)?.time ?: 0L
-        } catch (e: Exception) {
-            0L
-        }
+    private fun parseChapterDate(date: String): Long = try {
+        dateFormat.parse(date)?.time ?: 0L
+    } catch (e: Exception) {
+        0L
     }
 
     override fun prepareNewChapter(chapter: SChapter, manga: SManga) {
@@ -201,14 +192,12 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         Filter.Separator()
     )
 
-    private fun Element.imgAttr(): String {
-    return when {
+    private fun Element.imgAttr(): String = when {
         hasAttr("data-lazy-src") -> attr("abs:data-lazy-src")
         hasAttr("data-src") -> attr("abs:data-src")
         hasAttr("src") -> attr("abs:src")
         else -> ""
     }
-}
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
         val resizeServicePref = EditTextPreference(screen.context).apply {
