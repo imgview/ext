@@ -1,4 +1,4 @@
-package eu.kanade.tachiyomi.extension.id.kiryuu
+package eu.kanade.tachiyomi.extension.id.komikindomoe
 
 import android.app.Application
 import androidx.preference.EditTextPreference
@@ -28,7 +28,7 @@ import uy.kohesive.injekt.api.get
 import java.text.SimpleDateFormat
 import java.util.Locale
 
-class Kiryuu : ParsedHttpSource(), ConfigurableSource {
+class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     override val name = "Kiryuu01.com"
     override val lang = "id"
     override val supportsLatest = true
