@@ -29,7 +29,7 @@ import java.util.Locale
 class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     override val name = "Komikcast02.com"
     private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
-    override var baseUrl: String = preferences.getString(BASE_URL_PREF, "https://komikcast02.com")!!
+    override var baseUrl: String = preferences.getString(BASE_URL_PREF, "https://kiryuu01.com")!!
     override val lang = "id"
     override val supportsLatest = true
     private val dateFormat: SimpleDateFormat = SimpleDateFormat("MMM d, yyyy", Locale.US)
@@ -42,36 +42,34 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     override fun popularMangaRequest(page: Int): Request = GET("$baseUrl/page/$page", headers)
 
     override fun latestUpdatesRequest(page: Int): Request {
-        val url = "$baseUrl/daftar-komik/?orderby=update&page=$page"
-            .toHttpUrl().newBuilder().build()
-        return GET(url, headers)
-    }
+    val url = "$baseUrl/manga/?order=update&page=$page"
+        .toHttpUrl().newBuilder().build()
+    return GET(url, headers)
+}
 
     private fun resizeImage(imageUrl: String, width: Int, height: Int): String =
         "https://resize.sardo.work/?width=$width&height=$height&imageUrl=$imageUrl"
 
     override fun popularMangaSelector(): String = "div.listupd div.utao div.uta"
-    override fun latestUpdatesSelector(): String = "div.list-update_item"
-    override fun searchMangaSelector(): String = "div.bsx"
-
-    override fun popularMangaFromElement(element: Element): SManga = searchMangaFromElement(element)
-    override fun latestUpdatesFromElement(element: Element): SManga = searchMangaFromElement(element)
-
+    override fun latestUpdatesSelector() = "div.listupd div.bsx"
+    override fun latestUpdatesFromElement(element: Element): SManga =
+    searchMangaFromElement(element)
+    override fun searchMangaSelector() = "div.bsx"
     override fun latestUpdatesParse(response: Response): MangasPage {
-        val document = response.asJsoup()
-        val mangas = document.select(latestUpdatesSelector())
-            .mapNotNull { element ->
-                val type = element.selectFirst("span.type")?.text()?.trim() ?: return@mapNotNull null
-                if (!type.equals("Manhua", true) && !type.equals("Manhwa", true)) return@mapNotNull null
-                SManga.create().apply {
-                    setUrlWithoutDomain(element.selectFirst("a")!!.attr("href"))
-                    title = element.selectFirst("h3.title")!!.text()
-                    thumbnail_url = element.selectFirst("img.ts-post-image")!!.attr("abs:src")
-                }
+    val doc = response.asJsoup()
+    val list = doc.select(latestUpdatesSelector())
+        .mapNotNull { el ->
+            if (el.selectFirst("span.colored") == null) return@mapNotNull null
+            SManga.create().apply {
+                setUrlWithoutDomain(el.selectFirst("a")!!.attr("href"))
+                title = el.selectFirst("div.tt")!!.text().trim()
+                thumbnail_url = el.selectFirst("img.ts-post-image")!!
+                    .attr("abs:src")
             }
-        val hasNext = document.select(latestUpdatesNextPageSelector()).first() != null
-        return MangasPage(mangas, hasNext)
-    }
+        }
+    val hasNext = doc.select(latestUpdatesNextPageSelector()).first() != null
+    return MangasPage(list, hasNext)
+}
 
     override fun searchMangaFromElement(element: Element): SManga {
         val manga = SManga.create()
