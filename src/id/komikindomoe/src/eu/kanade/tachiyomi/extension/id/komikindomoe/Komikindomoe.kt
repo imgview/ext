@@ -113,22 +113,29 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     override fun chapterListSelector() = "div.bxcl li, div.cl li, #chapterlist li, ul li:has(div.chbox):has(div.eph-num)"
 
     override fun chapterFromElement(element: Element): SChapter {
-        val urlElem = element.selectFirst("a")!!
-        val chapter = SChapter.create()
-        chapter.setUrlWithoutDomain(urlElem.attr("href"))
-        chapter.name = urlElem.text()
+    val chapter = SChapter.create()
+    // URL
+    val urlElem = element.selectFirst("a")!!
+    chapter.setUrlWithoutDomain(urlElem.attr("href"))
 
-        element.selectFirst("span.chapterdate")?.text()?.let { dateStr ->
-            val parser = SimpleDateFormat("MMMM d, yyyy", Locale("id"))
-            chapter.date_upload = try {
-                parser.parse(dateStr)?.time ?: 0L
-            } catch (_: Exception) {
-                0L
-            }
+    // Hanya ambil nomor chapter saja
+    chapter.name = element
+        .selectFirst("span.chapternum")
+        ?.text()
+        ?: urlElem.text()
+
+    // Ambil dan parse tanggal upload
+    element.selectFirst("span.chapterdate")?.text()?.let { dateStr ->
+        val parser = SimpleDateFormat("MMMM d, yyyy", Locale("id"))
+        chapter.date_upload = try {
+            parser.parse(dateStr)?.time ?: 0L
+        } catch (_: Exception) {
+            0L
         }
-
-        return chapter
     }
+
+    return chapter
+}
 
     // Pages: override both versions
     override fun pageListParse(document: Document): List<Page> {
