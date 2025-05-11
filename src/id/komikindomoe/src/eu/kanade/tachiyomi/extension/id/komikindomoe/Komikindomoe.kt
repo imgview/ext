@@ -131,23 +131,30 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     }
 
     // Pages: override both versions
-    override fun pageListParse(response: Response): List<Page> {
-        val document = response.asJsoup()
-        val script = document.selectFirst("script:containsData(ts_reader)")?.data()
-            ?: return super.pageListParse(response)
-        val jsonString = script.substringAfter("ts_reader.run(").substringBefore(");")
+    override fun pageListParse(document: Document): List<Page> {
+    // 1) Coba cari skrip ts_reader
+    val script = document.selectFirst("script:containsData(ts_reader)")?.data()
+    if (script != null) {
+        val jsonString = script
+            .substringAfter("ts_reader.run(")
+            .substringBefore(");")
         val tsReader = jsonParser.decodeFromString<TSReader>(jsonString)
-        val imageUrls = tsReader.sources.firstOrNull()?.images ?: return emptyList()
-
-        return imageUrls.mapIndexed { index, imageUrl ->
-            Page(index, document.location(), "${getResizeServiceUrl() ?: ""}$imageUrl")
+        val imageUrls = tsReader.sources
+            .firstOrNull()
+            ?.images
+            ?: return emptyList()
+        return imageUrls.mapIndexed { i, imageUrl ->
+            Page(i, document.location(), "${getResizeServiceUrl() ?: ""}$imageUrl")
         }
     }
 
-    override fun pageListParse(document: Document): List<Page> {
-        // fallback to default behavior for simple image lists
-        return super.pageListParse(document)
-    }
+    // 2) Fallback: cari <img> di reader (contoh selector, sesuaikan dengan situs)
+    return document.select("div#readerarea img")
+        .mapIndexed { i, img ->
+            val url = img.attr("abs:src")
+            Page(i, document.location(), "${getResizeServiceUrl() ?: ""}$url")
+        }
+}
 
     override fun imageUrlParse(document: Document): String =
         throw UnsupportedOperationException()
