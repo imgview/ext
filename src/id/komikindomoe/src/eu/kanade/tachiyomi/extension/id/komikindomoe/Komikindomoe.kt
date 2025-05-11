@@ -98,33 +98,54 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     // Details
     override fun mangaDetailsParse(document: Document): SManga {
     val manga = SManga.create()
+    // Ambil container utama
     val info = document.selectFirst("div.postbody")!!
 
-    // Title
+    // Title utama
     manga.title = info.selectFirst("h1")!!.text()
 
     // Thumbnail
-    manga.thumbnail_url = info.selectFirst("div.thumb img")!!.attr("abs:src")
+    manga.thumbnail_url = info.selectFirst("div.thumb img")!!
+        .attr("abs:src")
 
-    // Author & Artist
-    manga.author = info.selectFirst("b:contains(Author) + span")?.text().orEmpty()
-    manga.artist = info.selectFirst("b:contains(Artist) + span")?.text().orEmpty()
-
-    // Status
-    val statusText = info.selectFirst("b:contains(Status) + span")?.text().orEmpty()
-    manga.status = when {
-        statusText.contains("Ongoing", ignoreCase = true)   -> SManga.ONGOING
-        statusText.contains("Completed", ignoreCase = true) -> SManga.COMPLETED
-        else                                               -> SManga.UNKNOWN
+    // --- Author & Artist dari tabel infotable ---
+    // Contoh <tr><td>Author</td><td>Boichi</td></tr>
+    info.select("table.infotable tr").forEach { row ->
+        val key = row.selectFirst("td:nth-child(1)")!!.text().trim()
+        val value = row.selectFirst("td:nth-child(2)")!!.text().trim()
+        when {
+            key.equals("Author", ignoreCase = true) -> manga.author = value
+            key.equals("Artist", ignoreCase = true) -> manga.artist = value
+        }
     }
 
-    // Genres
-    manga.genre = info.select("b:contains(Genre) + span a")
-        .eachText()
-        .joinToString(", ")
+    // --- Alternative title (jika ada) ---
+    // Letakkan di bawah deskripsi dan sebelum genre
+    val altTitle = info.selectFirst(".seriestualt")?.text()
+    if (!altTitle.isNullOrBlank()) {
+        manga.description = "Alternative Title: $altTitle\n\n"
+    }
 
-    // Description
-    manga.description = info.selectFirst("div.description")?.text().orEmpty()
+    // --- Description: gabungkan semua <p> di dalam entry-content-single ---
+    val descParas = info.select("div.entry-content.entry-content-single[itemprop=\"description\"] p")
+        .eachText()
+    if (descParas.isNotEmpty()) {
+        manga.description += descParas.joinToString("\n\n")
+    }
+
+    // --- Genres ---
+    val genres = info.select("div.seriestugenre a").eachText()
+    manga.genre = genres.joinToString(", ")
+
+    // --- Status (fallback jika belum di-infotable) ---
+    if (manga.status == SManga.UNKNOWN) {
+        val statusText = info.selectFirst("b:contains(Status) + span")?.text().orEmpty()
+        manga.status = when {
+            statusText.contains("Ongoing", ignoreCase = true)   -> SManga.ONGOING
+            statusText.contains("Completed", ignoreCase = true) -> SManga.COMPLETED
+            else                                               -> SManga.UNKNOWN
+        }
+    }
 
     return manga
 }
