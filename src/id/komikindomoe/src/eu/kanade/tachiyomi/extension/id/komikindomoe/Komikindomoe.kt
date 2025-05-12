@@ -132,12 +132,6 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     return manga
 }
 
-    private fun parseStatus(element: String): Int = when {
-    element.contains("berjalan", true) -> SManga.ONGOING
-    element.contains("tamat", true)    -> SManga.COMPLETED
-    else                                -> SManga.UNKNOWN
-}
-
      private fun parseStatus(element: String): Int = when {
     element.contains("berjalan", true) -> SManga.ONGOING
     element.contains("tamat", true)    -> SManga.COMPLETED
