@@ -96,37 +96,57 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     }
 
     // Details
-
     override fun mangaDetailsParse(document: Document): SManga {
     val manga = SManga.create()
     val info = document.selectFirst("div.postbody")!!
 
+    // Title & thumbnail
     manga.title = info.selectFirst("h1")!!.text()
     manga.thumbnail_url = info.selectFirst("div.thumb img")!!.attr("abs:src")
-    manga.author = info.selectFirst("tr:has(td:contains(Author)) td:nth-child(2)")?.text().orEmpty()
-    manga.artist = info.selectFirst("tr:has(td:contains(Artist)) td:nth-child(2)")?.text().orEmpty()
 
-    manga.description = ""
-    info.select("div.entry-content-single[itemprop=\"description\"] p")
+    // Author & Artist
+    manga.author = info
+        .selectFirst("tr:has(td:contains(Author)) td:nth-child(2)")
+        ?.text()
+        .orEmpty()
+    manga.artist = info
+        .selectFirst("tr:has(td:contains(Artist)) td:nth-child(2)")
+        ?.text()
+        .orEmpty()
+
+    // Description + alternative title
+    manga.description = info.select("div.entry-content-single[itemprop=\"description\"] p")
         .eachText()
         .joinToString("\n\n")
-        .also { if (it.isNotBlank()) manga.description += it }
+        .let { desc ->
+            info.selectFirst(".seriestualt")?.text()
+                ?.takeIf { it.isNotBlank() }
+                ?.let { alt -> "$desc\n\nAlternative Title: $alt" }
+                ?: desc
+        }
 
-    info.selectFirst(".seriestualt")?.text()
-        ?.takeIf { it.isNotBlank() }
-        ?.let { manga.description += "\n\nAlternative Title: $it" }
-
-    manga.genre = info.select("div.seriestugenre a")
+    // Genre list
+    val genreList = info.select("div.seriestugenre a")
         .eachText()
-        .joinToString(", ")
+        .toMutableList()
 
+    // Type (ditambahkan ke akhir genreList jika ada)
+    val typeText = info
+        .selectFirst("tr:has(td:contains(Type)) td:nth-child(2)")
+        ?.text()
+        .orEmpty()
+    if (typeText.isNotBlank()) {
+        genreList.add(typeText)
+    }
+    manga.genre = genreList.joinToString(", ")
+
+    // Status
     val statusText = info.select("table.infotable tr")
         .firstOrNull { row ->
             row.selectFirst("td:nth-child(1)")?.text()?.equals("Status", true) == true
         }
         ?.selectFirst("td:nth-child(2)")?.text()
         .orEmpty()
-
     manga.status = parseStatus(statusText)
 
     return manga
