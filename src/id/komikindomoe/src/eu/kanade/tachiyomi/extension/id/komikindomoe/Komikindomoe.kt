@@ -103,8 +103,8 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
 
     manga.title = info.selectFirst("h1")!!.text()
     manga.thumbnail_url = info.selectFirst("div.thumb img")!!.attr("abs:src")
-    manga.author = info.selectFirst("b:contains(Author) + span")?.text().orEmpty()
-    manga.artist = info.selectFirst("b:contains(Artist) + span")?.text().orEmpty()
+    manga.author = info.selectFirst("tr:has(td:contains(Author)) td:nth-child(2)")?.text().orEmpty()
+    manga.artist = info.selectFirst("tr:has(td:contains(Artist)) td:nth-child(2)")?.text().orEmpty()
 
     manga.description = ""
     info.select("div.entry-content-single[itemprop=\"description\"] p")
