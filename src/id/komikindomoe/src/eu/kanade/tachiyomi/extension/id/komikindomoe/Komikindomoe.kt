@@ -96,11 +96,6 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     }
 
     // Details
-    private fun parseStatus(element: String): Int = when {
-    element.contains("berjalan", true) -> SManga.ONGOING
-    element.contains("tamat", true)    -> SManga.COMPLETED
-    else                                -> SManga.UNKNOWN
-}
 
     override fun mangaDetailsParse(document: Document): SManga {
     val manga = SManga.create()
@@ -135,6 +130,18 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     manga.status = parseStatus(statusText)
 
     return manga
+}
+
+    private fun parseStatus(element: String): Int = when {
+    element.contains("berjalan", true) -> SManga.ONGOING
+    element.contains("tamat", true)    -> SManga.COMPLETED
+    else                                -> SManga.UNKNOWN
+}
+
+     private fun parseStatus(element: String): Int = when {
+    element.contains("berjalan", true) -> SManga.ONGOING
+    element.contains("tamat", true)    -> SManga.COMPLETED
+    else                                -> SManga.UNKNOWN
 }
 
     override fun chapterListSelector() = "div.bxcl li, div.cl li, #chapterlist li, ul li:has(div.chbox):has(div.eph-num)"
