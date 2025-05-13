@@ -56,7 +56,7 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
 
     // Requests
     override fun popularMangaRequest(page: Int): Request =
-        GET("$baseUrl/manga/?order=popular&page=$page", headers)
+        GET("$baseUrl/manga/?order=update&page=$page", headers)
 
     override fun latestUpdatesRequest(page: Int): Request {
         val url = "$baseUrl/manga/?order=update&page=$page"
@@ -153,8 +153,8 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
 }
 
      private fun parseStatus(element: String): Int = when {
-    element.contains("berjalan", true) -> SManga.ONGOING
-    element.contains("tamat", true)    -> SManga.COMPLETED
+    element.contains("Ongoing", true) -> SManga.ONGOING
+    element.contains("Compleated", true)    -> SManga.COMPLETED
     else                                -> SManga.UNKNOWN
 }
 
@@ -249,12 +249,23 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     }
 
     private fun Element.toSManga(): SManga {
-        val manga = SManga.create()
-        manga.setUrlWithoutDomain(selectFirst("a")!!.attr("href"))
-        manga.title = selectFirst("div.tt, h3")!!.text().trim()
-        manga.thumbnail_url = selectFirst("img.ts-post-image")!!.attr("abs:src")
-        return manga
+    val manga = SManga.create()
+
+    // URL & Title sama seperti biasa
+    manga.setUrlWithoutDomain(selectFirst("a")!!.attr("href"))
+    manga.title = selectFirst("div.tt, h3")!!.text().trim()
+
+    // --- Cover image dengan exception dan resize service ---
+    val rawUrl = selectFirst("img.ts-post-image")?.attr("abs:src")
+        ?: throw Exception("Cover image not found for manga: ${manga.title}")
+    if (rawUrl.isBlank()) {
+        throw Exception("Cover URL is blank for manga: ${manga.title}")
     }
+    // Prepend resize service
+    manga.thumbnail_url = "https://wsrv.nl/?w=300&q=70&url=$rawUrl"
+
+    return manga
+}
 
     companion object {
         private const val BASE_URL_PREF_TITLE = "Base URL override"
