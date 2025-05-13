@@ -100,44 +100,42 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     val manga = SManga.create()
     val info = document.selectFirst("div.postbody")!!
 
-    // Title & thumbnail
+    // Title
     manga.title = info.selectFirst("h1")!!.text()
-    manga.thumbnail_url = info.selectFirst("div.thumb img")!!.attr("abs:src")
+
+    // --- Thumbnail dengan exception + resize service ---
+    val imgEl = info.selectFirst("div.thumb img")
+        ?: throw Exception("Cover image not found in manga detail: ${manga.title}")
+    val rawUrl = imgEl.attr("abs:src").takeIf { it.isNotBlank() }
+        ?: throw Exception("Cover URL is blank in manga detail: ${manga.title}")
+    manga.thumbnail_url = "https://wsrv.nl/?w=100&h=100&url=$rawUrl"
 
     // Author & Artist
     manga.author = info
         .selectFirst("tr:has(td:contains(Author)) td:nth-child(2)")
-        ?.text()
-        .orEmpty()
+        ?.text().orEmpty()
     manga.artist = info
         .selectFirst("tr:has(td:contains(Artist)) td:nth-child(2)")
-        ?.text()
-        .orEmpty()
+        ?.text().orEmpty()
 
     // Description + alternative title
     manga.description = info.select("div.entry-content-single[itemprop=\"description\"] p")
-        .eachText()
-        .joinToString("\n\n")
+        .eachText().joinToString("\n\n")
         .let { desc ->
-            info.selectFirst(".seriestualt")?.text()
+            info.selectFirst(".seriestualt")
+                ?.text()
                 ?.takeIf { it.isNotBlank() }
                 ?.let { alt -> "$desc\n\nAlternative Title: $alt" }
                 ?: desc
         }
 
-    // Genre list
-    val genreList = info.select("div.seriestugenre a")
-        .eachText()
-        .toMutableList()
-
-    // Type (ditambahkan ke akhir genreList jika ada)
-    val typeText = info
-        .selectFirst("tr:has(td:contains(Type)) td:nth-child(2)")
+    // Genre
+    val genreList = info.select("div.seriestugenre a").eachText().toMutableList()
+    info.selectFirst("tr:has(td:contains(Type)) td:nth-child(2)")
         ?.text()
         .orEmpty()
-    if (typeText.isNotBlank()) {
-        genreList.add(typeText)
-    }
+        .takeIf { it.isNotBlank() }
+        ?.let { genreList.add(it) }
     manga.genre = genreList.joinToString(", ")
 
     // Status
