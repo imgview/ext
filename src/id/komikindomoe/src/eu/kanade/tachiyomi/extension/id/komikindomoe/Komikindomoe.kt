@@ -257,9 +257,9 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
 
     // --- Cover image dengan exception dan resize service ---
     val rawUrl = selectFirst("img")?.attr("abs:src")
-        ?: throw Exception("Cover image not found for manga: ${manga.title}")
+        ?: throw Exception("Gagal memuat cover")
     if (rawUrl.isBlank()) {
-        throw Exception("Cover URL is blank for manga: ${manga.title}")
+        throw Exception("Gagal memuat cover")
     }
     // Prepend resize service
     manga.thumbnail_url = "https://wsrv.nl/?w=300&q=70&url=$rawUrl"
