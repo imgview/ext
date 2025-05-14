@@ -67,14 +67,13 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
 
     override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
     val url = "$baseUrl/?s=$query&page=$page".toHttpUrl().newBuilder().build()
-    println("Search URL: $url") // Log URL
     return GET(url, headers)
 }
 
     // Selectors
     override fun popularMangaSelector(): String = "div.list-update_item"
     override fun latestUpdatesSelector(): String = "div.list-update_item"
-    override fun searchMangaSelector(): String = "div.list-update_items"
+    override fun searchMangaSelector(): String = "div.list-update_item"
 
     override fun popularMangaFromElement(element: Element): SManga = element.toSManga()
     override fun latestUpdatesFromElement(element: Element): SManga = element.toSManga()
