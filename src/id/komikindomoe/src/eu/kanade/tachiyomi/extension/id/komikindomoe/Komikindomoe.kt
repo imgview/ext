@@ -116,9 +116,8 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     }
 
     // Details
-override fun mangaDetailsParse(document: Document): SManga {
+    override fun mangaDetailsParse(document: Document): SManga {
     val manga = SManga.create()
-    // root info container
     val info = document.selectFirst("div.komik_info")!!
 
     // Title
@@ -128,37 +127,53 @@ override fun mangaDetailsParse(document: Document): SManga {
         .trim()
 
     // Cover thumbnail
-    val imgEl = info
-        .selectFirst("div.komik_info-cover-image img")
+    val imgEl = info.selectFirst("div.komik_info-cover-image img")
         ?: throw Exception("Cover image not found: ${manga.title}")
-    val rawUrl = imgEl
-        .attr("abs:src")
-        .takeIf(String::isNotBlank)
-        ?: throw Exception("Cover URL blank: ${manga.title}")
-    manga.thumbnail_url = rawUrl
+    manga.thumbnail_url = imgEl.attr("abs:src")
 
-    // Author & Artist (gabungkan kalau perlu atau pisahkan berdasarkan koma)
+    // Author & Artist
     val authorArtistText = info
         .selectFirst("span.komik_info-content-info:has(b:contains(Author))")
-        ?.ownText()
-        ?.trim()
-        .orEmpty()
-    // misal "Daul (Author), Redice Studio (Artist)"
+        ?.ownText().orEmpty()
     val parts = authorArtistText.split(",")
     manga.author = parts.getOrNull(0)?.trim().orEmpty()
     manga.artist = parts.getOrNull(1)?.trim().orEmpty()
 
     // Sinopsis / Description
-    manga.description = info
+    val synopsis = info
         .select("div.komik_info-description-sinopsis p")
         .eachText()
         .joinToString("\n\n") { it.trim() }
 
-    // Genre
-    manga.genre = info
+    // Alternative Title
+    val altTitle = info
+        .selectFirst("span.komik_info-content-native")
+        ?.text()
+        ?.trim()
+        .orEmpty()
+
+    // Gabungkan description + alternative title
+    manga.description = buildString {
+        append(synopsis)
+        if (altTitle.isNotEmpty()) {
+            append("\n\nAlternative Title: ")
+            append(altTitle)
+        }
+    }
+
+    // Genre + Type
+    val genreList = info
         .select("span.komik_info-content-genre a.genre-item")
         .eachText()
-        .joinToString(", ")
+        .toMutableList()
+
+    // Ambil Type dan taruh di akhir
+    info.selectFirst("span.komik_info-content-info-type a")
+        ?.text()
+        ?.takeIf(String::isNotBlank)
+        ?.let { genreList.add(it) }
+
+    manga.genre = genreList.joinToString(", ")
 
     // Status
     val statusText = info
@@ -170,12 +185,6 @@ override fun mangaDetailsParse(document: Document): SManga {
     manga.status = parseStatus(statusText)
 
     return manga
-}
-
-private fun parseStatus(text: String): Int = when {
-    text.contains("Ongoing", ignoreCase = true) -> SManga.ONGOING
-    text.contains("Completed", ignoreCase = true) -> SManga.COMPLETED
-    else -> SManga.UNKNOWN
 }
 
     // Chapters
