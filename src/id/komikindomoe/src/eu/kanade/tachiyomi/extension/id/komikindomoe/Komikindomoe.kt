@@ -120,38 +120,67 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     }
 
     // Details
-    override fun mangaDetailsParse(document: Document): SManga {
-        val manga = SManga.create()
-        val info = document.selectFirst("div.postbody")!!
-        manga.title = info.selectFirst("h1")!!.text()
-        val imgEl = info.selectFirst("div.thumb img")
-            ?: throw Exception("Cover image not found: ${'$'}{manga.title}")
-        val rawUrl = imgEl.attr("abs:src").takeIf(String::isNotBlank)
-            ?: throw Exception("Cover URL blank: ${'$'}{manga.title}")
-        manga.thumbnail_url = "https://wsrv.nl/?w=100&h=100&url=$rawUrl"
-        manga.author = info.selectFirst("tr:has(td:contains(Author)) td:nth-child(2)")?.text().orEmpty()
-        manga.artist = info.selectFirst("tr:has(td:contains(Artist)) td:nth-child(2)")?.text().orEmpty()
-        manga.description = info.select("div.entry-content-single[itemprop=\"description\"] p")
-            .eachText().joinToString("\n\n").let { desc ->
-                info.selectFirst(".seriestualt")?.text()?.takeIf(String::isNotBlank)
-                    ?.let { alt -> "$desc\n\nAlternative Title: $alt" } ?: desc
-            }
-        val genreList = info.select("div.seriestugenre a").eachText().toMutableList()
-        info.selectFirst("tr:has(td:contains(Type)) td:nth-child(2)")?.text().orEmpty()
-            .takeIf(String::isNotBlank)?.let(genreList::add)
-        manga.genre = genreList.joinToString(", ")
-        val statusText = info.select("table.infotable tr").firstOrNull { row ->
-            row.selectFirst("td:nth-child(1)")?.text()?.equals("Status", ignoreCase = true) == true
-        }?.selectFirst("td:nth-child(2)")?.text().orEmpty()
-        manga.status = parseStatus(statusText)
-        return manga
-    }
+override fun mangaDetailsParse(document: Document): SManga {
+    val manga = SManga.create()
+    // root info container
+    val info = document.selectFirst("div.komik_info")!!
 
-    private fun parseStatus(text: String): Int = when {
-        text.contains("Ongoing", ignoreCase = true) -> SManga.ONGOING
-        text.contains("Compleated", ignoreCase = true) -> SManga.COMPLETED
-        else -> SManga.UNKNOWN
-    }
+    // Title
+    manga.title = info
+        .selectFirst("h1.komik_info-content-body-title")!!
+        .text()
+        .trim()
+
+    // Cover thumbnail
+    val imgEl = info
+        .selectFirst("div.komik_info-cover-image img")
+        ?: throw Exception("Cover image not found: ${manga.title}")
+    val rawUrl = imgEl
+        .attr("abs:src")
+        .takeIf(String::isNotBlank)
+        ?: throw Exception("Cover URL blank: ${manga.title}")
+    manga.thumbnail_url = rawUrl
+
+    // Author & Artist (gabungkan kalau perlu atau pisahkan berdasarkan koma)
+    val authorArtistText = info
+        .selectFirst("span.komik_info-content-info:has(b:contains(Author))")
+        ?.ownText()
+        ?.trim()
+        .orEmpty()
+    // misal "Daul (Author), Redice Studio (Artist)"
+    val parts = authorArtistText.split(",")
+    manga.author = parts.getOrNull(0)?.trim().orEmpty()
+    manga.artist = parts.getOrNull(1)?.trim().orEmpty()
+
+    // Sinopsis / Description
+    manga.description = info
+        .select("div.komik_info-description-sinopsis p")
+        .eachText()
+        .joinToString("\n\n") { it.trim() }
+
+    // Genre
+    manga.genre = info
+        .select("span.komik_info-content-genre a.genre-item")
+        .eachText()
+        .joinToString(", ")
+
+    // Status
+    val statusText = info
+        .selectFirst("span.komik_info-content-info:has(b:contains(Status))")
+        ?.text()
+        ?.replaceFirst("Status:", "")
+        ?.trim()
+        .orEmpty()
+    manga.status = parseStatus(statusText)
+
+    return manga
+}
+
+private fun parseStatus(text: String): Int = when {
+    text.contains("Ongoing", ignoreCase = true) -> SManga.ONGOING
+    text.contains("Completed", ignoreCase = true) -> SManga.COMPLETED
+    else -> SManga.UNKNOWN
+}
 
     // Chapters
     override fun chapterListSelector(): String =
