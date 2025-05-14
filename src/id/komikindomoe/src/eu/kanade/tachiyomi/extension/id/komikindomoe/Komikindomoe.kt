@@ -77,12 +77,8 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
 
     override fun popularMangaFromElement(element: Element): SManga = element.toSManga()
     override fun latestUpdatesFromElement(element: Element): SManga = element.toSManga()
-    override fun searchMangaFromElement(element: Element): SManga {
-    return SManga.create().apply {
-        title = element.selectFirst("h3")?.text() ?: ""
-        thumbnail_url = element.selectFirst("img")?.attr("src")
-        url = element.selectFirst("a")?.attr("href") ?: ""
-    }
+    override fun searchMangaFromElement(element: Element): SManga = element.toSManga().apply {
+    title = element.selectFirst("h3.title")?.ownText() ?: title
 }
 
     override fun popularMangaNextPageSelector(): String = "a.next.page-numbers"
