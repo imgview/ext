@@ -1,4 +1,4 @@
-package eu.kanade.tachiyomi.extension.id.komikcast02
+package eu.kanade.tachiyomi.extension.id.komik
 
 import android.app.Application
 import androidx.preference.EditTextPreference
@@ -29,7 +29,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
-class Komikcast02 : ParsedHttpSource(), ConfigurableSource {
+class Komik : ParsedHttpSource(), ConfigurableSource {
     override val name = "Komikcast02.com"
     override val lang = "id"
     override val supportsLatest = true
