@@ -195,26 +195,6 @@ private fun parseStatus(text: String): Int = when {
     else                                          -> SManga.UNKNOWN
 }
 
-    // Chapters
-    override fun chapterListSelector(): String =
-        "div.bxcl li, div.cl li, #chapterlist li, ul li:has(div.chbox):has(div.eph-num)"
-
-    override fun chapterFromElement(element: Element): SChapter {
-        val chapter = SChapter.create()
-        val urlElem = element.selectFirst("a")!!
-        chapter.setUrlWithoutDomain(urlElem.attr("href"))
-        chapter.name = element.selectFirst("span.chapternum")?.text() ?: urlElem.text()
-        element.selectFirst("span.chapterdate")?.text()?.let { dateStr ->
-            val parser = SimpleDateFormat("MMMM d, yyyy", Locale("id"))
-            chapter.date_upload = try {
-                parser.parse(dateStr)?.time ?: 0
-            } catch (_: Exception) {
-                0
-            }
-        }
-        return chapter
-    }
-
     // Pages
     override fun chapterListSelector() = "div.komik_info-chapters li"
 
