@@ -1,4 +1,4 @@
-package eu.kanade.tachiyomi.extension.id.komikindomoe
+package eu.kanade.tachiyomi.extension.id.komikcast02
 
 import android.app.Application
 import androidx.preference.EditTextPreference
@@ -29,8 +29,8 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
-class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
-    override val name = "Kiryuu01.com"
+class Komikcast02 : ParsedHttpSource(), ConfigurableSource {
+    override val name = "Komikcast02.com"
     override val lang = "id"
     override val supportsLatest = true
     override val client: OkHttpClient = network.cloudflareClient.newBuilder()
@@ -38,7 +38,7 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         .build()
 
     private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0)
-    override var baseUrl: String = preferences.getString(BASE_URL_PREF, "https://kiryuu01.com")!!
+    override var baseUrl: String = preferences.getString(BASE_URL_PREF, "https://komikcast02.com")!!
 
     private fun getResizeServiceUrl(): String? =
         preferences.getString("resize_service_url", null)
@@ -60,16 +60,16 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         GET("$baseUrl/daftar-komik/?orderby=update&page=$page", headers)
 
     override fun latestUpdatesRequest(page: Int): Request {
-    val postfix = if (page > 1) "page/$page/" else ""
-    val url = "$baseUrl/daftar-komik/$postfix?orderby=update"
-        .toHttpUrl().newBuilder().build()
-    return GET(url, headers)
-}
+        val postfix = if (page > 1) "page/$page/" else ""
+        val url = "$baseUrl/daftar-komik/$postfix?orderby=update"
+            .toHttpUrl().newBuilder().build()
+        return GET(url, headers)
+    }
 
     override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
-    val url = "$baseUrl/?s=$query&page=$page".toHttpUrl().newBuilder().build()
-    return GET(url, headers)
-}
+        val url = "$baseUrl/?s=$query&page=$page".toHttpUrl().newBuilder().build()
+        return GET(url, headers)
+    }
 
     // Selectors
     override fun popularMangaSelector(): String = "div.list-update_item"
@@ -79,8 +79,8 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     override fun popularMangaFromElement(element: Element): SManga = element.toSManga()
     override fun latestUpdatesFromElement(element: Element): SManga = element.toSManga()
     override fun searchMangaFromElement(element: Element): SManga = element.toSManga().apply {
-    title = element.selectFirst("h3.title")?.ownText() ?: title
-}
+        title = element.selectFirst("h3.title")?.ownText() ?: title
+    }
 
     override fun popularMangaNextPageSelector(): String = "a.next.page-numbers"
     override fun latestUpdatesNextPageSelector(): String = popularMangaNextPageSelector()
@@ -118,137 +118,119 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
 
     // Details
     override fun mangaDetailsParse(document: Document): SManga {
-    val manga = SManga.create()
-    val info = document.selectFirst("div.komik_info")!!
+        val manga = SManga.create()
+        val info = document.selectFirst("div.komik_info")!!
 
-    // 1. Title (clean “Bahasa Indonesia” + trailing punctuation)
-    val rawTitle = info
-        .selectFirst("h1.komik_info-content-body-title")!!
-        .text()
-        .trim()
-    manga.title = rawTitle
-        .replace("bahasa indonesia", "", ignoreCase = true)
-        .replace(Regex("[\\p{Punct}\\s]+\$"), "")
-        .trim()
+        // Title
+        val rawTitle = info
+            .selectFirst("h1.komik_info-content-body-title")!!
+            .text()
+            .trim()
+        manga.title = rawTitle
+            .replace("bahasa indonesia", "", ignoreCase = true)
+            .replace(Regex("[\\p{Punct}\\s]+\$"), "")
+            .trim()
 
-    // 2. Cover thumbnail (via wsrv.nl resize service)
-    val imgEl = info.selectFirst("div.komik_info-cover-image img")
-        ?: throw Exception("Cover image not found: ${manga.title}")
-    val rawUrl = imgEl.attr("abs:src")
-    manga.thumbnail_url = "https://wsrv.nl/?w=300&q=70&url=$rawUrl"
+        // Cover
+        val imgEl = info.selectFirst("div.komik_info-cover-image img")
+            ?: throw Exception("Cover image not found: ${manga.title}")
+        val rawUrl = imgEl.attr("abs:src")
+        manga.thumbnail_url = "https://wsrv.nl/?w=300&q=70&url=$rawUrl"
 
-    // 3. Author & Artist
-    val authorArtistText = info
-        .selectFirst("span.komik_info-content-info:has(b:contains(Author))")
-        ?.ownText().orEmpty()
-    val parts = authorArtistText.split(",")
-    manga.author = parts.getOrNull(0)?.trim().orEmpty()
-    manga.artist = parts.getOrNull(1)?.trim().orEmpty()
+        // Author & Artist
+        val authorArtistText = info
+            .selectFirst("span.komik_info-content-info:has(b:contains(Author))")
+            ?.ownText().orEmpty()
+        val parts = authorArtistText.split(",")
+        manga.author = parts.getOrNull(0)?.trim().orEmpty()
+        manga.artist = parts.getOrNull(1)?.trim().orEmpty()
 
-    // 4. Sinopsis / Description
-    val synopsis = info
-        .select("div.komik_info-description-sinopsis p")
-        .eachText()
-        .joinToString("\n\n") { it.trim() }
-
-    // 5. Alternative Title
-    val altTitle = info
-        .selectFirst("span.komik_info-content-native")
-        ?.text()
-        ?.trim()
-        .orEmpty()
-
-    manga.description = buildString {
-        append(synopsis)
-        if (altTitle.isNotEmpty()) {
-            append("\n\nAlternative Title: ")
-            append(altTitle)
+        // Description & Alternative Title
+        val synopsis = info
+            .select("div.komik_info-description-sinopsis p")
+            .eachText()
+            .joinToString("\n\n") { it.trim() }
+        val altTitle = info
+            .selectFirst("span.komik_info-content-native")
+            ?.text()
+            ?.trim()
+            .orEmpty()
+        manga.description = buildString {
+            append(synopsis)
+            if (altTitle.isNotEmpty()) {
+                append("\n\nAlternative Title: ")
+                append(altTitle)
+            }
         }
+
+        // Genre + Type
+        val genreList = info
+            .select("span.komik_info-content-genre a.genre-item")
+            .eachText()
+            .toMutableList()
+        info.selectFirst("span.komik_info-content-info-type a")
+            ?.text()
+            ?.takeIf(String::isNotBlank)
+            ?.let { genreList.add(it) }
+        manga.genre = genreList.joinToString(", ")
+
+        // Status
+        val statusText = info
+            .selectFirst("span.komik_info-content-info:has(b:contains(Status))")
+            ?.text()
+            ?.replaceFirst("Status:", "", ignoreCase = true)
+            ?.trim()
+            .orEmpty()
+        manga.status = parseStatus(statusText)
+
+        return manga
     }
 
-    // 6. Genre + Type
-    val genreList = info
-        .select("span.komik_info-content-genre a.genre-item")
-        .eachText()
-        .toMutableList()
-    info.selectFirst("span.komik_info-content-info-type a")
-        ?.text()
-        ?.takeIf(String::isNotBlank)
-        ?.let { genreList.add(it) }
-    manga.genre = genreList.joinToString(", ")
+    private fun parseStatus(text: String): Int = when {
+        text.contains("Ongoing", ignoreCase = true)   -> SManga.ONGOING
+        text.contains("Completed", ignoreCase = true) -> SManga.COMPLETED
+        else                                          -> SManga.UNKNOWN
+    }
 
-    // 7. Status
-    val statusText = info
-        .selectFirst("span.komik_info-content-info:has(b:contains(Status))")
-        ?.text()
-        ?.replaceFirst("Status:", "", ignoreCase = true)
-        ?.trim()
-        .orEmpty()
-    manga.status = parseStatus(statusText)
-
-    return manga
-}
-
-// Helper untuk parsing status
-private fun parseStatus(text: String): Int = when {
-    text.contains("Ongoing", ignoreCase = true)   -> SManga.ONGOING
-    text.contains("Completed", ignoreCase = true) -> SManga.COMPLETED
-    else                                          -> SManga.UNKNOWN
-}
-
-    // Pages
+    // Chapters
     override fun chapterListSelector() = "div.komik_info-chapters li"
-
     override fun chapterFromElement(element: Element) = SChapter.create().apply {
-        val urlElements = element.select("a")
-        setUrlWithoutDomain(urlElements.attr("href"))
+        setUrlWithoutDomain(element.selectFirst("a")!!.attr("href"))
         name = element.select(".chapter-link-item").text()
         date_upload = parseChapterDate2(element.select(".chapter-link-time").text())
     }
+
+    private val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale("id"))
 
     private fun parseChapterDate2(date: String): Long {
         return if (date.endsWith("ago")) {
             val value = date.split(' ')[0].toInt()
             when {
-                "min" in date -> Calendar.getInstance().apply {
-                    add(Calendar.MINUTE, value * -1)
-                }.timeInMillis
-                "hour" in date -> Calendar.getInstance().apply {
-                    add(Calendar.HOUR_OF_DAY, value * -1)
-                }.timeInMillis
-                "day" in date -> Calendar.getInstance().apply {
-                    add(Calendar.DATE, value * -1)
-                }.timeInMillis
-                "week" in date -> Calendar.getInstance().apply {
-                    add(Calendar.DATE, value * 7 * -1)
-                }.timeInMillis
-                "month" in date -> Calendar.getInstance().apply {
-                    add(Calendar.MONTH, value * -1)
-                }.timeInMillis
-                "year" in date -> Calendar.getInstance().apply {
-                    add(Calendar.YEAR, value * -1)
-                }.timeInMillis
-                else -> {
-                    0L
-                }
+                "min" in date  -> Calendar.getInstance().apply { add(Calendar.MINUTE, -value) }.timeInMillis
+                "hour" in date -> Calendar.getInstance().apply { add(Calendar.HOUR_OF_DAY, -value) }.timeInMillis
+                "day" in date  -> Calendar.getInstance().apply { add(Calendar.DATE, -value) }.timeInMillis
+                "week" in date -> Calendar.getInstance().apply { add(Calendar.DATE, -value * 7) }.timeInMillis
+                "month" in date-> Calendar.getInstance().apply { add(Calendar.MONTH, -value) }.timeInMillis
+                "year" in date -> Calendar.getInstance().apply { add(Calendar.YEAR, -value) }.timeInMillis
+                else            -> 0L
             }
         } else {
-            try {
-                dateFormat.parse(date)?.time ?: 0
-            } catch (_: Exception) {
-                0L
-            }
+            try { dateFormat.parse(date)?.time ?: 0L } catch (_: Exception) { 0L }
         }
     }
 
-    override fun imageUrlParse(document: Document): String =
-        throw UnsupportedOperationException()
+    // Page list
+    override fun pageListParse(document: Document): List<Page> {
+        return document.select("div.reading-content img")
+            .mapIndexed { i, imgEl -> Page(i, "", imgEl.attr("abs:src")) }
+    }
 
+    override fun imageUrlParse(document: Document): String = throw UnsupportedOperationException()
     override fun imageRequest(page: Page): Request =
         GET(page.imageUrl!!, headersBuilder().set("Referer", baseUrl).build())
 
-    override fun getFilterList(): FilterList =
-        FilterList(Filter.Header("No filters"))
+    // Filters
+    override fun getFilterList(): FilterList = FilterList(Filter.Header("No filters"))
 
     // Preferences
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
@@ -284,7 +266,6 @@ private fun parseStatus(text: String): Int = when {
         }
     }
 
-    // Helper to convert element → SManga
     private fun Element.toSManga(): SManga {
         val manga = SManga.create()
         manga.setUrlWithoutDomain(selectFirst("a")!!.attr("href"))
