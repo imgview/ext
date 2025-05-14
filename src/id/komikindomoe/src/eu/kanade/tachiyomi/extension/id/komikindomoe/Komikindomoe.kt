@@ -183,14 +183,16 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         return document.select("div.main-reading-area img.size-full").mapIndexed { i, img ->
             val rawUrl = img.attr("abs:src")
             val finalUrl = svc?.let {
-                val encoded = URLEncoder.encode(rawUrl, "UTF-8")
-                if (it.contains("?")) "$it$encoded" else "$it?url=$encoded"
+                // Jika URL servis mengandung parameter '?url=', hapus bagian tersebut
+                val base = it.substringBefore("?url=")
+                // Pastikan ada slash di antara base dan rawUrl
+                if (base.endsWith("")) "${base}${rawUrl}" else "${base}/${rawUrl}"
             } ?: rawUrl
             Page(i, "", finalUrl)
         }
     }
 
-    override fun imageUrlParse(document: Document): String = throw UnsupportedOperationException()
+    override fun imageUrlParse(document: Document): String = throw UnsupportedOperationException()(document: Document): String = throw UnsupportedOperationException()
     override fun imageRequest(page: Page): Request =
         GET(page.imageUrl!!, headersBuilder().set("Referer", baseUrl).build())
 
@@ -201,7 +203,7 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
         screen.addPreference(EditTextPreference(screen.context).apply {
             key = RESIZE_URL_PREF
-            title = "Resize Service URL"
+            title = RESIZE_URL_PREF_TITLE
             summary = "Masukkan URL servis resize (contoh: https://imgpa.vercel.app/?url=)"
             setDefaultValue(null)
         })
@@ -221,7 +223,7 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         })
         screen.addPreference(EditTextPreference(screen.context).apply {
             key = MANGA_WHITELIST_PREF
-            title = "Whitelist Manga"
+            title = MANGA_WHITELIST_PREF_TITLE
             summary = "Masukkan judul Manga yang mau ditampilkan, dipisah koma"
             setDefaultValue("")
         })
@@ -232,7 +234,7 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         manga.setUrlWithoutDomain(selectFirst("a")!!.attr("href"))
         manga.title = selectFirst("div.tt, h3.title")?.text().orEmpty()
         val raw = selectFirst("img")!!.attr("abs:src")
-        manga.thumbnail_url = "https://wsrv.nl/?w=300&q=70&url=$raw"
+        manga.thumbnail_url = "https://wsrv.nl/?w=110&q=70&url=$raw"
         return manga
     }
 
@@ -241,6 +243,8 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         private const val BASE_URL_PREF = "overrideBaseUrl"
         private const val BASE_URL_PREF_SUMMARY = "Override the base URL"
         private const val MANGA_WHITELIST_PREF = "manga_whitelist"
+        private const val MANGA_WHITELIST_PREF_TTITLE = "Tampilkan manga"
         private const val RESIZE_URL_PREF = "resize_service_url"
+        private const val RESIZE_URL_PREF_TITLE = "Layanan Resize"
     }
 }
