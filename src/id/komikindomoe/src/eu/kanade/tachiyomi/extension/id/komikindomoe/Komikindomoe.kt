@@ -183,13 +183,16 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
 
     // page
     override fun pageListParse(document: Document): List<Page> {
-    val resizeServiceUrl = getResizeServiceUrl() // Mendapatkan URL layanan resize
+    val resizeServiceUrl = getResizeServiceUrl()
 
-    return document.select("div#chapter_body .main-reading-area img.size-full")
-        .distinctBy { img -> img.imgAttr() } // Menghapus duplikat berdasarkan atribut gambar
-        .mapIndexed { i, img -> 
-            // Menggabungkan resizeServiceUrl dengan URL gambar
-            Page(i, document.location(), "$resizeServiceUrl${img.imgAttr()}")
+    return document.select("div.main-reading-area img.size-full")
+        .filter { img -> 
+            val src = img.attr("src")
+            !src.endsWith("999.jpg", ignoreCase = true) // Kecualikan gambar yang berakhiran 999.jpg
+        }
+        .mapIndexed { i, img ->
+            val imageUrl = img.attr("src")
+            Page(i, document.location(), "$resizeServiceUrl$imageUrl")
         }
 }
 
