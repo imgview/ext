@@ -1,20 +1,70 @@
 package eu.kanade.tachiyomi.extension.id.komikucom
 
 import android.app.Application
-import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceScreen
+import eu.kanade.tachiyomi.extension.util.addRandomUAPreferenceToScreen
+import eu.kanade.tachiyomi.lib.randomua.setRandomUserAgent
+import eu.kanade.tachiyomi.lib.randomua.UserAgentType
 import eu.kanade.tachiyomi.multisrc.mangathemesia.MangaThemesia
-import eu.kanade.tachiyomi.network.interceptor.CloudflareInterceptor
-import eu.kanade.tachiyomi.network.interceptor.rateLimit
 import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.model.Page
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
+import okhttp3.Interceptor
+import okhttp3.OkHttpClient
+import okhttp3.Response
+import okhttp3.ResponseBody
+import okhttp3.internal.http2.ErrorCode
 import org.jsoup.nodes.Document
+import org.mozilla.javascript.Context
+import org.mozilla.javascript.Scriptable
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Locale
+
+// Interceptor untuk bypass Cloudflare JS Challenge otomatis
+class CloudflareInterceptor : Interceptor {
+    override fun intercept(chain: Interceptor.Chain): Response {
+        val request = chain.request()
+        val initial = chain.proceed(request)
+        if (initial.code != 503 || initial.body == null) return initial
+
+        val html = initial.body!!.string().also { initial.close() }
+        // Ekstrak JS challenge
+        val js = html
+            .substringAfter("setTimeout(function(){")
+            .substringBefore("}, 1500);")
+            .replace("document.cookie", "var cookie") + "\n; cookie;"
+
+        // Eksekusi dengan Rhino
+        val cx = Context.enter().apply { optimizationLevel = -1 }
+        return try {
+            val scope: Scriptable = cx.initStandardObjects()
+            // Setup fake document & location
+            val loc = cx.newObject(scope)
+            loc.defineProperty("href", request.url.toString(), Scriptable.PERMANENT)
+            scope.defineProperty("location", loc, Scriptable.PERMANENT)
+            val doc = cx.newObject(scope)
+            doc.defineProperty("cookie", "", Scriptable.PERMANENT)
+            scope.defineProperty("document", doc, Scriptable.PERMANENT)
+
+            // Jalankan challenge
+            val result = cx.evaluateString(scope, js, "cf", 1, null)
+            val cookie = result?.toString() ?: return initial
+            // Ulangi request dengan cookie
+            val newReq = request.newBuilder()
+                .header("Cookie", cookie)
+                .build()
+            chain.proceed(newReq)
+        } catch (_: Exception) {
+            initial
+        } finally {
+            Context.exit()
+        }
+    }
+}
 
 class KomikuCom : MangaThemesia(
     "Komik",
@@ -24,29 +74,25 @@ class KomikuCom : MangaThemesia(
     dateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale("id"))
 ), ConfigurableSource {
 
-    private val preferences = Injekt.get<Application>()
-        .getSharedPreferences("source_$id", 0)
+    private val prefs = Injekt.get<Application>().getSharedPreferences("source_$id", 0)
+    override var baseUrl = prefs.getString(BASE_URL_PREF, super.baseUrl)!!
 
-    override var baseUrl = preferences.getString(BASE_URL_PREF, super.baseUrl)!!
-
-    override val client = super.client.newBuilder()
+    override val client: OkHttpClient = super.client.newBuilder()
+        // throttle
         .rateLimit(1, 1)
+        // random UA
+        .setRandomUserAgent(UserAgentType.MOBILE)
+        // bypass Cloudflare JS challenge
         .addInterceptor(CloudflareInterceptor())
-        .addInterceptor { chain ->
-            val original = chain.request()
-            val req = original.newBuilder()
-                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-                        "(KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3")
-                .addHeader("Referer", baseUrl)
-                .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-                .addHeader("Accept-Language", "en-US,en;q=0.5")
-                .addHeader("DNT", "1")
-                .addHeader("Connection", "keep-alive")
-                .addHeader("Sec-Fetch-Dest", "document")
-                .addHeader("Sec-Fetch-Mode", "navigate")
-                .addHeader("Sec-Fetch-Site", "same-origin")
-                .addHeader("Sec-Fetch-User", "?1")
-                .addHeader("Upgrade-Insecure-Requests", "1")
+        // kustom header
+        .addInterceptor { chain: Interceptor.Chain ->
+            val req = chain.request().newBuilder()
+                .header("Referer", baseUrl)
+                .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                .header("Accept-Language", "en-US,en;q=0.5")
+                .header("DNT", "1")
+                .header("Connection", "keep-alive")
+                .header("Upgrade-Insecure-Requests", "1")
                 .build()
             chain.proceed(req)
         }
@@ -58,71 +104,45 @@ class KomikuCom : MangaThemesia(
         }
 
     override fun pageListParse(document: Document): List<Page> {
-        val scriptContent = document.selectFirst("script:containsData(ts_reader)")?.data()
-            ?: throw Exception("Script containing 'ts_reader' not found")
-        val jsonString = scriptContent
-            .substringAfter("ts_reader.run(")
-            .substringBefore(");")
-        val tsReader = json.decodeFromString<TSReader>(jsonString)
-
-        val imageUrls = tsReader.sources.firstOrNull()?.images
-            ?: throw Exception("No images found in ts_reader data")
-
-        val filtered = imageUrls.filterNot { it.contains("/banner/", true) }
-        val resizeServiceUrl = preferences.getString("resize_service_url", null)
-
-        return filtered.mapIndexed { idx, url ->
-            Page(idx, document.location(), "${resizeServiceUrl ?: ""}$url")
-        }
+        val script = document.selectFirst("script:containsData(ts_reader)")?.data()
+            ?: throw Exception("ts_reader not found")
+        val jsonStr = script.substringAfter("ts_reader.run(").substringBefore(");")
+        val ts = json.decodeFromString<TSReader>(jsonStr)
+        val imgs = ts.sources.firstOrNull()?.images.orEmpty()
+        val filtered = imgs.filterNot { it.contains("/banner/", true) }
+        val resize = prefs.getString("resize_service_url", null).orEmpty()
+        return filtered.mapIndexed { i, u -> Page(i, document.location(), "$resize$u") }
     }
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
-        // Resize service URL
-        val resizePref = EditTextPreference(screen.context).apply {
+        // random UA settings
+        addRandomUAPreferenceToScreen(screen.context, screen, prefs)
+        // resize URL
+        androidx.preference.EditTextPreference(screen.context).apply {
             key = "resize_service_url"
             title = "Resize Service URL"
-            summary = preferences.getString(key, "") ?: ""
+            summary = prefs.getString(key, "") ?: ""
             setDefaultValue("")
             dialogTitle = "Resize Service URL"
-            setOnPreferenceChangeListener { _, newValue ->
-                preferences.edit().putString(key, newValue as String).apply()
-                summary = newValue
-                true
+            setOnPreferenceChangeListener { _, newV ->
+                prefs.edit().putString(key, newV as String).apply(); summary = newV; true
             }
-        }
-        screen.addPreference(resizePref)
-
-        // Override base URL
-        val basePref = EditTextPreference(screen.context).apply {
-            key = BASE_URL_PREF
-            title = BASE_URL_PREF_TITLE
-            summary = baseUrl
-            setDefaultValue(baseUrl)
-            dialogTitle = BASE_URL_PREF_TITLE
-            dialogMessage = "Original: ${super.baseUrl}"
-            setOnPreferenceChangeListener { _, newValue ->
-                val v = newValue as String
-                baseUrl = v
-                preferences.edit().putString(key, v).apply()
-                summary = v
-                true
+        }.also(screen::addPreference)
+        // override domain
+        androidx.preference.EditTextPreference(screen.context).apply {
+            key = BASE_URL_PREF; title = BASE_URL_PREF_TITLE; summary = baseUrl;
+            setDefaultValue(baseUrl); dialogTitle = BASE_URL_PREF_TITLE;
+            dialogMessage = "Original: ${super.baseUrl}";
+            setOnPreferenceChangeListener { _, nv ->
+                baseUrl = nv as String; prefs.edit().putString(key,nv).apply(); summary=nv; true
             }
-        }
-        screen.addPreference(basePref)
-
-        // Manual cookies (jika diperlukan)
-        val cookiesPref = EditTextPreference(screen.context).apply {
-            key = "cookies"
-            title = "Cookies"
-            summary = preferences.getString(key, "") ?: ""
-            setDefaultValue("")
-            dialogTitle = "Cookies"
-            setOnPreferenceChangeListener { _, newValue ->
-                preferences.edit().putString(key, newValue as String).apply()
-                true
-            }
-        }
-        screen.addPreference(cookiesPref)
+        }.also(screen::addPreference)
+        // manual cookies
+        androidx.preference.EditTextPreference(screen.context).apply {
+            key="cookies"; title="Cookies"; summary=prefs.getString(key,"")?:"";
+            setDefaultValue(""); dialogTitle="Cookies";
+            setOnPreferenceChangeListener { _, nv -> prefs.edit().putString(key,nv as String).apply(); true }
+        }.also(screen::addPreference)
     }
 
     companion object {
@@ -130,9 +150,6 @@ class KomikuCom : MangaThemesia(
         private const val BASE_URL_PREF = "overrideBaseUrl"
     }
 
-    @Serializable
-    data class TSReader(val sources: List<ReaderImageSource>)
-
-    @Serializable
-    data class ReaderImageSource(val source: String, val images: List<String>)
+    @Serializable data class TSReader(val sources: List<ReaderImageSource>)
+    @Serializable data class ReaderImageSource(val source: String, val images: List<String>)
 }
