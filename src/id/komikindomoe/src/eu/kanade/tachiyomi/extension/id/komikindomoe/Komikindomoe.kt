@@ -17,6 +17,7 @@ import eu.kanade.tachiyomi.util.asJsoup
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -93,8 +94,7 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
                 ?: return@mapNotNull null
 
             when {
-                typeText.equals("Manhwa", true),
-                typeText.equals("Manhua", true) -> element.toSManga()
+                typeText.equals("Manhwa", true) || typeText.equals("Manhua", true) -> element.toSManga()
 
                 typeText.equals("Manga", true) -> {
                     val titleText = element.selectFirst("h3.title")?.text()?.trim()
