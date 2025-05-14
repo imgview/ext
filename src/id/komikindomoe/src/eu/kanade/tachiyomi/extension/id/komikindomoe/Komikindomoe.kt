@@ -25,7 +25,6 @@ import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import java.net.URLEncoder
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -34,6 +33,8 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     override val name = "Komikcast02.com"
     override val lang = "id"
     override val supportsLatest = true
+
+    // Client dengan rate limit
     override val client: OkHttpClient = network.cloudflareClient.newBuilder()
         .rateLimit(12, 3)
         .build()
@@ -56,10 +57,11 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         )
     }
 
-    // Requests
+    // Request untuk daftar populer
     override fun popularMangaRequest(page: Int): Request =
         GET("$baseUrl/daftar-komik/?orderby=update&page=$page", headers)
 
+    // Request untuk update terbaru
     override fun latestUpdatesRequest(page: Int): Request {
         val postfix = if (page > 1) "page/$page/" else ""
         val url = "$baseUrl/daftar-komik/$postfix?orderby=update"
@@ -67,12 +69,13 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         return GET(url, headers)
     }
 
+    // Request pencarian
     override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
         val url = "$baseUrl/?s=$query&page=$page".toHttpUrl().newBuilder().build()
         return GET(url, headers)
     }
 
-    // Selectors
+    // Selector
     override fun popularMangaSelector(): String = "div.list-update_item"
     override fun latestUpdatesSelector(): String = "div.list-update_item"
     override fun searchMangaSelector(): String = "div.list-update_item"
@@ -87,7 +90,7 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     override fun latestUpdatesNextPageSelector(): String = popularMangaNextPageSelector()
     override fun searchMangaNextPageSelector(): String = popularMangaNextPageSelector()
 
-    // Custom latest parse
+    // Parsing khusus untuk update terbaru
     override fun latestUpdatesParse(response: Response): MangasPage {
         val document = response.asJsoup()
         val rawList = preferences.getString(MANGA_WHITELIST_PREF, "")
@@ -115,7 +118,7 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         return MangasPage(mangas, hasNext)
     }
 
-    // Details
+    // Parsing detail manga
     override fun mangaDetailsParse(document: Document): SManga {
         val manga = SManga.create()
         val info = document.selectFirst("div.komik_info")!!
@@ -154,7 +157,7 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         return manga
     }
 
-    // Chapters
+    // Parsing daftar chapter
     override fun chapterListSelector() = "div.komik_info-chapters li"
     override fun chapterFromElement(element: Element) = SChapter.create().apply {
         setUrlWithoutDomain(element.selectFirst("a")!!.attr("href"))
@@ -177,35 +180,29 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         }.timeInMillis
     } else dateFormat.parse(date)?.time ?: 0L
 
-    // Page list (gunakan resize service jika disetelan)
+    // Parsing halaman bacaan dan gunakan layanan resize jika tersedia
     override fun pageListParse(document: Document): List<Page> {
         val svc = getResizeServiceUrl()
         return document.select("div.main-reading-area img.size-full").mapIndexed { i, img ->
             val rawUrl = img.attr("abs:src")
-            val finalUrl = svc?.let {
-                // Jika URL servis mengandung parameter '?url=', hapus bagian tersebut
-                val base = it.substringBefore("?url=")
-                // Pastikan ada slash di antara base dan rawUrl
-                if (base.endsWith("")) "${base}${rawUrl}" else "${base}/${rawUrl}"
-            } ?: rawUrl
+            val finalUrl = svc?.let { it + rawUrl } ?: rawUrl // Gunakan resize service jika disetel
             Page(i, "", finalUrl)
         }
     }
 
-    override fun imageUrlParse(document: Document): String = throw UnsupportedOperationException()(document: Document): String = throw UnsupportedOperationException()
+    override fun imageUrlParse(document: Document): String = throw UnsupportedOperationException()
     override fun imageRequest(page: Page): Request =
         GET(page.imageUrl!!, headersBuilder().set("Referer", baseUrl).build())
 
-    // Filters
     override fun getFilterList(): FilterList = FilterList(Filter.Header("No filters"))
 
-    // Preferences
+    // Pengaturan sumber (Preferences)
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
         screen.addPreference(EditTextPreference(screen.context).apply {
             key = RESIZE_URL_PREF
             title = RESIZE_URL_PREF_TITLE
-            summary = "Masukkan URL servis resize (contoh: https://imgpa.vercel.app/?url=)"
-            setDefaultValue(null)
+            summary = "Layanan Resize"
+            setDefaultValue("")
         })
         screen.addPreference(EditTextPreference(screen.context).apply {
             key = BASE_URL_PREF
@@ -229,12 +226,13 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         })
     }
 
+    // Ekstensi fungsi untuk parsing manga dari elemen
     private fun Element.toSManga(): SManga {
         val manga = SManga.create()
         manga.setUrlWithoutDomain(selectFirst("a")!!.attr("href"))
         manga.title = selectFirst("div.tt, h3.title")?.text().orEmpty()
         val raw = selectFirst("img")!!.attr("abs:src")
-        manga.thumbnail_url = "https://wsrv.nl/?w=110&q=70&url=$raw"
+        manga.thumbnail_url = "https://wsrv.nl/?w=300&q=70&url=$raw"
         return manga
     }
 
@@ -243,8 +241,8 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         private const val BASE_URL_PREF = "overrideBaseUrl"
         private const val BASE_URL_PREF_SUMMARY = "Override the base URL"
         private const val MANGA_WHITELIST_PREF = "manga_whitelist"
-        private const val MANGA_WHITELIST_PREF_TTITLE = "Tampilkan manga"
+        private const val MANGA_WHITELIST_PREF_TITLE = "Tampilkan Komik"
         private const val RESIZE_URL_PREF = "resize_service_url"
-        private const val RESIZE_URL_PREF_TITLE = "Layanan Resize"
+        private const val RESIZE_URL_PREF_TITLE = "Layanan resize"
     }
 }
