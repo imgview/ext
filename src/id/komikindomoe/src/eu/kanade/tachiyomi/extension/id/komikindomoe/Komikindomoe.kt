@@ -187,6 +187,13 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     return manga
 }
 
+    private fun parseStatus(text: String): Int = when {
+        text.contains("Ongoing", ignoreCase = true)    -> SManga.ONGOING
+        text.contains("Completed", ignoreCase = true)  -> SManga.COMPLETED
+        else                                           -> SManga.UNKNOWN
+    }
+
+
     // Chapters
     override fun chapterListSelector(): String =
         "div.bxcl li, div.cl li, #chapterlist li, ul li:has(div.chbox):has(div.eph-num)"
