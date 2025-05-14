@@ -1,6 +1,6 @@
 package eu.kanade.tachiyomi.extension.id.komikindomoe
 
-import android.app.Application
+import android.app\Application
 import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.network.GET
@@ -86,7 +86,7 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     override fun latestUpdatesNextPageSelector(): String = popularMangaNextPageSelector()
     override fun searchMangaNextPageSelector(): String = popularMangaNextPageSelector()
 
-    // Custom latest parse: hanya Manhwa, Manhua, dan whitelist Manga
+    // Custom latest parse
     override fun latestUpdatesParse(response: Response): MangasPage {
         val document = response.asJsoup()
         val rawList = preferences.getString(MANGA_WHITELIST_PREF, "")
@@ -101,14 +101,12 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
             when {
                 typeText.equals("Manhwa", ignoreCase = true) || typeText.equals("Manhua", ignoreCase = true) ->
                     element.toSManga()
-
                 typeText.equals("Manga", ignoreCase = true) -> {
                     val titleText = element.selectFirst("h3.title")?.text()?.trim()
                     if (titleText != null && allowedManga.any { it.equals(titleText, ignoreCase = true) }) {
                         element.toSManga()
                     } else null
                 }
-
                 else -> null
             }
         }
@@ -122,74 +120,43 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         val info = document.selectFirst("div.komik_info")!!
 
         // Title
-        val rawTitle = info
-            .selectFirst("h1.komik_info-content-body-title")!!
-            .text()
-            .trim()
-        manga.title = rawTitle
+        manga.title = info.selectFirst("h1.komik_info-content-body-title")!!.text().trim()
             .replace("bahasa indonesia", "", ignoreCase = true)
-            .replace(Regex("[\\p{Punct}\\s]+\$"), "")
-            .trim()
+            .replace(Regex("[\\p{Punct}\\s]+\$"), "").trim()
 
-        // Cover
-        val imgEl = info.selectFirst("div.komik_info-cover-image img")
-            ?: throw Exception("Cover image not found: ${manga.title}")
-        val rawUrl = imgEl.attr("abs:src")
-        manga.thumbnail_url = "https://wsrv.nl/?w=300&q=70&url=$rawUrl"
+        // Cover (gunakan thumbnail bawaan wsrv.nl)
+        val rawCover = info.selectFirst("div.komik_info-cover-image img")!!.attr("abs:src")
+        manga.thumbnail_url = "https://wsrv.nl/?w=300&q=70&url=$rawCover"
 
         // Author & Artist
-        val authorArtistText = info
-            .selectFirst("span.komik_info-content-info:has(b:contains(Author))")
-            ?.ownText().orEmpty()
-        val parts = authorArtistText.split(",")
+        val parts = info.selectFirst("span.komik_info-content-info:has(b:contains(Author))")
+            ?.ownText().orEmpty().split(",")
         manga.author = parts.getOrNull(0)?.trim().orEmpty()
         manga.artist = parts.getOrNull(1)?.trim().orEmpty()
 
-        // Description & Alternative Title
-        val synopsis = info
-            .select("div.komik_info-description-sinopsis p")
-            .eachText()
-            .joinToString("\n\n") { it.trim() }
-        val altTitle = info
-            .selectFirst("span.komik_info-content-native")
-            ?.text()
-            ?.trim()
-            .orEmpty()
+        // Description & Alt Title
+        val synopsis = info.select("div.komik_info-description-sinopsis p").eachText().joinToString("\n\n")
+        val altTitle = info.selectFirst("span.komik_info-content-native")?.text().orEmpty().trim()
         manga.description = buildString {
             append(synopsis)
-            if (altTitle.isNotEmpty()) {
-                append("\n\nAlternative Title: ")
-                append(altTitle)
-            }
+            if (altTitle.isNotEmpty()) append("\n\nAlternative Title: $altTitle")
         }
 
         // Genre + Type
-        val genreList = info
-            .select("span.komik_info-content-genre a.genre-item")
-            .eachText()
-            .toMutableList()
-        info.selectFirst("span.komik_info-content-info-type a")
-            ?.text()
-            ?.takeIf(String::isNotBlank)
-            ?.let { genreList.add(it) }
-        manga.genre = genreList.joinToString(", ")
+        val genres = info.select("span.komik_info-content-genre a.genre-item").eachText().toMutableList()
+        info.selectFirst("span.komik_info-content-info-type a")?.text()?.takeIf(String::isNotBlank)?.let { genres.add(it) }
+        manga.genre = genres.joinToString(", ")
 
         // Status
-        val statusText = info
-            .selectFirst("span.komik_info-content-info:has(b:contains(Status))")
-            ?.text()
-            ?.replaceFirst("Status:", "", ignoreCase = true)
-            ?.trim()
-            .orEmpty()
-        manga.status = parseStatus(statusText)
+        val statusText = info.selectFirst("span.komik_info-content-info:has(b:contains(Status))")
+            ?.text()?.replaceFirst("Status:", "", ignoreCase = true).orEmpty().trim()
+        manga.status = when {
+            statusText.contains("Ongoing", ignoreCase = true) -> SManga.ONGOING
+            statusText.contains("Completed", ignoreCase = true) -> SManga.COMPLETED
+            else -> SManga.UNKNOWN
+        }
 
         return manga
-    }
-
-    private fun parseStatus(text: String): Int = when {
-        text.contains("Ongoing", ignoreCase = true)   -> SManga.ONGOING
-        text.contains("Completed", ignoreCase = true) -> SManga.COMPLETED
-        else                                          -> SManga.UNKNOWN
     }
 
     // Chapters
@@ -197,32 +164,33 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     override fun chapterFromElement(element: Element) = SChapter.create().apply {
         setUrlWithoutDomain(element.selectFirst("a")!!.attr("href"))
         name = element.select(".chapter-link-item").text()
-        date_upload = parseChapterDate2(element.select(".chapter-link-time").text())
+        date_upload = parseChapterDate(element.select(".chapter-link-time").text())
     }
 
     private val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale("id"))
-
-    private fun parseChapterDate2(date: String): Long {
-        return if (date.endsWith("ago")) {
-            val value = date.split(' ')[0].toInt()
+    private fun parseChapterDate(date: String): Long = if (date.endsWith("ago")) {
+        val v = date.split(' ')[0].toInt()
+        Calendar.getInstance().apply {
             when {
-                "min" in date  -> Calendar.getInstance().apply { add(Calendar.MINUTE, -value) }.timeInMillis
-                "hour" in date -> Calendar.getInstance().apply { add(Calendar.HOUR_OF_DAY, -value) }.timeInMillis
-                "day" in date  -> Calendar.getInstance().apply { add(Calendar.DATE, -value) }.timeInMillis
-                "week" in date -> Calendar.getInstance().apply { add(Calendar.DATE, -value * 7) }.timeInMillis
-                "month" in date-> Calendar.getInstance().apply { add(Calendar.MONTH, -value) }.timeInMillis
-                "year" in date -> Calendar.getInstance().apply { add(Calendar.YEAR, -value) }.timeInMillis
-                else            -> 0L
+                "min" in date -> add(Calendar.MINUTE, -v)
+                "hour" in date -> add(Calendar.HOUR_OF_DAY, -v)
+                "day" in date  -> add(Calendar.DATE, -v)
+                "week" in date -> add(Calendar.DATE, -v * 7)
+                "month" in date-> add(Calendar.MONTH, -v)
+                "year" in date -> add(Calendar.YEAR, -v)
             }
-        } else {
-            try { dateFormat.parse(date)?.time ?: 0L } catch (_: Exception) { 0L }
-        }
-    }
+        }.timeInMillis
+    } else dateFormat.parse(date)?.time ?: 0L
 
-    // Page list
+    // Page list (gunakan selector div.main-reading-area img.size-full)
     override fun pageListParse(document: Document): List<Page> {
-        return document.select("div.reading-content img")
-            .mapIndexed { i, imgEl -> Page(i, "", imgEl.attr("abs:src")) }
+        val svc = getResizeServiceUrl()
+        return document.select("div.main-reading-area img.size-full")
+            .mapIndexed { i, img ->
+                val rawUrl = img.attr("abs:src")
+                val finalUrl = svc?.let { it + rawUrl } ?: rawUrl
+                Page(i, "", finalUrl)
+            }
     }
 
     override fun imageUrlParse(document: Document): String = throw UnsupportedOperationException()
@@ -234,45 +202,40 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
 
     // Preferences
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
-        screen.apply {
-            addPreference(EditTextPreference(context).apply {
-                key = "resize_service_url"
-                title = "Resize Service URL"
-                summary = "Masukkan URL layanan resize gambar."
-                setDefaultValue(null)
-                dialogTitle = "Resize Service URL"
-            })
-            addPreference(EditTextPreference(context).apply {
-                key = BASE_URL_PREF
-                title = BASE_URL_PREF_TITLE
-                summary = BASE_URL_PREF_SUMMARY
-                setDefaultValue(baseUrl)
-                dialogTitle = BASE_URL_PREF_TITLE
-                dialogMessage = "Original: $baseUrl"
-                setOnPreferenceChangeListener { _, newValue ->
-                    baseUrl = newValue as String
-                    preferences.edit().putString(BASE_URL_PREF, baseUrl).apply()
-                    summary = "Current domain: $baseUrl"
-                    true
-                }
-            })
-            addPreference(EditTextPreference(context).apply {
-                key = MANGA_WHITELIST_PREF
-                title = "Whitelist Manga"
-                summary = "Masukkan judul Manga yang mau ditampilkan, dipisah koma"
-                dialogTitle = "Whitelist Manga (comma-separated)"
-                setDefaultValue("")
-            })
-        }
+        screen.addPreference(EditTextPreference(screen.context).apply {
+            key = "resize_service_url"
+            title = "Resize Service URL"
+            summary = "Masukkan URL servis resize (contoh: https://imgpa.vercel.app/?url=)
+            setDefaultValue(null)
+        })
+        screen.addPreference(EditTextPreference(screen.context).apply {
+            key = BASE_URL_PREF
+            title = BASE_URL_PREF_TITLE
+            summary = BASE_URL_PREF_SUMMARY
+            setDefaultValue(baseUrl)
+            dialogTitle = BASE_URL_PREF_TITLE
+            dialogMessage = "Original: $baseUrl"
+            setOnPreferenceChangeListener { _, new ->
+                baseUrl = new as String
+                preferences.edit().putString(BASE_URL_PREF, baseUrl).apply()
+                summary = "Current domain: $baseUrl"
+                true
+            }
+        })
+        screen.addPreference(EditTextPreference(screen.context).apply {
+            key = MANGA_WHITELIST_PREF
+            title = "Whitelist Manga"
+            summary = "Masukkan judul Manga yang mau ditampilkan, dipisah koma"
+            setDefaultValue("")
+        })
     }
 
     private fun Element.toSManga(): SManga {
         val manga = SManga.create()
         manga.setUrlWithoutDomain(selectFirst("a")!!.attr("href"))
-        manga.title = selectFirst("div.tt, h3.title")?.text()?.trim().orEmpty()
-        val rawUrl = selectFirst("img")?.attr("abs:src").orEmpty()
-        require(rawUrl.isNotBlank()) { "Gagal memuat cover" }
-        manga.thumbnail_url = "https://wsrv.nl/?w=300&q=70&url=$rawUrl"
+        manga.title = selectFirst("div.tt, h3.title")?.text().orEmpty()
+        val raw = selectFirst("img")!!.attr("abs:src")
+        manga.thumbnail_url = "https://wsrv.nl/?w=300&q=70&url=$raw"
         return manga
     }
 
