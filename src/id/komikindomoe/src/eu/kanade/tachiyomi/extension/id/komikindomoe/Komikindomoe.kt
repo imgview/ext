@@ -15,7 +15,6 @@ import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.online.ParsedHttpSource
 import eu.kanade.tachiyomi.util.asJsoup
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
@@ -88,15 +87,34 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     override fun latestUpdatesNextPageSelector(): String = popularMangaNextPageSelector()
     override fun searchMangaNextPageSelector(): String = popularMangaNextPageSelector()
 
-    // Custom latest parse (omitted for brevity)
+    // Custom latest parse
     override fun latestUpdatesParse(response: Response): MangasPage = super.latestUpdatesParse(response)
 
     // Details
     override fun mangaDetailsParse(document: Document): SManga = super.mangaDetailsParse(document)
 
     // Chapters
-    override fun chapterListSelector() = "div.komik_info-chapters li"
-    override fun chapterFromElement(element: Element) = super.chapterFromElement(element)
+    override fun chapterListSelector(): String = "div.komik_info-chapters li"
+    override fun chapterFromElement(element: Element): SChapter = SChapter.create().apply {
+        setUrlWithoutDomain(element.selectFirst("a")!!.attr("href"))
+        name = element.select(".chapter-link-item").text()
+        date_upload = parseChapterDate(element.select(".chapter-link-time").text())
+    }
+
+    private val dateFormat = SimpleDateFormat("dd MMM yyyy", Locale("id"))
+    private fun parseChapterDate(date: String): Long = if (date.endsWith("ago")) {
+        val v = date.split(' ')[0].toInt()
+        Calendar.getInstance().apply {
+            when {
+                "min" in date  -> add(Calendar.MINUTE, -v)
+                "hour" in date -> add(Calendar.HOUR_OF_DAY, -v)
+                "day" in date  -> add(Calendar.DATE, -v)
+                "week" in date -> add(Calendar.DATE, -v * 7)
+                "month" in date-> add(Calendar.MONTH, -v)
+                "year" in date -> add(Calendar.YEAR, -v)
+            }
+        }.timeInMillis
+    } else dateFormat.parse(date)?.time ?: 0L
 
     // Page list using resize service if configured
     override fun pageListParse(document: Document): List<Page> {
@@ -149,7 +167,14 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         })
     }
 
-    private fun Element.toSManga(): SManga = super.toSManga()
+    private fun Element.toSManga(): SManga {
+        val manga = SManga.create()
+        manga.setUrlWithoutDomain(selectFirst("a")!!.attr("href"))
+        manga.title = selectFirst("div.tt, h3.title")?.text().orEmpty()
+        val raw = selectFirst("img")!!.attr("abs:src")
+        manga.thumbnail_url = "https://wsrv.nl/?w=300&q=70&url=$raw"
+        return manga
+    }
 
     companion object {
         private const val BASE_URL_PREF_TITLE = "Base URL override"
