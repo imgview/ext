@@ -42,8 +42,9 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0)
     override var baseUrl: String = preferences.getString(BASE_URL_PREF, "https://komikcast02.com")!!
 
-    private fun getResizeServiceUrl(): String? =
-        preferences.getString(RESIZE_URL_PREF, null)
+        private fun getResizeServiceUrl(): String? {
+        return preferences.getString("resize_service_url", null)
+    }
 
     private val jsonParser = Json { ignoreUnknownKeys = true }
 
@@ -180,15 +181,17 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         }.timeInMillis
     } else dateFormat.parse(date)?.time ?: 0L
 
-    // Parsing halaman bacaan dan gunakan layanan resize jika tersedia
+    // page
     override fun pageListParse(document: Document): List<Page> {
-        val svc = getResizeServiceUrl()
-        return document.select("div.main-reading-area img.size-full").mapIndexed { i, img ->
-            val rawUrl = img.attr("abs:src")
-            val finalUrl = svc?.let { it + rawUrl } ?: rawUrl // Gunakan resize service jika disetel
-            Page(i, "", finalUrl)
+    val resizeServiceUrl = getResizeServiceUrl() // Mendapatkan URL layanan resize
+
+    return document.select("div#chapter_body .main-reading-area img.size-full")
+        .distinctBy { img -> img.imgAttr() } // Menghapus duplikat berdasarkan atribut gambar
+        .mapIndexed { i, img -> 
+            // Menggabungkan resizeServiceUrl dengan URL gambar
+            Page(i, document.location(), "$resizeServiceUrl${img.imgAttr()}")
         }
-    }
+}
 
     override fun imageUrlParse(document: Document): String = throw UnsupportedOperationException()
     override fun imageRequest(page: Page): Request =
@@ -201,7 +204,9 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         screen.addPreference(EditTextPreference(screen.context).apply {
             key = RESIZE_URL_PREF
             title = RESIZE_URL_PREF_TITLE
-            summary = "Layanan Resize"
+            dialogTitle = RESIZE_URL_PREF_TITLE
+            dialogMessage = "Layanan Resize"
+            summary = "Gunakan layanan resize URL gambar"
             setDefaultValue("")
         })
         screen.addPreference(EditTextPreference(screen.context).apply {
@@ -221,7 +226,9 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         screen.addPreference(EditTextPreference(screen.context).apply {
             key = MANGA_WHITELIST_PREF
             title = MANGA_WHITELIST_PREF_TITLE
-            summary = "Masukkan judul Manga yang mau ditampilkan, dipisah koma"
+            dialogTitle = MANGA_WHITELIST_PREF_TITLE
+            dialogMessage = "Masukkan judul Manga yang mau ditampilkan, dipisah koma"
+            summary = "Tetap tampilkan manga ini"
             setDefaultValue("")
         })
     }
