@@ -205,7 +205,7 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         screen.addPreference(EditTextPreference(screen.context).apply {
             key = "resize_service_url"
             title = "Resize Service URL"
-            summary = "Masukkan URL servis resize (contoh: https://imgpa.vercel.app/?url=)"
+            summary = "Masukkan URL servis resize (contoh: https://imgpa.vercel.app/?url=)""
             setDefaultValue(null)
         })
         screen.addPreference(EditTextPreference(screen.context).apply {
