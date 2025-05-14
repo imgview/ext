@@ -58,8 +58,12 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     override fun popularMangaRequest(page: Int): Request =
         GET("$baseUrl/daftar-komik/?orderby=update&page=$page", headers)
 
-    override fun latestUpdatesRequest(page: Int): Request =
-        GET("$baseUrl/daftar-komik/?orderby=update&page=$page", headers)
+    override fun latestUpdatesRequest(page: Int): Request {
+    val postfix = if (page > 1) "page/$page/" else ""
+    val url = "$baseUrl/daftar-komik/$postfix?orderby=update"
+        .toHttpUrl().newBuilder().build()
+    return GET(url, headers)
+}
 
     override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
         val url = "$baseUrl/daftar-komik/?s=$query&page=$page".toHttpUrl().newBuilder().build()
