@@ -5,8 +5,9 @@ import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.multisrc.mangathemesia.MangaThemesia
 import eu.kanade.tachiyomi.network.GET
-import eu.kanade.tachiyomi.source.ConfigurableSource
+import eu.kanade.tachiyomi.network.interceptor.CloudflareInterceptor
 import eu.kanade.tachiyomi.network.interceptor.rateLimit
+import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.model.Page
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
@@ -31,21 +32,19 @@ class KomikuCom : MangaThemesia(
 
     private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
 
-    // Field untuk menyimpan cookies
-    private val cookies: String
-        get() = preferences.getString("cookies", "") ?: ""
-
     override var baseUrl = preferences.getString(BASE_URL_PREF, super.baseUrl)!!
 
     override val client = super.client.newBuilder()
         .rateLimit(1, 1)
+        // Tambahkan CloudflareInterceptor untuk bypass JS challenge secara otomatis
+        .addInterceptor(CloudflareInterceptor())
         .addInterceptor { chain ->
-            val originalRequest = chain.request()
-            val newRequest = originalRequest.newBuilder()
-                .addHeader("Cookie", cookies)
-                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3")
+            val original = chain.request()
+            val request = original.newBuilder()
+                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+                        "(KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3")
                 .addHeader("Referer", baseUrl)
-                .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9")
+                .addHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
                 .addHeader("Accept-Language", "en-US,en;q=0.5")
                 .addHeader("DNT", "1")
                 .addHeader("Connection", "keep-alive")
@@ -54,9 +53,8 @@ class KomikuCom : MangaThemesia(
                 .addHeader("Sec-Fetch-Site", "same-origin")
                 .addHeader("Sec-Fetch-User", "?1")
                 .addHeader("Upgrade-Insecure-Requests", "1")
-                .addHeader("X-Requested-With", "XMLHttpRequest")
                 .build()
-            chain.proceed(newRequest)
+            chain.proceed(request)
         }
         .build()
 
@@ -67,15 +65,16 @@ class KomikuCom : MangaThemesia(
     override fun pageListParse(document: Document): List<Page> {
         val scriptContent = document.selectFirst("script:containsData(ts_reader)")?.data()
             ?: throw Exception("Script containing 'ts_reader' not found")
-        val jsonString = scriptContent.substringAfter("ts_reader.run(").substringBefore(");")
+        val jsonString = scriptContent
+            .substringAfter("ts_reader.run(")
+            .substringBefore(");")
         val tsReader = json.decodeFromString<TSReader>(jsonString)
 
         val imageUrls = tsReader.sources.firstOrNull()?.images
             ?: throw Exception("No images found in ts_reader data")
 
-        val filteredImageUrls = imageUrls.filterNot { imageUrl ->
-            imageUrl.contains("/banner/", ignoreCase = true)
-        }
+        // Filter banner atau iklan
+        val filteredImageUrls = imageUrls.filterNot { it.contains("/banner/", true) }
 
         val resizeServiceUrl = getResizeServiceUrl()
 
@@ -105,7 +104,6 @@ class KomikuCom : MangaThemesia(
             setDefaultValue(baseUrl)
             dialogTitle = BASE_URL_PREF_TITLE
             dialogMessage = "Original: $baseUrl"
-
             setOnPreferenceChangeListener { _, newValue ->
                 val newUrl = newValue as String
                 baseUrl = newUrl
@@ -116,13 +114,16 @@ class KomikuCom : MangaThemesia(
         }
         screen.addPreference(baseUrlPref)
 
-        // Preference untuk memasukkan cookies
         val cookiesPref = EditTextPreference(screen.context).apply {
             key = "cookies"
             title = "Cookies"
-            summary = "Masukkan cookies untuk autentikasi."
+            summary = "Masukkan cookies untuk autentikasi."  
             setDefaultValue(null)
             dialogTitle = "Cookies"
+            setOnPreferenceChangeListener { _, newValue ->
+                preferences.edit().putString("cookies", newValue as String).apply()
+                true
+            }
         }
         screen.addPreference(cookiesPref)
     }
@@ -135,12 +136,12 @@ class KomikuCom : MangaThemesia(
 
     @Serializable
     data class TSReader(
-        val sources: List<ReaderImageSource>,
+        val sources: List<ReaderImageSource>
     )
 
     @Serializable
     data class ReaderImageSource(
         val source: String,
-        val images: List<String>,
+        val images: List<String>
     )
 }
