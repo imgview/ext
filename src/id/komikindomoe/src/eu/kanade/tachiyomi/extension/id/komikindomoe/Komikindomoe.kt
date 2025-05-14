@@ -121,10 +121,11 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     val info = document.selectFirst("div.komik_info")!!
 
     // Title
-    manga.title = info
-        .selectFirst("h1.komik_info-content-body-title")!!
-        .text()
-        .trim()
+    title = seriesDetails.selectFirst(seriesTitleSelector)
+    ?.text()
+    ?.replace("bahasa indonesia", "", ignoreCase = true)
+    ?.trim()
+    .orEmpty()
 
     // Cover thumbnail
     val imgEl = info.selectFirst("div.komik_info-cover-image img")
