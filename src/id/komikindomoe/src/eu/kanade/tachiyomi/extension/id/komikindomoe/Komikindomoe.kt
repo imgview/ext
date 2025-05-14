@@ -1,6 +1,6 @@
 package eu.kanade.tachiyomi.extension.id.komikindomoe
 
-import android.app\Application
+import android.app.Application
 import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.network.GET
