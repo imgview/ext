@@ -120,19 +120,23 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     val manga = SManga.create()
     val info = document.selectFirst("div.komik_info")!!
 
-    // Title
-    title = seriesDetails.selectFirst(seriesTitleSelector)
-    ?.text()
-    ?.replace("bahasa indonesia", "", ignoreCase = true)
-    ?.trim()
-    .orEmpty()
+    // 1. Title (clean “Bahasa Indonesia” + trailing punctuation)
+    val rawTitle = info
+        .selectFirst("h1.komik_info-content-body-title")!!
+        .text()
+        .trim()
+    manga.title = rawTitle
+        .replace("bahasa indonesia", "", ignoreCase = true)
+        .replace(Regex("[\\p{Punct}\\s]+\$"), "")
+        .trim()
 
-    // Cover thumbnail
+    // 2. Cover thumbnail (via wsrv.nl resize service)
     val imgEl = info.selectFirst("div.komik_info-cover-image img")
         ?: throw Exception("Cover image not found: ${manga.title}")
-    manga.thumbnail_url = imgEl.attr("abs:src")
+    val rawUrl = imgEl.attr("abs:src")
+    manga.thumbnail_url = "https://wsrv.nl/?w=300&q=70&url=$rawUrl"
 
-    // Author & Artist
+    // 3. Author & Artist
     val authorArtistText = info
         .selectFirst("span.komik_info-content-info:has(b:contains(Author))")
         ?.ownText().orEmpty()
@@ -140,20 +144,19 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     manga.author = parts.getOrNull(0)?.trim().orEmpty()
     manga.artist = parts.getOrNull(1)?.trim().orEmpty()
 
-    // Sinopsis / Description
+    // 4. Sinopsis / Description
     val synopsis = info
         .select("div.komik_info-description-sinopsis p")
         .eachText()
         .joinToString("\n\n") { it.trim() }
 
-    // Alternative Title
+    // 5. Alternative Title
     val altTitle = info
         .selectFirst("span.komik_info-content-native")
         ?.text()
         ?.trim()
         .orEmpty()
 
-    // Gabungkan description + alternative title
     manga.description = buildString {
         append(synopsis)
         if (altTitle.isNotEmpty()) {
@@ -162,25 +165,22 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         }
     }
 
-    // Genre + Type
+    // 6. Genre + Type
     val genreList = info
         .select("span.komik_info-content-genre a.genre-item")
         .eachText()
         .toMutableList()
-
-    // Ambil Type dan taruh di akhir
     info.selectFirst("span.komik_info-content-info-type a")
         ?.text()
         ?.takeIf(String::isNotBlank)
         ?.let { genreList.add(it) }
-
     manga.genre = genreList.joinToString(", ")
 
-    // Status
+    // 7. Status
     val statusText = info
         .selectFirst("span.komik_info-content-info:has(b:contains(Status))")
         ?.text()
-        ?.replaceFirst("Status:", "")
+        ?.replaceFirst("Status:", "", ignoreCase = true)
         ?.trim()
         .orEmpty()
     manga.status = parseStatus(statusText)
@@ -188,12 +188,12 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
     return manga
 }
 
-    private fun parseStatus(text: String): Int = when {
-        text.contains("Ongoing", ignoreCase = true)    -> SManga.ONGOING
-        text.contains("Completed", ignoreCase = true)  -> SManga.COMPLETED
-        else                                           -> SManga.UNKNOWN
-    }
-
+// Helper untuk parsing status
+private fun parseStatus(text: String): Int = when {
+    text.contains("Ongoing", ignoreCase = true)   -> SManga.ONGOING
+    text.contains("Completed", ignoreCase = true) -> SManga.COMPLETED
+    else                                          -> SManga.UNKNOWN
+}
 
     // Chapters
     override fun chapterListSelector(): String =
