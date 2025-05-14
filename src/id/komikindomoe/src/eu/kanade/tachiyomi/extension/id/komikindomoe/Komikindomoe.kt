@@ -216,17 +216,47 @@ private fun parseStatus(text: String): Int = when {
     }
 
     // Pages
-    override fun pageListParse(document: Document): List<Page> {
-        val script = document.selectFirst("script:containsData(ts_reader)")?.data()
-        val prefix = getResizeServiceUrl().orEmpty()
-        if (script != null) {
-            val jsonString = script.substringAfter("ts_reader.run(").substringBefore(");")
-            val tsReader = jsonParser.decodeFromString<TSReader>(jsonString)
-            val imageUrls = tsReader.sources.firstOrNull()?.images.orEmpty()
-            return imageUrls.mapIndexed { i, url -> Page(i, document.location(), prefix + url) }
-        }
-        return document.select("div#readerarea img").mapIndexed { i, img ->
-            Page(i, document.location(), prefix + img.attr("abs:src"))
+    override fun chapterListSelector() = "div.komik_info-chapters li"
+
+    override fun chapterFromElement(element: Element) = SChapter.create().apply {
+        val urlElements = element.select("a")
+        setUrlWithoutDomain(urlElements.attr("href"))
+        name = element.select(".chapter-link-item").text()
+        date_upload = parseChapterDate2(element.select(".chapter-link-time").text())
+    }
+
+    private fun parseChapterDate2(date: String): Long {
+        return if (date.endsWith("ago")) {
+            val value = date.split(' ')[0].toInt()
+            when {
+                "min" in date -> Calendar.getInstance().apply {
+                    add(Calendar.MINUTE, value * -1)
+                }.timeInMillis
+                "hour" in date -> Calendar.getInstance().apply {
+                    add(Calendar.HOUR_OF_DAY, value * -1)
+                }.timeInMillis
+                "day" in date -> Calendar.getInstance().apply {
+                    add(Calendar.DATE, value * -1)
+                }.timeInMillis
+                "week" in date -> Calendar.getInstance().apply {
+                    add(Calendar.DATE, value * 7 * -1)
+                }.timeInMillis
+                "month" in date -> Calendar.getInstance().apply {
+                    add(Calendar.MONTH, value * -1)
+                }.timeInMillis
+                "year" in date -> Calendar.getInstance().apply {
+                    add(Calendar.YEAR, value * -1)
+                }.timeInMillis
+                else -> {
+                    0L
+                }
+            }
+        } else {
+            try {
+                dateFormat.parse(date)?.time ?: 0
+            } catch (_: Exception) {
+                0L
+            }
         }
     }
 
