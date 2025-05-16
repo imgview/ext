@@ -41,6 +41,13 @@ class MonzeeKomik : MangaThemesia(
         .rateLimit(59, 1)
         .build()
 
+        override fun searchMangaFromElement(element: Element) = SManga.create().apply {
+        thumbnail_url = element.select("img").imgAttr()
+        title = element.select("a").attr("title")
+        .replace("Bahasa Indonesia", "").trim()
+        setUrlWithoutDomain(element.select("a").attr("href"))
+    }
+
     override fun pageListParse(document: Document): List<Page> {
         val script = document.select("script[src^=data:text/javascript;base64,]").mapNotNull { element ->
             Base64.decode(
