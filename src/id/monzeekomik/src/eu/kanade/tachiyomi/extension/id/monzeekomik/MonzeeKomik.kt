@@ -9,6 +9,7 @@ import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.interceptor.rateLimit
 import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.model.Page
+import eu.kanade.tachiyomi.source.model.SManga
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.jsonArray
@@ -34,18 +35,34 @@ class MonzeeKomik : MangaThemesia(
     private fun getResizeServiceUrl(): String? {
         return preferences.getString("resize_service_url", null)
     }
+    
+    private fun resizeImageUrl(originalUrl: String): String {
+        return "http://LayananGambarCover$originalUrl"
+    }
 
     override var baseUrl = preferences.getString(BASE_URL_PREF, super.baseUrl)!!
 
     override val client = super.client.newBuilder()
-        .rateLimit(59, 1)
+        .rateLimit(1, 1)
         .build()
 
-        override fun searchMangaFromElement(element: Element) = SManga.create().apply {
-        thumbnail_url = element.select("img").imgAttr()
-        title = element.select("a").attr("title")
+    override fun searchMangaFromElement(element: Element): SManga {
+        return SManga.create().apply {
+            val originalThumbnailUrl = element.select("img").imgAttr()
+            thumbnail_url = resizeImageUrl(originalThumbnailUrl)
+            title = element.select("a").attr("title")
+            .replace("Bahasa Indonesia", "").trim()
+            setUrlWithoutDomain(element.select("a").attr("href"))
+        }
+    }
+    
+    override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
+        val seriesDetails = document.select(seriesThumbnailSelector)
+        val originalThumbnailUrl = seriesDetails.imgAttr()
+        thumbnail_url = resizeImageUrl(originalThumbnailUrl)
+
+        title = document.selectFirst(seriesThumbnailSelector)!!.attr("title")
         .replace("Bahasa Indonesia", "").trim()
-        setUrlWithoutDomain(element.select("a").attr("href"))
     }
 
     override fun pageListParse(document: Document): List<Page> {
