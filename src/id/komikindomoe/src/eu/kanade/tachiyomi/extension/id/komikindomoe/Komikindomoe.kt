@@ -125,8 +125,10 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         val info = document.selectFirst("div.komik_info")!!
 
         manga.title = info.selectFirst("h1.komik_info-content-body-title")!!.text().trim()
-            .replace("bahasa indonesia", "", true)
-            .replace(Regex("[\\p{Punct}\\s]+$"), "").trim()
+    .replace("bahasa indonesia", "", true)
+    .replace(Regex("\\s*\\([^)]*\\)\\s*$"), "") // hapus (....) di akhir
+    .replace(Regex("[\\p{Punct}\\s]+$"), "") // hapus tanda baca/spasi di akhir
+    .trim()
 
         val rawCover = info.selectFirst("div.komik_info-cover-image img")!!.attr("abs:src")
         manga.thumbnail_url = "https://wsrv.nl/?w=300&q=70&url=$rawCover"
@@ -241,6 +243,9 @@ class Komikindomoe : ParsedHttpSource(), ConfigurableSource {
         val manga = SManga.create()
         manga.setUrlWithoutDomain(selectFirst("a")!!.attr("href"))
         manga.title = selectFirst("div.tt, h3.title")?.text().orEmpty()
+    .replace(Regex("\\s*\\([^)]*\\)\\s*$"), "")
+    .replace(Regex("[\\p{Punct}\\s]+$"), "")
+    .trim()
         val raw = selectFirst("img")!!.attr("abs:src")
         manga.thumbnail_url = "https://wsrv.nl/?w=300&q=70&url=$raw"
         return manga
