@@ -14,9 +14,6 @@ import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.MangasPage
 import eu.kanade.tachiyomi.source.online.ParsedHttpSource
 import eu.kanade.tachiyomi.util.asJsoup
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -42,20 +39,12 @@ class Komik : ParsedHttpSource(), ConfigurableSource {
     private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0)
     override var baseUrl: String = preferences.getString(BASE_URL_PREF, "https://komikcast02.com")!!
 
-        private fun getResizeServiceUrl(): String? {
+    private fun getResizeServiceUrl(): String? {
         return preferences.getString("resize_service_url", null)
     }
-
-    private val jsonParser = Json { ignoreUnknownKeys = true }
-
-    @Serializable
-    private data class TSReader(
-        val sources: List<Source> = emptyList()
-    ) {
-        @Serializable
-        data class Source(
-            val images: List<String> = emptyList()
-        )
+    
+    private fun resizeImageUrl(originalUrl: String): String {
+        return "http://LayananGambarCover$originalUrl"
     }
 
     // Request untuk daftar populer
@@ -77,14 +66,22 @@ class Komik : ParsedHttpSource(), ConfigurableSource {
     }
 
     // Selector
-    override fun popularMangaSelector(): String = "div.list-update_item"
-    override fun latestUpdatesSelector(): String = "div.list-update_item"
-    override fun searchMangaSelector(): String = "div.list-update_item"
+    override fun popularMangaSelector() = "div.list-update_item"
+    override fun latestUpdatesSelector() = popularMangaSelector()
+    override fun searchMangaSelector() = popularMangaSelector()
 
     override fun popularMangaFromElement(element: Element): SManga = element.toSManga()
     override fun latestUpdatesFromElement(element: Element): SManga = element.toSManga()
-    override fun searchMangaFromElement(element: Element): SManga = element.toSManga().apply {
-        title = element.selectFirst("h3.title")?.ownText() ?: title
+    
+    override fun searchMangaFromElement(element: Element): SManga {
+        val manga = SManga.create()
+        manga.thumbnail_url = element.select("div.komik_info-content-thumbnail img").attr("abs:src")?.let { resizeImageUrl(it) }
+        manga.title = element.select("h3.title").text()
+                .substringBefore("(").trim()
+        element.select("div.list-update_item a").first()!!.let {
+            manga.setUrlWithoutDomain(it.attr("href"))
+        }
+        return manga
     }
 
     override fun popularMangaNextPageSelector(): String = "a.next.page-numbers"
@@ -122,14 +119,14 @@ class Komik : ParsedHttpSource(), ConfigurableSource {
     // Parsing detail manga
     override fun mangaDetailsParse(document: Document): SManga {
     val manga = SManga.create()
-    val info = document.selectFirst("div.komik_info") ?: return manga.apply { title = "Unknown Title" }
+    val info = document.selectFirst("div.komik_info") ?: return manga.apply { title = "Judul Tidak Diketahui" }
 
     // Penanganan judul
     val rawTitle = info.selectFirst("h1.komik_info-content-body-title")?.text().orEmpty()
     manga.title = rawTitle
         .replace("bahasa indonesia", "", ignoreCase = true)
-        .substringBefore("(").trim()
-        .ifEmpty { "Unknown Title" }
+        .substringBeforeLast("(").trim()
+        .ifEmpty { "Judul Tidak Diketahui" }
 
     // Penanganan gambar
     val rawCover = info.selectFirst("div.komik_info-cover-image img")?.attr("abs:src")
@@ -243,23 +240,6 @@ class Komik : ParsedHttpSource(), ConfigurableSource {
             setDefaultValue("")
         })
     }
-
-    // Ekstensi fungsi untuk parsing manga dari elemen
-    private fun Element.toSManga(): SManga? {
-    val manga = SManga.create()
-    
-    val url = selectFirst("a")?.attr("href")
-    if (url.isNullOrEmpty()) return null
-    manga.setUrlWithoutDomain(url)
-
-    manga.title = selectFirst("div.tt, h3.title")?.text().orEmpty()
-        .substringBefore("(").trim()
-        .ifEmpty { "Gagal memuat judul" }
-    val rawImage = selectFirst("img")?.attr("abs:src")
-    manga.thumbnail_url = rawImage?.let { "https://wsrv.nl/?w=300&q=70&url=$it" }
-
-    return manga
-}
 
     companion object {
         private const val BASE_URL_PREF_TITLE = "Base URL override"
