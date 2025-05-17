@@ -70,8 +70,8 @@ class Komik : ParsedHttpSource(), ConfigurableSource {
     override fun latestUpdatesSelector() = popularMangaSelector()
     override fun searchMangaSelector() = popularMangaSelector()
 
-    override fun popularMangaFromElement(element: Element): SManga = element.toSManga()
-    override fun latestUpdatesFromElement(element: Element): SManga = element.toSManga()
+    override fun popularMangaFromElement(element: Element): SManga = searchMangaFromElement(element)
+    override fun latestUpdatesFromElement(element: Element): SManga = searchMangaFromElement(element)
     
     override fun searchMangaFromElement(element: Element): SManga {
         val manga = SManga.create()
