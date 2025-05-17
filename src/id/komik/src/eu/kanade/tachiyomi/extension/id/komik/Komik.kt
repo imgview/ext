@@ -33,7 +33,7 @@ class Komik : ParsedHttpSource(), ConfigurableSource {
 
     // Client dengan rate limit
     override val client: OkHttpClient = network.cloudflareClient.newBuilder()
-        .rateLimit(12, 3)
+        .rateLimit(3, 1)
         .build()
 
     private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0)
@@ -75,7 +75,7 @@ class Komik : ParsedHttpSource(), ConfigurableSource {
     
     override fun searchMangaFromElement(element: Element): SManga {
         val manga = SManga.create()
-        manga.thumbnail_url = element.select("div.komik_info-content-thumbnail img").attr("abs:src")?.let { resizeImageUrl(it) }
+        manga.thumbnail_url = element.select("img").attr("abs:src")?.let { resizeImageUrl(it) }
         manga.title = element.select("h3.title").text()
                 .substringBefore("(").trim()
         element.select("div.list-update_item a").first()!!.let {
