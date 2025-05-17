@@ -43,7 +43,7 @@ class Komik : ParsedHttpSource(), ConfigurableSource {
         return preferences.getString("resize_service_url", null)
     }
     
-    private fun resizeImageUrl(originalUrl: String): String {
+    private fun mageUrl(originalUrl: String): String {
         return "http://LayananGambarCover$originalUrl"
     }
 
@@ -129,8 +129,7 @@ class Komik : ParsedHttpSource(), ConfigurableSource {
         .ifEmpty { "Judul Tidak Diketahui" }
 
     // Penanganan gambar
-    val rawCover = info.selectFirst("div.komik_info-cover-image img")?.attr("abs:src")
-    manga.thumbnail_url = rawCover?.let { "https://wsrv.nl/?w=300&q=70&url=$it" }
+    manga.thumbnail_url = element.select("div.komik_info-cover-image img").attr("abs:src")?.let { resizeImageUrl(it) }
 
     // Penanganan author dan artist
     val parts = info.selectFirst("span.komik_info-content-info:has(b:contains(Author))")
