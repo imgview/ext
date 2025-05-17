@@ -121,44 +121,50 @@ class Komik : ParsedHttpSource(), ConfigurableSource {
 
     // Parsing detail manga
     override fun mangaDetailsParse(document: Document): SManga {
-        val manga = SManga.create()
-        val info = document.selectFirst("div.komik_info")!!
+    val manga = SManga.create()
+    val info = document.selectFirst("div.komik_info") ?: return manga.apply { title = "Unknown Title" }
 
-        manga.title = info.selectFirst("h1.komik_info-content-body-title")!!.text().trim()
-    .replace("bahasa indonesia", "", true)
-    .replace(Regex("\\s*\\([^)]*\\)\\s*$"), "") // hapus (....) di akhir
-    .replace(Regex("[\\p{Punct}\\s]+$"), "") // hapus tanda baca/spasi di akhir
-    .trim()
+    // Penanganan judul
+    val rawTitle = info.selectFirst("h1.komik_info-content-body-title")?.text().orEmpty()
+    manga.title = rawTitle
+        .replace("bahasa indonesia", "", ignoreCase = true)
+        .substringBefore("(").trim()
+        .ifEmpty { "Unknown Title" }
 
-        val rawCover = info.selectFirst("div.komik_info-cover-image img")!!.attr("abs:src")
-        manga.thumbnail_url = "https://wsrv.nl/?w=300&q=70&url=$rawCover"
+    // Penanganan gambar
+    val rawCover = info.selectFirst("div.komik_info-cover-image img")?.attr("abs:src")
+    manga.thumbnail_url = rawCover?.let { "https://wsrv.nl/?w=300&q=70&url=$it" }
 
-        val parts = info.selectFirst("span.komik_info-content-info:has(b:contains(Author))")
-            ?.ownText().orEmpty().split(",")
-        manga.author = parts.getOrNull(0)?.trim().orEmpty()
-        manga.artist = parts.getOrNull(1)?.trim().orEmpty()
+    // Penanganan author dan artist
+    val parts = info.selectFirst("span.komik_info-content-info:has(b:contains(Author))")
+        ?.ownText().orEmpty().split(",")
+    manga.author = parts.getOrNull(0)?.trim().orEmpty()
+    manga.artist = parts.getOrNull(1)?.trim().orEmpty()
 
-        val synopsis = info.select("div.komik_info-description-sinopsis p").eachText().joinToString("\n\n")
-        val altTitle = info.selectFirst("span.komik_info-content-native")?.text().orEmpty().trim()
-        manga.description = buildString {
-            append(synopsis)
-            if (altTitle.isNotEmpty()) append("\n\nAlternative Title: $altTitle")
-        }
-
-        val genres = info.select("span.komik_info-content-genre a.genre-item").eachText().toMutableList()
-        info.selectFirst("span.komik_info-content-info-type a")?.text()?.takeIf(String::isNotBlank)?.let { genres.add(it) }
-        manga.genre = genres.joinToString(", ")
-
-        val statusText = info.selectFirst("span.komik_info-content-info:has(b:contains(Status))")
-            ?.text()?.replaceFirst("Status:", "", true).orEmpty().trim()
-        manga.status = when {
-            statusText.contains("Ongoing", true) -> SManga.ONGOING
-            statusText.contains("Completed", true) -> SManga.COMPLETED
-            else -> SManga.UNKNOWN
-        }
-
-        return manga
+    // Penanganan deskripsi
+    val synopsis = info.select("div.komik_info-description-sinopsis p").eachText().joinToString("\n\n")
+    val altTitle = info.selectFirst("span.komik_info-content-native")?.text().orEmpty().trim()
+    manga.description = buildString {
+        append(synopsis)
+        if (altTitle.isNotEmpty()) append("\n\nAlternative Title: $altTitle")
     }
+
+    // Penanganan genre
+    val genres = info.select("span.komik_info-content-genre a.genre-item").eachText().toMutableList()
+    info.selectFirst("span.komik_info-content-info-type a")?.text()?.takeIf(String::isNotBlank)?.let { genres.add(it) }
+    manga.genre = genres.joinToString(", ")
+
+    // Penanganan status
+    val statusText = info.selectFirst("span.komik_info-content-info:has(b:contains(Status))")
+        ?.text()?.replaceFirst("Status:", "", true).orEmpty().trim()
+    manga.status = when {
+        statusText.contains("Ongoing", true) -> SManga.ONGOING
+        statusText.contains("Completed", true) -> SManga.COMPLETED
+        else -> SManga.UNKNOWN
+    }
+
+    return manga
+}
 
     // Parsing daftar chapter
     override fun chapterListSelector() = "div.komik_info-chapters li"
@@ -239,17 +245,21 @@ class Komik : ParsedHttpSource(), ConfigurableSource {
     }
 
     // Ekstensi fungsi untuk parsing manga dari elemen
-    private fun Element.toSManga(): SManga {
-        val manga = SManga.create()
-        manga.setUrlWithoutDomain(selectFirst("a")!!.attr("href"))
-        manga.title = selectFirst("div.tt, h3.title")?.text().orEmpty()
-    .replace(Regex("\\s*\\([^)]*\\)\\s*$"), "")
-    .replace(Regex("[\\p{Punct}\\s]+$"), "")
-    .trim()
-        val raw = selectFirst("img")!!.attr("abs:src")
-        manga.thumbnail_url = "https://wsrv.nl/?w=300&q=70&url=$raw"
-        return manga
-    }
+    private fun Element.toSManga(): SManga? {
+    val manga = SManga.create()
+    
+    val url = selectFirst("a")?.attr("href")
+    if (url.isNullOrEmpty()) return null
+    manga.setUrlWithoutDomain(url)
+
+    manga.title = selectFirst("div.tt, h3.title")?.text().orEmpty()
+        .substringBefore("(").trim()
+        .ifEmpty { "Gagal memuat judul" }
+    val rawImage = selectFirst("img")?.attr("abs:src")
+    manga.thumbnail_url = rawImage?.let { "https://wsrv.nl/?w=300&q=70&url=$it" }
+
+    return manga
+}
 
     companion object {
         private const val BASE_URL_PREF_TITLE = "Base URL override"
