@@ -39,11 +39,11 @@ class Komik : ParsedHttpSource(), ConfigurableSource {
     private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0)
     override var baseUrl: String = preferences.getString(BASE_URL_PREF, "https://komikcast02.com")!!
 
-    private fun getResizeServiceUrl(): String? {
-        return preferences.getString("resize_service_url", null)
+    private fun ResizeGambar(): String? {
+        return preferences.getString("resize_url_gambar", null)
     }
     
-    private fun mageUrl(originalUrl: String): String {
+    private fun ResizeCover(originalUrl: String): String {
         return "http://LayananGambarCover$originalUrl"
     }
 
@@ -75,7 +75,7 @@ class Komik : ParsedHttpSource(), ConfigurableSource {
     
     override fun searchMangaFromElement(element: Element): SManga {
         val manga = SManga.create()
-        manga.thumbnail_url = element.select("img").attr("abs:src")?.let { resizeImageUrl(it) }
+        manga.thumbnail_url = element.select("img").attr("abs:src")?.let { ResizeCover(it) }
         manga.title = element.select("h3.title").text()
                 .substringBefore("(").trim()
         element.select("div.list-update_item a").first()!!.let {
@@ -129,7 +129,7 @@ class Komik : ParsedHttpSource(), ConfigurableSource {
         .ifEmpty { "Judul Tidak Diketahui" }
 
     // Penanganan gambar
-    manga.thumbnail_url = element.select("div.komik_info-cover-image img").attr("abs:src")?.let { resizeImageUrl(it) }
+    manga.thumbnail_url = element.select("div.komik_info-cover-image img").attr("abs:src")?.let { ResizeCover(it) }
 
     // Penanganan author dan artist
     val parts = info.selectFirst("span.komik_info-content-info:has(b:contains(Author))")
@@ -187,7 +187,7 @@ class Komik : ParsedHttpSource(), ConfigurableSource {
 
     // page
     override fun pageListParse(document: Document): List<Page> {
-    val resizeServiceUrl = getResizeServiceUrl()
+    val resizeUrlGambar = ResizeGambar()
 
     return document.select("div.main-reading-area img.size-full")
         .filter { img -> 
@@ -196,7 +196,7 @@ class Komik : ParsedHttpSource(), ConfigurableSource {
         }
         .mapIndexed { i, img ->
             val imageUrl = img.attr("src")
-            Page(i, document.location(), "$resizeServiceUrl$imageUrl")
+            Page(i, document.location(), "$resizeUrlGambar$imageUrl")
         }
 }
 
@@ -246,7 +246,7 @@ class Komik : ParsedHttpSource(), ConfigurableSource {
         private const val BASE_URL_PREF_SUMMARY = "Override the base URL"
         private const val MANGA_WHITELIST_PREF = "manga_whitelist"
         private const val MANGA_WHITELIST_PREF_TITLE = "Tampilkan Komik"
-        private const val RESIZE_URL_PREF = "resize_service_url"
+        private const val RESIZE_URL_PREF = "resize_url_gambar"
         private const val RESIZE_URL_PREF_TITLE = "Layanan resize"
     }
 }
