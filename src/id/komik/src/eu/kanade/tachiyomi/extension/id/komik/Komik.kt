@@ -189,15 +189,20 @@ class Komik : ParsedHttpSource(), ConfigurableSource {
     override fun pageListParse(document: Document): List<Page> {
     val resizeUrlGambar = ResizeGambar()
 
-    return document.select("div.main-reading-area img.size-full")
-        .filter { img -> 
-            val src = img.attr("src")
-            !src.endsWith("999.jpg", ignoreCase = true) // Kecualikan gambar yang berakhiran 999.jpg
-        }
-        .mapIndexed { i, img ->
-            val imageUrl = img.attr("src")
-            Page(i, document.location(), "$resizeUrlGambar$imageUrl")
-        }
+    val allImages = document.select("div.main-reading-area img.size-full")
+
+    val filteredImages = allImages.filter { img ->
+        val src = img.attr("src")
+        !src.endsWith("999.jpg", ignoreCase = true)
+    }
+
+    val finalImages = if (filteredImages.isEmpty()) allImages else filteredImages
+
+    return finalImages.mapIndexed { i, img ->
+        val imageUrl = img.attr("src")
+        val finalUrl = if (resizeUrlGambar != null) resizeUrlGambar + imageUrl else imageUrl
+        Page(i, document.location(), finalUrl)
+    }
 }
 
     override fun imageUrlParse(document: Document): String = throw UnsupportedOperationException()
