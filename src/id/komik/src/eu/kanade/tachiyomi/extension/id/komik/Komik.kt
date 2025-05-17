@@ -90,31 +90,31 @@ class Komik : ParsedHttpSource(), ConfigurableSource {
 
     // Parsing khusus untuk update terbaru
     override fun latestUpdatesParse(response: Response): MangasPage {
-        val document = response.asJsoup()
-        val rawList = preferences.getString(MANGA_WHITELIST_PREF, "")
-        val allowedManga = rawList
-            ?.split(",")
-            ?.map { it.trim() }
-            ?.filter { it.isNotEmpty() }
-            ?: emptyList()
+    val document = response.asJsoup()
+    val rawList = preferences.getString(MANGA_WHITELIST_PREF, "")
+    val allowedManga = rawList
+        ?.split(",")
+        ?.map { it.trim() }
+        ?.filter { it.isNotEmpty() }
+        ?: emptyList()
 
-        val mangas = document.select(latestUpdatesSelector()).mapNotNull { element ->
-            val typeText = element.selectFirst("span.type")?.text()?.trim() ?: return@mapNotNull null
-            when {
-                typeText.equals("Manhwa", true) || typeText.equals("Manhua", true) ->
-                    element.toSManga()
-                typeText.equals("Manga", true) -> {
-                    val titleText = element.selectFirst("h3.title")?.text()?.trim()
-                    if (titleText != null && allowedManga.any { it.equals(titleText, true) }) {
-                        element.toSManga()
-                    } else null
-                }
-                else -> null
+    val mangas = document.select(latestUpdatesSelector()).mapNotNull { element ->
+        val typeText = element.selectFirst("span.type")?.text()?.trim() ?: return@mapNotNull null
+        when {
+            typeText.equals("Manhwa", true) || typeText.equals("Manhua", true) ->
+                searchMangaFromElement(element) // <-- Ganti di sini
+            typeText.equals("Manga", true) -> {
+                val titleText = element.selectFirst("h3.title")?.text()?.trim()
+                if (titleText != null && allowedManga.any { it.equals(titleText, true) }) {
+                    searchMangaFromElement(element) // <-- Ganti di sini
+                } else null
             }
+            else -> null
         }
-        val hasNext = document.select(latestUpdatesNextPageSelector()).firstOrNull() != null
-        return MangasPage(mangas, hasNext)
     }
+    val hasNext = document.select(latestUpdatesNextPageSelector()).firstOrNull() != null
+    return MangasPage(mangas, hasNext)
+}
 
     // Parsing detail manga
     override fun mangaDetailsParse(document: Document): SManga {
