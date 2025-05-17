@@ -129,7 +129,7 @@ class Komik : ParsedHttpSource(), ConfigurableSource {
         .ifEmpty { "Judul Tidak Diketahui" }
 
     // Penanganan gambar
-    manga.thumbnail_url = element.select("div.komik_info-cover-image img").attr("abs:src")?.let { ResizeCover(it) }
+    manga.thumbnail_url = document.select("div.komik_info-cover-image img").attr("abs:src")?.let { ResizeCover(it) }
 
     // Penanganan author dan artist
     val parts = info.selectFirst("span.komik_info-content-info:has(b:contains(Author))")
