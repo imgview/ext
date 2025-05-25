@@ -33,7 +33,7 @@ class Komik : ParsedHttpSource(), ConfigurableSource {
 
     // Client dengan rate limit
     override val client: OkHttpClient = network.cloudflareClient.newBuilder()
-        .rateLimit(3, 1)
+        .rateLimit(1)
         .build()
 
     private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0)
