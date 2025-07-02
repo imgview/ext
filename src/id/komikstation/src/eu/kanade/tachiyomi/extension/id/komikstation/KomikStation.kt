@@ -1,88 +1,70 @@
 package eu.kanade.tachiyomi.extension.id.komikstation
 
 import android.app.Application
+import eu.kanade.tachiyomi.multisrc.mangathemesia.MangaThemesia
 import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceScreen
-import eu.kanade.tachiyomi.multisrc.mangathemesia.MangaThemesia
-import eu.kanade.tachiyomi.network.GET
-import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.network.interceptor.rateLimit
+import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.model.Page
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.decodeFromString
-import org.jsoup.nodes.Document
-import uy.kohesive.injekt.Injekt
-import org.jsoup.nodes.Element
 import eu.kanade.tachiyomi.source.model.SManga
+import org.jsoup.nodes.Document
+import org.jsoup.nodes.Element
+import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import okhttp3.Headers
-import okhttp3.Interceptor
-import okhttp3.Response
 import java.text.SimpleDateFormat
 import java.util.Locale
 
 class KomikStation : MangaThemesia(
-    "Komik",
-    "https://komikustation.co",
+    "Noromax",
+    "https://komikstation.co",
     "id",
     "/manga",
-    dateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale("id"))
+    dateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale.US)
 ), ConfigurableSource {
 
     private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
-
-    // Field untuk menyimpan cookies
-    private val cookies: String
-        get() = preferences.getString("cookies", "") ?: ""
-
-    override var baseUrl = preferences.getString(BASE_URL_PREF, super.baseUrl)!!
-
-    override val client = super.client.newBuilder()
-        .rateLimit(1, 1)
-        .addInterceptor { chain ->
-            val originalRequest = chain.request()
-            val newRequest = originalRequest.newBuilder()
-                .addHeader("Cookie", cookies)
-                .addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3")
-                .addHeader("Referer", baseUrl)
-                .build()
-            chain.proceed(newRequest)
-        }
-        .build()
-
-    override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
-        title = document.selectFirst(seriesThumbnailSelector)!!.attr("title")
-    }
-
-    override fun pageListParse(document: Document): List<Page> {
-        val scriptContent = document.selectFirst("script:containsData(ts_reader)")?.data()
-            ?: throw Exception("Script containing 'ts_reader' not found")
-        val jsonString = scriptContent.substringAfter("ts_reader.run(").substringBefore(");")
-        val tsReader = json.decodeFromString<TSReader>(jsonString)
-
-        val imageUrls = tsReader.sources.firstOrNull()?.images
-            ?: throw Exception("No images found in ts_reader data")
-
-        val filteredImageUrls = imageUrls.filterNot { imageUrl ->
-            imageUrl.contains("/banner/", ignoreCase = true)
-        }
-
-        val resizeServiceUrl = getResizeServiceUrl()
-
-        return filteredImageUrls.mapIndexedNotNull { index, imageUrl ->
-            if (index != 5) { // Skip the 6th image (index 5)
-                Page(index, document.location(), "${resizeServiceUrl ?: ""}$imageUrl")
-            } else {
-                null
-            }
-        }
-    }
 
     private fun getResizeServiceUrl(): String? {
         return preferences.getString("resize_service_url", null)
     }
 
-    override fun setupPreferenceScreen(screen: PreferenceScreen) {
+    override var baseUrl = preferences.getString("overrideBaseUr", super.baseUrl)!!
+
+    override val client = super.client.newBuilder()
+        .rateLimit(4)
+        .build()
+
+    private val Cover = "https://"
+
+    override fun searchMangaFromElement(element: Element): SManga {
+    return SManga.create().apply {
+        val GambarOri = element.select("img").imgAttr()
+        thumbnail_url = "$Cover$GambarOri"
+        title = element.select("a").attr("title")
+        setUrlWithoutDomain(element.select("a").attr("href"))
+    }
+}
+
+// Untuk thumbnail di halaman detail manga
+    override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
+    val seriesDetails = document.select(seriesThumbnailSelector)
+    val GambarOri = seriesDetails.imgAttr()
+    thumbnail_url = "$Cover$GambarOri"
+    title = document.selectFirst(seriesThumbnailSelector)!!.attr("title")
+}
+
+    override fun pageListParse(document: Document): List<Page> {
+    val resizeServiceUrl = getResizeServiceUrl()
+    val imageElements = document.select("#readerarea img")
+    return imageElements.mapIndexedNotNull { index, element ->
+        val imageUrl = element.absUrl("src")
+        if (imageUrl.endsWith("999.png")) null
+        else Page(index, document.location(), "${resizeServiceUrl ?: ""}$imageUrl")
+    }
+}
+
+        override fun setupPreferenceScreen(screen: PreferenceScreen) {
         val resizeServicePref = EditTextPreference(screen.context).apply {
             key = "resize_service_url"
             title = "Resize Service URL"
@@ -93,48 +75,21 @@ class KomikStation : MangaThemesia(
         screen.addPreference(resizeServicePref)
 
         val baseUrlPref = EditTextPreference(screen.context).apply {
-            key = BASE_URL_PREF
-            title = BASE_URL_PREF_TITLE
-            summary = BASE_URL_PREF_SUMMARY
+            key = "overrideBaseUrl"
+            title = "Ubah Domain"
+            summary = "Update domain untuk ekstensi ini"
             setDefaultValue(baseUrl)
-            dialogTitle = BASE_URL_PREF_TITLE
+            dialogTitle = "Ubah Domain"
             dialogMessage = "Original: $baseUrl"
 
-            setOnPreferenceChangeListener { _, newValue ->
+    setOnPreferenceChangeListener { _, newValue ->
                 val newUrl = newValue as String
                 baseUrl = newUrl
-                preferences.edit().putString(BASE_URL_PREF, newUrl).apply()
-                summary = "Current domain: $newUrl"
+                preferences.edit().putString("overrideBaseUrl", newUrl).apply()
+                summary = "Current domain: $newUrl" // Update summary untuk domain yang baru
                 true
             }
         }
         screen.addPreference(baseUrlPref)
-
-        // Preference untuk memasukkan cookies
-        val cookiesPref = EditTextPreference(screen.context).apply {
-            key = "cookies"
-            title = "Cookies"
-            summary = "Masukkan cookies untuk autentikasi."
-            setDefaultValue(null)
-            dialogTitle = "Cookies"
-        }
-        screen.addPreference(cookiesPref)
     }
-
-    companion object {
-        private const val BASE_URL_PREF_TITLE = "Ubah Domain"
-        private const val BASE_URL_PREF = "overrideBaseUrl"
-        private const val BASE_URL_PREF_SUMMARY = "Update domain untuk ekstensi ini"
-    }
-
-    @Serializable
-    data class TSReader(
-        val sources: List<ReaderImageSource>,
-    )
-
-    @Serializable
-    data class ReaderImageSource(
-        val source: String,
-        val images: List<String>,
-    )
 }
