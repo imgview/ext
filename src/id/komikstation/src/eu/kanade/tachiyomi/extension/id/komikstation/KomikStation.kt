@@ -20,7 +20,7 @@ class KomikStation : MangaThemesia(
     "https://komikstation.co",
     "id",
     "/manga",
-    dateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale.US)
+    dateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale("id"))
 ), ConfigurableSource {
 
     private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
