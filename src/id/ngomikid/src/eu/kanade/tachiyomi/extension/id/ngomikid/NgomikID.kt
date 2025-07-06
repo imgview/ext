@@ -1,18 +1,18 @@
 package eu.kanade.tachiyomi.extension.id.ngomikid
 
 import android.app.Application
+import eu.kanade.tachiyomi.multisrc.mangathemesia.MangaThemesia
 import androidx.preference.EditTextPreference
 import androidx.preference.PreferenceScreen
-import eu.kanade.tachiyomi.lib.domain.Domain
-import eu.kanade.tachiyomi.multisrc.mangathemesia.MangaThemesia
-import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.interceptor.rateLimit
+import okhttp3.MediaType.Companion.toMediaType
 import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.model.Page
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.decodeFromString
-import okhttp3.Request
+import eu.kanade.tachiyomi.source.model.SManga
+import okhttp3.OkHttpClient
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.jsoup.nodes.Document
+import org.jsoup.nodes.Element
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.text.SimpleDateFormat
@@ -20,7 +20,7 @@ import java.util.Locale
 
 class NgomikID : MangaThemesia(
     "Ngomik ID",
-    "https://ngomik.id",
+    "https://ngomik.org",
     "id",
     "/manga",
     dateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale("id"))
@@ -28,53 +28,47 @@ class NgomikID : MangaThemesia(
 
     private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0x0000)
 
-    private fun getPrefCustomUA(): String? {
-        return preferences.getString("custom_ua", null)
-    }
-
     private fun getResizeServiceUrl(): String? {
         return preferences.getString("resize_service_url", null)
+    }
+
+    private fun resizeImageUrl(originalUrl: String): String {
+        return "LayananGambar$originalUrl"
     }
 
     override var baseUrl = preferences.getString(BASE_URL_PREF, super.baseUrl)!!
 
     override val client = super.client.newBuilder()
-        .addInterceptor { chain ->
-            val original = chain.request()
-            val requestBuilder = original.newBuilder()
-                .header("User-Agent", getPrefCustomUA() ?: "Default User-Agent")
-            chain.proceed(requestBuilder.build())
-        }
         .rateLimit(4)
         .build()
 
+    override fun searchMangaFromElement(element: Element): SManga {
+        return SManga.create().apply {
+            val originalThumbnailUrl = element.select("img").imgAttr()
+            thumbnail_url = resizeImageUrl(originalThumbnailUrl)
+
+            title = element.select("a").attr("title")
+            setUrlWithoutDomain(element.select("a").attr("href"))
+        }
+    }
+
     override fun mangaDetailsParse(document: Document) = super.mangaDetailsParse(document).apply {
-        title = document.selectFirst(seriesThumbnailSelector)!!.attr("alt")
+        val seriesDetails = document.select(seriesThumbnailSelector)
+        val originalThumbnailUrl = seriesDetails.imgAttr()
+        thumbnail_url = resizeImageUrl(originalThumbnailUrl)
+
+        title = document.selectFirst(seriesThumbnailSelector)!!.attr("title")
     }
 
     override fun pageListParse(document: Document): List<Page> {
-        val scriptContent = document.selectFirst("script:containsData(ts_reader)")?.data()
-            ?: return super.pageListParse(document)
-        val jsonString = scriptContent.substringAfter("ts_reader.run(").substringBefore(");")
-        val tsReader = json.decodeFromString<TSReader>(jsonString)
-        val imageUrls = tsReader.sources.firstOrNull()?.images ?: return emptyList()
-
-        // Menggunakan URL resize
-        val resizeServiceUrl = getResizeServiceUrl()
-        return imageUrls.mapIndexed { index, imageUrl -> 
-            Page(index, document.location(), "${resizeServiceUrl ?: ""}$imageUrl")
+    val resizeServiceUrl = getResizeServiceUrl() ?: ""
+    return super.pageListParse(document)
+        .map { page ->
+            page.copy(imageUrl = "$resizeServiceUrl${page.imageUrl}")
         }
-    }
+}
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
-        val customUserAgentPref = EditTextPreference(screen.context).apply {
-            key = "custom_ua"
-            title = "Custom User-Agent"
-            summary = "Masukkan custom User-Agent Anda di sini."
-            setDefaultValue(null)
-        }
-        screen.addPreference(customUserAgentPref)
-
         val resizeServicePref = EditTextPreference(screen.context).apply {
             key = "resize_service_url"
             title = "Resize Service URL"
@@ -110,14 +104,4 @@ class NgomikID : MangaThemesia(
         private const val BASE_URL_PREF_SUMMARY = "Update domain untuk ekstensi ini"
     }
 
-    @Serializable
-    data class TSReader(
-        val sources: List<ReaderImageSource>,
-    )
-
-    @Serializable
-    data class ReaderImageSource(
-        val source: String,
-        val images: List<String>,
-    )
 }
