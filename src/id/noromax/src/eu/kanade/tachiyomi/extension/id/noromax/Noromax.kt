@@ -9,6 +9,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SManga
+import eu.kanade.tachiyomi.network.asJsoup
 import okhttp3.OkHttpClient
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.jsoup.nodes.Document
@@ -64,7 +65,7 @@ class Noromax : MangaThemesia(
     val document = response.asJsoup()
     val resizeServiceUrl = getResizeServiceUrl() ?: ""
     return document.select("div#readerarea img").mapIndexed { index, element ->
-        val imageUrl = element.absUrl("src").ifEmpty { element.absUrl("src") }
+        val imageUrl = element.absUrl("src")
         Page(index, response.request.url.toString(), "$resizeServiceUrl$imageUrl")
     }
 }
