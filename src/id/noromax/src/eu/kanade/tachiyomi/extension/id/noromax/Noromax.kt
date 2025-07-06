@@ -60,17 +60,13 @@ class Noromax : MangaThemesia(
         title = document.selectFirst(seriesThumbnailSelector)!!.attr("title")
     }
 
-    override fun pageListParse(document: Document): List<Page> {
+    override fun pageListParse(response: okhttp3.Response): List<Page> {
+    val document = response.asJsoup()
     val resizeServiceUrl = getResizeServiceUrl() ?: ""
-    val imageElements = document.select("div#readerarea img")
-        .filter { it.hasAttr("src") && it.attr("src").isNotBlank() }
-
-    return imageElements
-        .map { it.absUrl("src") }
-        .distinct()
-        .mapIndexed { index, imageUrl ->
-            Page(index, document.location(), "$resizeServiceUrl$imageUrl")
-        }
+    return document.select("div#readerarea img").mapIndexed { index, element ->
+        val imageUrl = element.absUrl("src").ifEmpty { element.absUrl("src") }
+        Page(index, response.request.url.toString(), "$resizeServiceUrl$imageUrl")
+    }
 }
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
