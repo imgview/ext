@@ -9,8 +9,10 @@ import okhttp3.MediaType.Companion.toMediaType
 import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SManga
-import eu.kanade.tachiyomi.network.asJsoup
 import okhttp3.OkHttpClient
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
@@ -21,7 +23,7 @@ import java.util.Locale
 
 class Noromax : MangaThemesia(
     "Noromax",
-    "https://ngomik.org",
+    "https://kiryuu01.com",
     "id",
     "/manga",
     dateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale("id"))
@@ -61,14 +63,17 @@ class Noromax : MangaThemesia(
         title = document.selectFirst(seriesThumbnailSelector)!!.attr("title")
     }
 
-    override fun pageListParse(response: okhttp3.Response): List<Page> {
-    val document = response.asJsoup()
-    val resizeServiceUrl = getResizeServiceUrl() ?: ""
-    return document.select("div#readerarea img").mapIndexed { index, element ->
-        val imageUrl = element.absUrl("src")
-        Page(index, response.request.url.toString(), "$resizeServiceUrl$imageUrl")
+    override fun pageListParse(document: Document): List<Page> {
+        val scriptContent = document.selectFirst("script:containsData(ts_reader)")?.data()
+            ?: return super.pageListParse(document)
+        val jsonString = scriptContent.substringAfter("ts_reader.run(").substringBefore(");")
+        val tsReader = json.decodeFromString<TSReader>(jsonString)
+        val imageUrls = tsReader.sources.firstOrNull()?.images ?: return emptyList()
+
+        return imageUrls.mapIndexed { index, imageUrl -> 
+            Page(index, document.location(), "${getResizeServiceUrl() ?: ""}$imageUrl")
+        }
     }
-}
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
         val resizeServicePref = EditTextPreference(screen.context).apply {
@@ -106,4 +111,18 @@ class Noromax : MangaThemesia(
         private const val BASE_URL_PREF_SUMMARY = "Update domain untuk ekstensi ini"
     }
 
+    @Serializable
+    data class TSReader(
+        val sources: List<ReaderImageSource>,
+    )
+
+    @Serializable
+    data class ReaderImageSource(
+        val source: String,
+        val images: List<String>,
+    )
+
+    override val hasProjectPage = true
 }
+
+private const val IMG_CONTENT_TYPE = "image/jpeg"
