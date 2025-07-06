@@ -62,9 +62,14 @@ class Noromax : MangaThemesia(
 
     override fun pageListParse(document: Document): List<Page> {
     val resizeServiceUrl = getResizeServiceUrl() ?: ""
-    return super.pageListParse(document)
-        .map { page ->
-            page.copy(imageUrl = "$resizeServiceUrl${page.imageUrl}")
+    val imageElements = document.select("div#readerarea img")
+        .filter { it.hasAttr("src") && it.attr("src").isNotBlank() }
+
+    return imageElements
+        .map { it.absUrl("src") }
+        .distinct()
+        .mapIndexed { index, imageUrl ->
+            Page(index, document.location(), "$resizeServiceUrl$imageUrl")
         }
 }
 
