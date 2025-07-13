@@ -37,7 +37,7 @@ class Komik : ParsedHttpSource(), ConfigurableSource {
         .build()
 
     private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0)
-    override var baseUrl: String = preferences.getString(BASE_URL_PREF, "https://")!!
+    override var baseUrl: String = preferences.getString(BASE_URL_PREF, "https://komikcast")!!
 
     private fun ResizeGambar(): String? {
         return preferences.getString("resize_url_gambar", null)
@@ -53,13 +53,8 @@ class Komik : ParsedHttpSource(), ConfigurableSource {
 
     // Request untuk update terbaru
     override fun latestUpdatesRequest(page: Int): Request {
-    val url = if (baseUrl.contains("komikcast")) {
-        "$baseUrl/komik/page/$page/?&orderby=update"
-    } else {
-        "$baseUrl/manga/?page=$page&order=update"
+        return GET("$baseUrl/komik/page/$page/?&orderby=update", headers)
     }
-    return GET(url, headers)
-}
 
     // Request pencarian
     override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
@@ -68,7 +63,7 @@ class Komik : ParsedHttpSource(), ConfigurableSource {
     }
 
     // Selector
-    override fun popularMangaSelector() = "div.list-update_item, div.listupd div.bs"
+    override fun popularMangaSelector() = "div.list-update_item"
     override fun latestUpdatesSelector() = popularMangaSelector()
     override fun searchMangaSelector() = popularMangaSelector()
 
@@ -78,15 +73,15 @@ class Komik : ParsedHttpSource(), ConfigurableSource {
     override fun searchMangaFromElement(element: Element): SManga {
         val manga = SManga.create()
         manga.thumbnail_url = element.select("img").attr("abs:src")?.let { ResizeCover(it) }
-        manga.title = element.select("h3.title, div.tt").text()
+        manga.title = element.select("h3.title").text()
                 .substringBefore("(").trim()
-        element.select("div.list-update_item a, div.bsx a").first()!!.let {
+        element.select("div.list-update_item a").first()!!.let {
             manga.setUrlWithoutDomain(it.attr("href"))
         }
         return manga
     }
 
-    override fun popularMangaNextPageSelector(): String = "a.next.page-numbers, div.hpage a.r"
+    override fun popularMangaNextPageSelector(): String = "a.next.page-numbers"
     override fun latestUpdatesNextPageSelector(): String = popularMangaNextPageSelector()
     override fun searchMangaNextPageSelector(): String = popularMangaNextPageSelector()
 
