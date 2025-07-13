@@ -27,7 +27,7 @@ import java.util.Calendar
 import java.util.Locale
 
 class Komik : ParsedHttpSource(), ConfigurableSource {
-    override val name = "Komikcast02.com"
+    override val name = "Komik"
     override val lang = "id"
     override val supportsLatest = true
 
@@ -42,22 +42,14 @@ class Komik : ParsedHttpSource(), ConfigurableSource {
     private fun ResizeGambar(): String? {
         return preferences.getString("resize_url_gambar", null)
     }
-    
+
     private fun ResizeCover(originalUrl: String): String {
         return "http://LayananGambarCover$originalUrl"
     }
 
     // Request untuk daftar populer
     override fun popularMangaRequest(page: Int): Request =
-        GET("$baseUrl/daftar-komik/?orderby=update&page=$page", headers)
-
-    // Request untuk update terbaru
-    override fun latestUpdatesRequest(page: Int): Request {
-        val postfix = if (page > 1) "page/$page/" else ""
-        val url = "$baseUrl/daftar-komik/$postfix?orderby=update"
-            .toHttpUrl().newBuilder().build()
-        return GET(url, headers)
-    }
+        GET("$baseUrl/komik/?orderby=update&page=$page", headers)
 
     // Request pencarian
     override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
@@ -72,7 +64,7 @@ class Komik : ParsedHttpSource(), ConfigurableSource {
 
     override fun popularMangaFromElement(element: Element): SManga = searchMangaFromElement(element)
     override fun latestUpdatesFromElement(element: Element): SManga = searchMangaFromElement(element)
-    
+
     override fun searchMangaFromElement(element: Element): SManga {
         val manga = SManga.create()
         manga.thumbnail_url = element.select("img").attr("abs:src")?.let { ResizeCover(it) }
