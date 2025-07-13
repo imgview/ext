@@ -51,6 +51,10 @@ class Komik : ParsedHttpSource(), ConfigurableSource {
     override fun popularMangaRequest(page: Int): Request =
         GET("$baseUrl/komik/?orderby=update&page=$page", headers)
 
+    // Request untuk update terbaru
+    override fun latestUpdatesRequest(page: Int): Request =
+    GET("baseUrl/komik/{if (page > 1) "page/$page/" else ""}?orderby=update", headers)
+
     // Request pencarian
     override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
         val url = "$baseUrl/?s=$query&page=$page".toHttpUrl().newBuilder().build()
