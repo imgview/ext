@@ -37,7 +37,7 @@ class Komik : ParsedHttpSource(), ConfigurableSource {
         .build()
 
     private val preferences = Injekt.get<Application>().getSharedPreferences("source_$id", 0)
-    override var baseUrl: String = preferences.getString(BASE_URL_PREF, "https://komikcast02.com")!!
+    override var baseUrl: String = preferences.getString(BASE_URL_PREF, "https://")!!
 
     private fun ResizeGambar(): String? {
         return preferences.getString("resize_url_gambar", null)
@@ -53,10 +53,10 @@ class Komik : ParsedHttpSource(), ConfigurableSource {
 
     // Request untuk update terbaru
     override fun latestUpdatesRequest(page: Int): Request {
-    val url = if (baseUrl.contains("komikcast.li")) {
+    val url = if (baseUrl.contains("komikcast")) {
         "$baseUrl/komik/page/$page/?&orderby=update"
     } else {
-        "$baseUrl/manga/?order=update&page=$page"
+        "$baseUrl/manga/?page=$page&order=update"
     }
     return GET(url, headers)
 }
@@ -68,7 +68,7 @@ class Komik : ParsedHttpSource(), ConfigurableSource {
     }
 
     // Selector
-    override fun popularMangaSelector() = "div.list-update_item, div.listupd, div.bs"
+    override fun popularMangaSelector() = "div.list-update_item, div.listupd div.bs"
     override fun latestUpdatesSelector() = popularMangaSelector()
     override fun searchMangaSelector() = popularMangaSelector()
 
