@@ -64,16 +64,13 @@ class Noromax : MangaThemesia(
     }
 
     override fun pageListParse(document: Document): List<Page> {
-        val scriptContent = document.selectFirst("script:containsData(ts_reader)")?.data()
-            ?: return super.pageListParse(document)
-        val jsonString = scriptContent.substringAfter("ts_reader.run(").substringBefore(");")
-        val tsReader = json.decodeFromString<TSReader>(jsonString)
-        val imageUrls = tsReader.sources.firstOrNull()?.images ?: return emptyList()
+    val imageElements = document.select("div#readerarea img")
 
-        return imageUrls.mapIndexed { index, imageUrl -> 
-            Page(index, document.location(), "${getResizeServiceUrl() ?: ""}$imageUrl")
-        }
+    return imageElements.mapIndexed { index, element ->
+        val imageUrl = element.absUrl("src")
+        Page(index, document.location(), "${getResizeServiceUrl() ?: ""}$imageUrl")
     }
+}
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) {
         val resizeServicePref = EditTextPreference(screen.context).apply {
