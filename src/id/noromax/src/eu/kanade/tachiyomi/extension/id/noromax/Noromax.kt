@@ -95,7 +95,7 @@ class Noromax : MangaThemesia(
                 val newUrl = newValue as String
                 baseUrl = newUrl
                 preferences.edit().putString(BASE_URL_PREF, newUrl).apply()
-                summary = "Current domain: $newUrl" // Update summary untuk domain yang baru
+                summary = "Current domain: $newUrl"
                 true
             }
         }
