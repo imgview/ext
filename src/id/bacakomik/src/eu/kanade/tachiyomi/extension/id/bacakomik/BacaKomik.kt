@@ -46,7 +46,7 @@ class BacaKomik : ParsedHttpSource() {
 
     override fun searchMangaFromElement(element: Element): SManga {
         val manga = SManga.create()
-        manga.thumbnail_url = element.select("div.limit img").attr("src")
+        manga.thumbnail_url = element.selectFirst("div.limit img")?.attr("src")
         manga.title = element.select("div.tt h4").text()
         element.select("div.animposx > a").first()!!.let {
             manga.setUrlWithoutDomain(it.attr("href"))
